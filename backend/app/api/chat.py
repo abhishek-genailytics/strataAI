@@ -1,18 +1,17 @@
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.deps import get_current_user, get_db
+from ..core.deps import get_current_user, get_organization_context, CurrentUser
 from ..models.chat_completion import (
     ChatCompletionRequest,
     ChatCompletionResponse,
     ProviderModelInfo,
     ProviderError
 )
-from ..models.user import User
+from ..models.organization import Organization
 from ..services.provider_service import provider_service
 
 router = APIRouter()
@@ -21,14 +20,14 @@ router = APIRouter()
 @router.post("/chat/completions", response_model=ChatCompletionResponse)
 async def create_chat_completion(
     request: ChatCompletionRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """
-    Create a chat completion using the specified model and provider.
+    Create a chat completion using the specified model and provider in organization context.
     
     This endpoint provides a unified interface to multiple AI providers
-    (OpenAI, Anthropic) through LangChain integration.
+    (OpenAI, Anthropic) with organization-aware API key management.
     """
     try:
         if request.stream:
@@ -39,9 +38,9 @@ async def create_chat_completion(
             )
         
         response = await provider_service.chat_completion(
-            db=db,
             request=request,
-            user_id=current_user.id
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         
         return response
@@ -71,11 +70,11 @@ async def create_chat_completion(
 @router.post("/chat/completions/stream")
 async def create_chat_completion_stream(
     request: ChatCompletionRequest,
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """
-    Create a streaming chat completion using the specified model and provider.
+    Create a streaming chat completion using the specified model and provider in organization context.
     
     Returns a Server-Sent Events (SSE) stream of completion chunks.
     """
@@ -86,9 +85,9 @@ async def create_chat_completion_stream(
         async def generate():
             try:
                 async for chunk in provider_service.chat_completion_stream(
-                    db=db,
                     request=request,
-                    user_id=current_user.id
+                    user_id=current_user.id,
+                    organization_id=organization.id if organization else None
                 ):
                     yield chunk
             except ProviderError as e:
@@ -117,25 +116,34 @@ async def create_chat_completion_stream(
 
 @router.get("/models", response_model=List[ProviderModelInfo])
 async def list_models(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """
-    List all available models across all providers.
+    List all available models across all providers based on configured API keys in organization context.
     
     Returns model information including pricing, token limits, and capabilities.
     """
-    return provider_service.get_supported_models()
+    return await provider_service.get_available_models(
+        user_id=current_user.id,
+        organization_id=organization.id if organization else None
+    )
 
 
 @router.get("/models/{provider}", response_model=List[str])
 async def list_provider_models(
     provider: str,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """
-    List available models for a specific provider.
+    List available models for a specific provider based on configured API keys in organization context.
     """
-    models = provider_service.get_provider_models(provider)
+    models = await provider_service.get_provider_models(
+        provider=provider,
+        user_id=current_user.id,
+        organization_id=organization.id if organization else None
+    )
     if not models:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

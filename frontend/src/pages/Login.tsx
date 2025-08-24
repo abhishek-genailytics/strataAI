@@ -1,17 +1,20 @@
-import React, { useState } from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
+import { Button, Input, Card } from '../components/ui';
+import SSOButton from '../components/auth/SSOButton';
+import { validateEmail, validatePassword, validateForm } from '../utils/validation';
 
-export const Login: React.FC = () => {
+const Login: React.FC = () => {
   const { signIn, user, loading } = useAuth();
+  const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const from = location.state?.from?.pathname || '/dashboard';
 
@@ -19,10 +22,51 @@ export const Login: React.FC = () => {
     return <Navigate to={from} replace />;
   }
 
+  // Real-time validation
+  useEffect(() => {
+    const validators = {
+      email: validateEmail,
+      password: validatePassword,
+    };
+
+    const { errors } = validateForm({ email, password }, validators);
+    
+    // Only show errors for touched fields
+    const touchedErrors: Record<string, string> = {};
+    Object.keys(errors).forEach(field => {
+      if (touched[field]) {
+        touchedErrors[field] = errors[field];
+      }
+    });
+    
+    setFieldErrors(touchedErrors);
+  }, [email, password, touched]);
+
+  const handleFieldBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    // Mark all fields as touched for validation
+    setTouched({ email: true, password: true });
+
+    // Validate form
+    const validators = {
+      email: validateEmail,
+      password: validatePassword,
+    };
+
+    const { isValid, errors } = validateForm({ email, password }, validators);
+    
+    if (!isValid) {
+      setFieldErrors(errors);
+      setIsLoading(false);
+      return;
+    }
 
     const result = await signIn(email, password);
     
@@ -66,6 +110,8 @@ export const Login: React.FC = () => {
               type="email"
               value={email}
               onChange={setEmail}
+              onBlur={() => handleFieldBlur('email')}
+              error={fieldErrors.email}
               required
               placeholder="Enter your email"
             />
@@ -75,6 +121,8 @@ export const Login: React.FC = () => {
               type="password"
               value={password}
               onChange={setPassword}
+              onBlur={() => handleFieldBlur('password')}
+              error={fieldErrors.password}
               required
               placeholder="Enter your password"
             />
@@ -88,12 +136,17 @@ export const Login: React.FC = () => {
             </Button>
           </form>
           
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-3">
+            <p className="text-sm text-gray-600">
+              <Link to="/forgot-password" className="font-medium text-primary-600 hover:text-primary-500">
+                Forgot your password?
+              </Link>
+            </p>
             <p className="text-sm text-gray-600">
               Don't have an account?{' '}
-              <a href="/register" className="font-medium text-primary-600 hover:text-primary-500">
+              <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
                 Sign up
-              </a>
+              </Link>
             </p>
           </div>
         </Card>
@@ -101,3 +154,5 @@ export const Login: React.FC = () => {
     </div>
   );
 };
+
+export default Login;

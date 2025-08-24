@@ -3,11 +3,10 @@ from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import get_db
-from ..core.deps import get_current_user
-from ..models import APIRequest, UsageMetrics, UserProfile
+from ..core.deps import get_current_user, get_organization_context, CurrentUser
+from ..models import APIRequest, UsageMetrics
+from ..models.organization import Organization
 from ..services.api_request_service import api_request_service
 from ..services.usage_metrics_service import usage_metrics_service
 from ..services.usage_tracking_service import usage_tracking_service
@@ -19,12 +18,11 @@ router = APIRouter()
 async def get_usage_metrics(
     start_date: Optional[date] = Query(None, description="Start date for metrics (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date for metrics (YYYY-MM-DD)"),
-    project_id: Optional[UUID] = Query(None, description="Filter by project ID"),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get usage metrics with optional filtering."""
+    """Get usage metrics with optional filtering in organization context."""
     # Default to last 30 days if no dates provided
     if not end_date:
         end_date = date.today()
@@ -36,11 +34,10 @@ async def get_usage_metrics(
         raise HTTPException(status_code=400, detail="Start date must be before end date")
     
     metrics = await usage_metrics_service.get_date_range(
-        db,
         user_id=current_user.id,
+        organization_id=organization.id if organization else None,
         start_date=start_date,
         end_date=end_date,
-        project_id=project_id,
         provider_id=provider_id
     )
     
@@ -51,10 +48,10 @@ async def get_usage_metrics(
 async def get_usage_summary(
     start_date: Optional[date] = Query(None, description="Start date for summary (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date for summary (YYYY-MM-DD)"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get aggregated usage summary."""
+    """Get aggregated usage summary in organization context."""
     # Default to last 30 days if no dates provided
     if not end_date:
         end_date = date.today()
@@ -66,8 +63,8 @@ async def get_usage_summary(
         raise HTTPException(status_code=400, detail="Start date must be before end date")
     
     summary = await usage_metrics_service.get_aggregated_metrics(
-        db,
         user_id=current_user.id,
+        organization_id=organization.id if organization else None,
         start_date=start_date,
         end_date=end_date
     )
@@ -83,40 +80,36 @@ async def get_usage_summary(
 @router.get("/usage-trends")
 async def get_usage_trends(
     days: int = Query(7, ge=1, le=365, description="Number of days for trend analysis"),
-    project_id: Optional[UUID] = Query(None, description="Filter by project ID"),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get usage trends over specified number of days."""
+    """Get usage trends over specified number of days in organization context."""
     trends = await usage_tracking_service.get_usage_trends(
-        db,
         user_id=current_user.id,
+        organization_id=organization.id if organization else None,
         days=days,
-        project_id=project_id,
         provider_id=provider_id
     )
     
     return {
         "trends": trends,
         "days": days,
-        "project_id": project_id,
+        "organization_id": organization.id if organization else None,
         "provider_id": provider_id
     }
 
 
 @router.get("/current-usage")
 async def get_current_usage(
-    project_id: Optional[UUID] = Query(None, description="Filter by project ID"),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get current day usage summary."""
+    """Get current day usage summary in organization context."""
     summary = await usage_tracking_service.get_current_usage_summary(
-        db,
         user_id=current_user.id,
-        project_id=project_id,
+        organization_id=organization.id if organization else None,
         provider_id=provider_id
     )
     
@@ -127,24 +120,22 @@ async def get_current_usage(
 async def get_api_requests(
     start_date: Optional[date] = Query(None, description="Start date for requests (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date for requests (YYYY-MM-DD)"),
-    project_id: Optional[UUID] = Query(None, description="Filter by project ID"),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of requests to return"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get API request logs with optional filtering."""
+    """Get API request logs with optional filtering in organization context."""
     if start_date and end_date:
         # Validate date range
         if start_date > end_date:
             raise HTTPException(status_code=400, detail="Start date must be before end date")
         
         requests = await api_request_service.get_by_date_range(
-            db,
             user_id=current_user.id,
+            organization_id=organization.id if organization else None,
             start_date=start_date,
             end_date=end_date,
-            project_id=project_id,
             provider_id=provider_id
         )
         
@@ -153,14 +144,12 @@ async def get_api_requests(
     else:
         # Get recent requests
         requests = await api_request_service.get_recent_requests(
-            db,
             user_id=current_user.id,
+            organization_id=organization.id if organization else None,
             limit=limit
         )
         
         # Apply additional filters if provided
-        if project_id:
-            requests = [r for r in requests if r.project_id == project_id]
         if provider_id:
             requests = [r for r in requests if r.provider_id == provider_id]
         
@@ -170,13 +159,13 @@ async def get_api_requests(
 @router.get("/failed-requests", response_model=List[APIRequest])
 async def get_failed_requests(
     hours: int = Query(24, ge=1, le=168, description="Number of hours to look back"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get failed API requests from the last N hours."""
+    """Get failed API requests from the last N hours in organization context."""
     failed_requests = await api_request_service.get_failed_requests(
-        db,
         user_id=current_user.id,
+        organization_id=organization.id if organization else None,
         hours=hours
     )
     
@@ -187,11 +176,11 @@ async def get_failed_requests(
 async def get_cost_analysis(
     start_date: Optional[date] = Query(None, description="Start date for analysis (YYYY-MM-DD)"),
     end_date: Optional[date] = Query(None, description="End date for analysis (YYYY-MM-DD)"),
-    group_by: str = Query("day", regex="^(day|provider|project)$", description="Group results by day, provider, or project"),
-    current_user: UserProfile = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db)
+    group_by: str = Query("day", regex="^(day|provider|organization)$", description="Group results by day, provider, or organization"),
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get cost analysis with grouping options."""
+    """Get cost analysis with grouping options in organization context."""
     # Default to last 30 days if no dates provided
     if not end_date:
         end_date = date.today()
@@ -204,8 +193,8 @@ async def get_cost_analysis(
     
     # Get all metrics for the date range
     metrics = await usage_metrics_service.get_date_range(
-        db,
         user_id=current_user.id,
+        organization_id=organization.id if organization else None,
         start_date=start_date,
         end_date=end_date
     )
@@ -257,25 +246,25 @@ async def get_cost_analysis(
             "data": list(provider_costs.values())
         }
     
-    elif group_by == "project":
-        # Group by project
-        project_costs = {}
+    elif group_by == "organization":
+        # Group by organization
+        org_costs = {}
         for metric in metrics:
-            project_id = str(metric.project_id)
-            if project_id not in project_costs:
-                project_costs[project_id] = {
-                    "project_id": project_id,
+            org_id = str(metric.organization_id) if metric.organization_id else "personal"
+            if org_id not in org_costs:
+                org_costs[org_id] = {
+                    "organization_id": org_id,
                     "total_cost_usd": 0,
                     "total_requests": 0,
                     "total_tokens": 0
                 }
-            project_costs[project_id]["total_cost_usd"] += float(metric.total_cost_usd)
-            project_costs[project_id]["total_requests"] += metric.total_requests
-            project_costs[project_id]["total_tokens"] += metric.total_tokens
+            org_costs[org_id]["total_cost_usd"] += float(metric.total_cost_usd)
+            org_costs[org_id]["total_requests"] += metric.total_requests
+            org_costs[org_id]["total_tokens"] += metric.total_tokens
         
         return {
             "group_by": group_by,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
-            "data": list(project_costs.values())
+            "data": list(org_costs.values())
         }

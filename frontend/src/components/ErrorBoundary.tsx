@@ -1,13 +1,17 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { errorLoggingService } from '../services/errorLoggingService';
 
 interface Props {
   children: ReactNode;
   fallback?: ReactNode;
+  onError?: (error: Error, errorInfo: ErrorInfo) => void;
 }
 
 interface State {
   hasError: boolean;
   error?: Error;
+  errorInfo?: ErrorInfo;
+  errorId?: string;
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -19,12 +23,48 @@ export class ErrorBoundary extends Component<Props, State> {
     return { hasError: true, error };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  public async componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
     
-    // Here you could send error to logging service
-    // logErrorToService(error, errorInfo);
+    try {
+      // Log error to monitoring service
+      const errorId = await errorLoggingService.logClientError({
+        error,
+        errorInfo,
+        timestamp: new Date().toISOString(),
+        userAgent: navigator.userAgent,
+        url: window.location.href,
+        userId: this.getCurrentUserId(),
+      });
+
+      this.setState({ errorInfo, errorId });
+
+      // Call custom error handler if provided
+      if (this.props.onError) {
+        this.props.onError(error, errorInfo);
+      }
+    } catch (loggingError) {
+      console.error('Failed to log error:', loggingError);
+    }
   }
+
+  private getCurrentUserId(): string | null {
+    // Try to get user ID from various sources
+    try {
+      const authData = localStorage.getItem('auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed.user?.id || null;
+      }
+    } catch {
+      // Ignore parsing errors
+    }
+    return null;
+  }
+
+  private handleRetry = () => {
+    this.setState({ hasError: false, error: undefined, errorInfo: undefined, errorId: undefined });
+  };
 
   public render() {
     if (this.state.hasError) {
@@ -59,20 +99,37 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <div className="mt-2">
               <p className="text-sm text-gray-500">
-                We're sorry, but something unexpected happened. Please try refreshing the page.
+                We're sorry, but something unexpected happened. Our team has been notified and is working on a fix.
               </p>
+              {this.state.errorId && (
+                <p className="text-xs text-gray-400 mt-2">
+                  Error ID: {this.state.errorId}
+                </p>
+              )}
               {process.env.NODE_ENV === 'development' && this.state.error && (
                 <details className="mt-4">
                   <summary className="text-sm font-medium text-gray-700 cursor-pointer">
                     Error details (development only)
                   </summary>
-                  <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded overflow-auto">
+                  <pre className="mt-2 text-xs text-red-600 bg-red-50 p-2 rounded overflow-auto max-h-32">
                     {this.state.error.toString()}
+                    {this.state.errorInfo?.componentStack && (
+                      <>
+                        {'\n\nComponent Stack:'}
+                        {this.state.errorInfo.componentStack}
+                      </>
+                    )}
                   </pre>
                 </details>
               )}
             </div>
-            <div className="mt-6">
+            <div className="mt-6 space-y-3">
+              <button
+                onClick={this.handleRetry}
+                className="w-full flex justify-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+              >
+                Try Again
+              </button>
               <button
                 onClick={() => window.location.reload()}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"

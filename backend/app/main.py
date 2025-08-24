@@ -10,6 +10,8 @@ from app.middleware import (
     ResponseCachingMiddleware,
     IPRateLimitingMiddleware
 )
+from app.middleware.error_handling import ErrorHandlingMiddleware, RequestContextMiddleware
+from app.services.error_logging_service import error_logging_service
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,14 +29,20 @@ app = FastAPI(
 )
 
 # Add middleware in order (last added = first executed)
-# 1. Response caching (should be early to cache before processing)
+# 1. Error handling (should be outermost to catch all errors)
+app.add_middleware(ErrorHandlingMiddleware, error_logging_service=error_logging_service)
+
+# 2. Request context (should be early to add context to all requests)
+app.add_middleware(RequestContextMiddleware)
+
+# 3. Response caching (should be early to cache before processing)
 app.add_middleware(ResponseCachingMiddleware)
 
-# 2. Rate limiting (should be before business logic)
+# 4. Rate limiting (should be before business logic)
 app.add_middleware(RateLimitingMiddleware)
 app.add_middleware(IPRateLimitingMiddleware)
 
-# 3. Usage logging (should be last to capture all requests)
+# 5. Usage logging (should be last to capture all requests)
 app.add_middleware(UsageLoggingMiddleware)
 
 # Configure CORS

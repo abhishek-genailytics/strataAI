@@ -2,219 +2,240 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 
-from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import joinedload
-
-from ..models.api_key import APIKey, APIKeyCreate, APIKeyUpdate, APIKeyDisplay, APIKeyValidationResult
-from ..models.ai_provider import AIProvider
+from supabase import Client
+from ..core.database import get_supabase_client
+from ..models.api_key import APIKeyCreate, APIKeyUpdate, APIKeyDisplay, APIKeyValidationResult
 from ..core.encryption import encryption_service
 from .api_key_validator import api_key_validator
-from .base import BaseService
 
 
-class APIKeyService(BaseService[APIKey, APIKeyCreate, APIKeyUpdate]):
+class APIKeyService:
+    """Service for managing API keys with organization context"""
+    
     def __init__(self):
-        super().__init__(APIKey)
+        self.supabase: Client = get_supabase_client()
 
     async def create_with_encryption(
         self, 
-        db: AsyncSession, 
         *, 
         obj_in: APIKeyCreate, 
-        user_id: UUID
-    ) -> APIKey:
+        user_id: UUID,
+        organization_id: Optional[UUID] = None
+    ) -> dict:
         """Create a new API key with encryption."""
         # Encrypt the API key
         encrypted_key = encryption_service.encrypt_api_key(obj_in.api_key_value)
         key_prefix = encryption_service.get_key_prefix(obj_in.api_key_value)
         
         # Create the database object
-        db_obj = self.model(
-            name=obj_in.name,
-            user_id=user_id,
-            project_id=obj_in.project_id,
-            provider_id=obj_in.provider_id,
-            encrypted_key_value=encrypted_key,
-            key_prefix=key_prefix,
-            is_active=True,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
+        api_key_data = {
+            "name": obj_in.name,
+            "user_id": str(user_id),
+            "provider": obj_in.provider,
+            "encrypted_key_value": encrypted_key,
+            "key_prefix": key_prefix,
+            "is_active": True,
+            "organization_id": str(organization_id) if organization_id else None
+        }
         
-        db.add(db_obj)
-        await db.commit()
-        await db.refresh(db_obj)
-        return db_obj
+        result = self.supabase.table("api_keys").insert(api_key_data).execute()
+        
+        if not result.data:
+            raise Exception("Failed to create API key")
+        
+        return result.data[0]
 
     async def validate_and_create(
         self,
-        db: AsyncSession,
         *,
         obj_in: APIKeyCreate,
         user_id: UUID,
+        organization_id: Optional[UUID] = None,
         validate_key: bool = True
-    ) -> tuple[APIKey, APIKeyValidationResult]:
+    ) -> tuple[dict, Optional[APIKeyValidationResult]]:
         """Validate and create an API key."""
-        # Get provider info for validation
-        provider = await db.get(AIProvider, obj_in.provider_id)
-        if not provider:
-            raise ValueError("Invalid provider ID")
-        
         validation_result = None
         if validate_key:
             # Validate the API key
             validation_result = await api_key_validator.validate_api_key(
                 obj_in.api_key_value, 
-                provider.name
+                obj_in.provider
             )
             
             if not validation_result.is_valid:
                 raise ValueError(f"API key validation failed: {validation_result.error_message}")
         
         # Create the API key
-        api_key = await self.create_with_encryption(db, obj_in=obj_in, user_id=user_id)
+        api_key = await self.create_with_encryption(
+            obj_in=obj_in, 
+            user_id=user_id,
+            organization_id=organization_id
+        )
         
         return api_key, validation_result
 
-    async def get_with_provider(
+    async def get_api_key(
         self, 
-        db: AsyncSession, 
         *, 
         api_key_id: UUID, 
-        user_id: UUID
-    ) -> Optional[APIKey]:
-        """Get API key with provider information."""
-        result = await db.execute(
-            select(self.model)
-            .options(joinedload(self.model.provider))
-            .where(
-                and_(
-                    self.model.id == api_key_id,
-                    self.model.user_id == user_id
-                )
-            )
-        )
-        return result.scalars().first()
+        user_id: UUID,
+        organization_id: Optional[UUID] = None
+    ) -> Optional[dict]:
+        """Get API key by ID."""
+        query = self.supabase.table("api_keys").select("*").eq("id", str(api_key_id)).eq("user_id", str(user_id))
+        
+        if organization_id:
+            query = query.eq("organization_id", str(organization_id))
+        
+        result = query.execute()
+        
+        if not result.data:
+            return None
+        
+        return result.data[0]
 
-    async def get_user_keys_with_providers(
+    async def get_user_keys(
         self, 
-        db: AsyncSession, 
         *, 
         user_id: UUID,
-        project_id: Optional[UUID] = None
+        organization_id: Optional[UUID] = None
     ) -> List[APIKeyDisplay]:
-        """Get user's API keys with provider info for display."""
-        query = (
-            select(self.model, AIProvider)
-            .join(AIProvider, self.model.provider_id == AIProvider.id)
-            .where(self.model.user_id == user_id)
-        )
+        """Get user's API keys for display."""
+        query = self.supabase.table("api_keys").select("*").eq("user_id", str(user_id)).eq("is_active", True)
         
-        if project_id:
-            query = query.where(self.model.project_id == project_id)
+        if organization_id:
+            query = query.eq("organization_id", str(organization_id))
         
-        result = await db.execute(query)
-        rows = result.all()
+        result = query.execute()
         
         display_keys = []
-        for api_key, provider in rows:
+        for api_key in result.data:
             # Decrypt key for masking
             try:
-                decrypted_key = encryption_service.decrypt_api_key(api_key.encrypted_key_value)
+                decrypted_key = encryption_service.decrypt_api_key(api_key["encrypted_key_value"])
                 masked_key = encryption_service.mask_api_key(decrypted_key)
             except Exception:
                 masked_key = "****"
             
             display_keys.append(APIKeyDisplay(
-                id=api_key.id,
-                name=api_key.name,
-                provider_name=provider.name,
-                provider_display_name=provider.display_name,
-                key_prefix=api_key.key_prefix,
+                id=UUID(api_key["id"]),
+                name=api_key["name"],
+                provider_name=api_key["provider"],
+                provider_display_name=api_key["provider"].title(),
+                key_prefix=api_key["key_prefix"],
                 masked_key=masked_key,
-                is_active=api_key.is_active,
-                last_used_at=api_key.last_used_at,
-                created_at=api_key.created_at,
-                updated_at=api_key.updated_at
+                is_active=api_key["is_active"],
+                last_used_at=api_key.get("last_used_at"),
+                created_at=api_key["created_at"],
+                updated_at=api_key["updated_at"]
             ))
         
         return display_keys
 
     async def get_decrypted_key(
         self, 
-        db: AsyncSession, 
         *, 
         api_key_id: UUID, 
-        user_id: UUID
+        user_id: UUID,
+        organization_id: Optional[UUID] = None
     ) -> Optional[str]:
         """Get decrypted API key value for use."""
-        api_key = await self.get_with_provider(db, api_key_id=api_key_id, user_id=user_id)
-        if not api_key or not api_key.is_active:
+        api_key = await self.get_api_key(
+            api_key_id=api_key_id, 
+            user_id=user_id,
+            organization_id=organization_id
+        )
+        if not api_key or not api_key["is_active"]:
             return None
         
         try:
-            decrypted_key = encryption_service.decrypt_api_key(api_key.encrypted_key_value)
+            decrypted_key = encryption_service.decrypt_api_key(api_key["encrypted_key_value"])
             # Update last used timestamp
-            await self.update_last_used(db, api_key_id=api_key_id)
+            await self.update_last_used(api_key_id=api_key_id)
             return decrypted_key
         except Exception:
             return None
 
-    async def get_by_project_and_provider(
+    async def get_by_provider(
         self, 
-        db: AsyncSession, 
         *, 
         user_id: UUID, 
-        project_id: UUID, 
-        provider_id: UUID
-    ) -> List[APIKey]:
-        """Get API keys for a specific project and provider."""
-        result = await db.execute(
-            select(self.model).where(
-                and_(
-                    self.model.user_id == user_id,
-                    self.model.project_id == project_id,
-                    self.model.provider_id == provider_id,
-                    self.model.is_active == True
-                )
-            )
-        )
-        return result.scalars().all()
+        provider: str,
+        organization_id: Optional[UUID] = None
+    ) -> List[dict]:
+        """Get API keys for a specific provider."""
+        query = self.supabase.table("api_keys").select("*").eq("user_id", str(user_id)).eq("provider", provider).eq("is_active", True)
+        
+        if organization_id:
+            query = query.eq("organization_id", str(organization_id))
+        
+        result = query.execute()
+        return result.data
 
-    async def get_active_keys(self, db: AsyncSession, *, user_id: UUID) -> List[APIKey]:
+    async def get_active_keys(self, *, user_id: UUID, organization_id: Optional[UUID] = None) -> List[dict]:
         """Get all active API keys for a user."""
-        result = await db.execute(
-            select(self.model).where(
-                and_(
-                    self.model.user_id == user_id,
-                    self.model.is_active == True
-                )
-            )
-        )
-        return result.scalars().all()
+        query = self.supabase.table("api_keys").select("*").eq("user_id", str(user_id)).eq("is_active", True)
+        
+        if organization_id:
+            query = query.eq("organization_id", str(organization_id))
+        
+        result = query.execute()
+        return result.data
 
-    async def update_last_used(self, db: AsyncSession, *, api_key_id: UUID) -> Optional[APIKey]:
+    async def update_last_used(self, *, api_key_id: UUID) -> bool:
         """Update the last_used_at timestamp for an API key."""
-        db_obj = await db.get(self.model, api_key_id)
-        if db_obj:
-            db_obj.last_used_at = datetime.utcnow()
-            db_obj.updated_at = datetime.utcnow()
-            db.add(db_obj)
-            await db.commit()
-            await db.refresh(db_obj)
-        return db_obj
+        try:
+            result = self.supabase.table("api_keys").update({
+                "last_used_at": datetime.utcnow().isoformat(),
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", str(api_key_id)).execute()
+            
+            return bool(result.data)
+        except Exception:
+            return False
 
-    async def deactivate(self, db: AsyncSession, *, api_key_id: UUID, user_id: UUID) -> Optional[APIKey]:
+    async def deactivate(self, *, api_key_id: UUID, user_id: UUID, organization_id: Optional[UUID] = None) -> bool:
         """Deactivate an API key (soft delete)."""
-        db_obj = await self.get_with_provider(db, api_key_id=api_key_id, user_id=user_id)
-        if db_obj:
-            db_obj.is_active = False
-            db_obj.updated_at = datetime.utcnow()
-            db.add(db_obj)
-            await db.commit()
-            await db.refresh(db_obj)
-        return db_obj
+        try:
+            query = self.supabase.table("api_keys").update({
+                "is_active": False,
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", str(api_key_id)).eq("user_id", str(user_id))
+            
+            if organization_id:
+                query = query.eq("organization_id", str(organization_id))
+            
+            result = query.execute()
+            return bool(result.data)
+        except Exception:
+            return False
+
+    async def update_api_key(
+        self, 
+        *, 
+        api_key_id: UUID, 
+        user_id: UUID, 
+        update_data: APIKeyUpdate,
+        organization_id: Optional[UUID] = None
+    ) -> Optional[dict]:
+        """Update an API key."""
+        try:
+            update_dict = {k: v for k, v in update_data.dict(exclude_unset=True).items()}
+            update_dict["updated_at"] = datetime.utcnow().isoformat()
+            
+            query = self.supabase.table("api_keys").update(update_dict).eq("id", str(api_key_id)).eq("user_id", str(user_id))
+            
+            if organization_id:
+                query = query.eq("organization_id", str(organization_id))
+            
+            result = query.execute()
+            
+            if not result.data:
+                return None
+            
+            return result.data[0]
+        except Exception:
+            return None
 
 
 api_key_service = APIKeyService()

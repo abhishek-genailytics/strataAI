@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Encryption
     ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")
     
+    # ScaleKit Configuration
+    SCALEKIT_ENVIRONMENT_URL: str = os.getenv("SCALEKIT_ENVIRONMENT_URL", "")
+    SCALEKIT_CLIENT_ID: str = os.getenv("SCALEKIT_CLIENT_ID", "")
+    SCALEKIT_CLIENT_SECRET: str = os.getenv("SCALEKIT_CLIENT_SECRET", "")
+    
     class Config:
         env_file = ".env"
 

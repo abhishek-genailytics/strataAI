@@ -1,45 +1,60 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-import { ApiResponse, ApiKey, RequestLog, UsageMetrics } from '../types';
+import { 
+  User, 
+  ApiKey, 
+  RequestLog, 
+  UsageMetrics, 
+  ApiResponse,
+  PlaygroundRequest,
+  PlaygroundResponse,
+  ProviderModelInfo,
+  UserOrganization
+} from '../types';
+import { errorLoggingService } from './errorLoggingService';
 
 class ApiService {
   private api: AxiosInstance;
-  private baseURL: string;
+  private organizationId: string | null = null;
 
   constructor() {
-    this.baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-    
     this.api = axios.create({
-      baseURL: this.baseURL,
-      timeout: 30000,
+      baseURL: process.env.REACT_APP_API_URL || 'http://localhost:8000',
+      timeout: 10000,
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    this.setupInterceptors();
-  }
-
-  private setupInterceptors() {
-    // Request interceptor to add auth token
+    // Request interceptor to add auth token and request ID
     this.api.interceptors.request.use(
       (config) => {
         const token = this.getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        
+        // Add request ID for tracking
+        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        config.headers['X-Request-ID'] = requestId;
+        (config as any).metadata = { requestId, startTime: Date.now() };
+        
+        // Add organization context header if available
+        if (this.organizationId) {
+          config.headers['X-Organization-ID'] = this.organizationId;
+        }
+        
         return config;
       },
-      (error) => Promise.reject(error)
+      (error) => {
+        return Promise.reject(error);
+      }
     );
 
-    // Response interceptor for error handling
+    // Response interceptor for error handling and logging
     this.api.interceptors.response.use(
       (response: AxiosResponse) => response,
-      (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          // Token expired or invalid
-          this.handleAuthError();
-        }
+      async (error: AxiosError) => {
+        await this.handleApiError(error);
         return Promise.reject(error);
       }
     );
@@ -59,10 +74,47 @@ class ApiService {
     return null;
   }
 
+  private async handleApiError(error: AxiosError) {
+    // Extract request metadata
+    const config = error.config as any;
+    const requestId = config?.metadata?.requestId;
+    const startTime = config?.metadata?.startTime;
+    
+    // Log the API error
+    await errorLoggingService.logApiError({
+      message: error.message,
+      status: error.response?.status || 0,
+      endpoint: error.config?.url || 'unknown',
+      method: error.config?.method?.toUpperCase() || 'UNKNOWN',
+      timestamp: new Date().toISOString(),
+      userId: this.getCurrentUserId(),
+      requestId,
+      responseData: error.response?.data,
+    });
+
+    // Handle specific error types
+    if (error.response?.status === 401) {
+      this.handleAuthError();
+    }
+  }
+
   private handleAuthError() {
     // Clear auth data and redirect to login
     localStorage.clear();
     window.location.href = '/login';
+  }
+
+  private getCurrentUserId(): string | null {
+    try {
+      const authData = localStorage.getItem('auth');
+      if (authData) {
+        const parsed = JSON.parse(authData);
+        return parsed.user?.id || null;
+      }
+    } catch {
+      // Ignore parsing errors
+    }
+    return null;
   }
 
   private async handleResponse<T>(promise: Promise<AxiosResponse<T>>): Promise<ApiResponse<T>> {
@@ -116,19 +168,17 @@ class ApiService {
   }
 
   // Chat Completions
-  async createChatCompletion(data: {
-    model: string;
-    messages: Array<{ role: string; content: string }>;
-    temperature?: number;
-    max_tokens?: number;
-    stream?: boolean;
-  }): Promise<ApiResponse<any>> {
+  async createChatCompletion(data: PlaygroundRequest): Promise<ApiResponse<PlaygroundResponse>> {
     return this.handleResponse(this.api.post('/chat/completions', data));
   }
 
-  async getModels(provider?: string): Promise<ApiResponse<string[]>> {
+  async getModels(provider?: string): Promise<ApiResponse<ProviderModelInfo[]>> {
     const url = provider ? `/models/${provider}` : '/models';
     return this.handleResponse(this.api.get(url));
+  }
+
+  async getProviderModels(provider: string): Promise<ApiResponse<string[]>> {
+    return this.handleResponse(this.api.get(`/models/${provider}`));
   }
 
   // Usage Analytics
@@ -203,6 +253,33 @@ class ApiService {
   // Health Check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
     return this.handleResponse(this.api.get('/health'));
+  }
+
+  // Organization Management
+  async getUserOrganizations(): Promise<ApiResponse<UserOrganization[]>> {
+    return this.handleResponse(this.api.get('/organizations/user-organizations'));
+  }
+
+  async initiateSSO(params: { redirect_uri: string; organization_id?: string; connection_id?: string }): Promise<ApiResponse<{ authorization_url: string }>> {
+    const queryParams = new URLSearchParams(params as any).toString();
+    return this.handleResponse(this.api.get(`/organizations/sso/login?${queryParams}`));
+  }
+
+  async handleSSOCallback(data: { code: string; state?: string; redirect_uri: string }): Promise<ApiResponse<{ access_token: string; user: any }>> {
+    return this.handleResponse(this.api.post('/organizations/sso/callback', data));
+  }
+
+  // Organization Context Management
+  setOrganizationContext(organizationId: string): void {
+    this.organizationId = organizationId;
+  }
+
+  clearOrganizationContext(): void {
+    this.organizationId = null;
+  }
+
+  getCurrentOrganizationId(): string | null {
+    return this.organizationId;
   }
 }
 

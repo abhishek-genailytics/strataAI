@@ -1,9 +1,17 @@
-import React, { useState } from 'react';
-import { Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Navigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '../components/ui/Button';
 import { Input } from '../components/ui/Input';
 import { Card } from '../components/ui/Card';
+import { PasswordStrengthIndicator } from '../components/ui/PasswordStrengthIndicator';
+import { 
+  validateEmail, 
+  validatePassword, 
+  validatePasswordConfirmation, 
+  getPasswordStrength,
+  validateForm 
+} from '../utils/validation';
 
 export const Register: React.FC = () => {
   const { signUp, user, loading } = useAuth();
@@ -13,10 +21,41 @@ export const Register: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [passwordStrength, setPasswordStrength] = useState(getPasswordStrength(''));
 
   if (user) {
     return <Navigate to="/dashboard" replace />;
   }
+
+  // Real-time validation
+  useEffect(() => {
+    const validators = {
+      email: validateEmail,
+      password: validatePassword,
+      confirmPassword: (value: string) => validatePasswordConfirmation(password, value),
+    };
+
+    const { errors } = validateForm({ email, password, confirmPassword }, validators);
+    
+    // Only show errors for touched fields
+    const touchedErrors: Record<string, string> = {};
+    Object.keys(errors).forEach(field => {
+      if (touched[field]) {
+        touchedErrors[field] = errors[field];
+      }
+    });
+    
+    setFieldErrors(touchedErrors);
+    
+    // Update password strength
+    setPasswordStrength(getPasswordStrength(password));
+  }, [email, password, confirmPassword, touched]);
+
+  const handleFieldBlur = (field: string) => {
+    setTouched(prev => ({ ...prev, [field]: true }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,14 +63,25 @@ export const Register: React.FC = () => {
     setError('');
     setSuccess(false);
 
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
-      setIsLoading(false);
-      return;
-    }
+    // Mark all fields as touched for validation
+    setTouched({ email: true, password: true, confirmPassword: true });
 
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
+    // Validate form
+    const validators = {
+      email: validateEmail,
+      password: validatePassword,
+      confirmPassword: (value: string) => validatePasswordConfirmation(password, value),
+    };
+
+    const { isValid, errors } = validateForm({ email, password, confirmPassword }, validators);
+    
+    // Also check password strength
+    if (!passwordStrength.isValid) {
+      errors.password = 'Password is not strong enough';
+    }
+    
+    if (!isValid || !passwordStrength.isValid) {
+      setFieldErrors(errors);
       setIsLoading(false);
       return;
     }
@@ -90,24 +140,35 @@ export const Register: React.FC = () => {
                 type="email"
                 value={email}
                 onChange={setEmail}
+                onBlur={() => handleFieldBlur('email')}
+                error={fieldErrors.email}
                 required
                 placeholder="Enter your email"
               />
               
-              <Input
-                label="Password"
-                type="password"
-                value={password}
-                onChange={setPassword}
-                required
-                placeholder="Enter your password"
-              />
+              <div className="space-y-2">
+                <Input
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={setPassword}
+                  onBlur={() => handleFieldBlur('password')}
+                  error={fieldErrors.password}
+                  required
+                  placeholder="Enter your password"
+                />
+                {password && (
+                  <PasswordStrengthIndicator strength={passwordStrength} />
+                )}
+              </div>
 
               <Input
                 label="Confirm Password"
                 type="password"
                 value={confirmPassword}
                 onChange={setConfirmPassword}
+                onBlur={() => handleFieldBlur('confirmPassword')}
+                error={fieldErrors.confirmPassword}
                 required
                 placeholder="Confirm your password"
               />
@@ -135,3 +196,5 @@ export const Register: React.FC = () => {
     </div>
   );
 };
+
+export default Register;

@@ -7,6 +7,7 @@ export const Input: React.FC<InputProps> = ({
   type = 'text',
   value,
   onChange,
+  onBlur,
   error,
   disabled = false,
   required = false,
@@ -37,6 +38,7 @@ export const Input: React.FC<InputProps> = ({
         placeholder={placeholder}
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
+        onBlur={onBlur}
         disabled={disabled}
         required={required}
       />

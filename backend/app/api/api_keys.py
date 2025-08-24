@@ -1,17 +1,15 @@
 """
-API endpoints for API key management.
+API endpoints for API key management with organization context.
 """
-from typing import List
+from typing import List, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.database import get_db
+from ..core.deps import get_current_user, get_organization_context, CurrentUser
 from ..models.api_key import APIKeyCreate, APIKeyUpdate, APIKeyDisplay, APIKeyValidationResult
-from ..models.user import User
+from ..models.organization import Organization
 from ..services.api_key_service import api_key_service
-from ..api.auth import get_current_user
 
 router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 
@@ -19,20 +17,24 @@ router = APIRouter(prefix="/api-keys", tags=["api-keys"])
 @router.post("/", response_model=APIKeyDisplay, status_code=status.HTTP_201_CREATED)
 async def create_api_key(
     *,
-    db: AsyncSession = Depends(get_db),
     api_key_in: APIKeyCreate,
-    current_user: User = Depends(get_current_user),
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context),
     validate: bool = True
 ):
     """Create a new API key with validation and encryption."""
     try:
         api_key, validation_result = await api_key_service.validate_and_create(
-            db, obj_in=api_key_in, user_id=current_user.id, validate_key=validate
+            obj_in=api_key_in, 
+            user_id=current_user.id, 
+            organization_id=organization.id if organization else None,
+            validate_key=validate
         )
         
         # Return display version with masked key
         display_keys = await api_key_service.get_user_keys_with_providers(
-            db, user_id=current_user.id
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         
         # Find the newly created key
@@ -60,14 +62,14 @@ async def create_api_key(
 @router.get("/", response_model=List[APIKeyDisplay])
 async def list_api_keys(
     *,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-    project_id: UUID = None
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """List user's API keys with masked values."""
+    """List user's API keys with masked values in organization context."""
     try:
         display_keys = await api_key_service.get_user_keys_with_providers(
-            db, user_id=current_user.id, project_id=project_id
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         return display_keys
     except Exception as e:
@@ -80,14 +82,15 @@ async def list_api_keys(
 @router.get("/{api_key_id}", response_model=APIKeyDisplay)
 async def get_api_key(
     *,
-    db: AsyncSession = Depends(get_db),
     api_key_id: UUID,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Get a specific API key by ID."""
+    """Get a specific API key by ID in organization context."""
     try:
         display_keys = await api_key_service.get_user_keys_with_providers(
-            db, user_id=current_user.id
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         
         for display_key in display_keys:
@@ -110,16 +113,18 @@ async def get_api_key(
 @router.put("/{api_key_id}", response_model=APIKeyDisplay)
 async def update_api_key(
     *,
-    db: AsyncSession = Depends(get_db),
     api_key_id: UUID,
     api_key_in: APIKeyUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Update an API key."""
+    """Update an API key in organization context."""
     try:
-        # Check if key exists and belongs to user
+        # Check if key exists and belongs to user in organization context
         api_key = await api_key_service.get_with_provider(
-            db, api_key_id=api_key_id, user_id=current_user.id
+            api_key_id=api_key_id, 
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         if not api_key:
             raise HTTPException(
@@ -128,11 +133,17 @@ async def update_api_key(
             )
         
         # Update the key
-        updated_key = await api_key_service.update(db, db_obj=api_key, obj_in=api_key_in)
+        updated_key = await api_key_service.update(
+            api_key_id=api_key_id,
+            obj_in=api_key_in,
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
+        )
         
         # Return display version
         display_keys = await api_key_service.get_user_keys_with_providers(
-            db, user_id=current_user.id
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         
         for display_key in display_keys:
@@ -156,14 +167,16 @@ async def update_api_key(
 @router.delete("/{api_key_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_api_key(
     *,
-    db: AsyncSession = Depends(get_db),
     api_key_id: UUID,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Delete (deactivate) an API key."""
+    """Delete (deactivate) an API key in organization context."""
     try:
         api_key = await api_key_service.deactivate(
-            db, api_key_id=api_key_id, user_id=current_user.id
+            api_key_id=api_key_id, 
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         if not api_key:
             raise HTTPException(
@@ -183,15 +196,17 @@ async def delete_api_key(
 @router.post("/{api_key_id}/validate", response_model=APIKeyValidationResult)
 async def validate_api_key(
     *,
-    db: AsyncSession = Depends(get_db),
     api_key_id: UUID,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Validate an existing API key against its provider."""
+    """Validate an existing API key against its provider in organization context."""
     try:
         # Get the decrypted key
         decrypted_key = await api_key_service.get_decrypted_key(
-            db, api_key_id=api_key_id, user_id=current_user.id
+            api_key_id=api_key_id, 
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         if not decrypted_key:
             raise HTTPException(
@@ -201,7 +216,9 @@ async def validate_api_key(
         
         # Get provider info
         api_key = await api_key_service.get_with_provider(
-            db, api_key_id=api_key_id, user_id=current_user.id
+            api_key_id=api_key_id, 
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         
         # Import here to avoid circular imports
@@ -226,14 +243,16 @@ async def validate_api_key(
 @router.get("/{api_key_id}/reveal")
 async def reveal_api_key(
     *,
-    db: AsyncSession = Depends(get_db),
     api_key_id: UUID,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Reveal the actual API key value (use with caution)."""
+    """Reveal the actual API key value (use with caution) in organization context."""
     try:
         decrypted_key = await api_key_service.get_decrypted_key(
-            db, api_key_id=api_key_id, user_id=current_user.id
+            api_key_id=api_key_id, 
+            user_id=current_user.id,
+            organization_id=organization.id if organization else None
         )
         if not decrypted_key:
             raise HTTPException(

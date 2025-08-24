@@ -11,6 +11,7 @@ asyncpg==0.29.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 cryptography==41.0.7
+scalekit-sdk-python==2.3.3
 
 # AI Provider integrations (direct HTTP calls)
 openai==1.6.1
