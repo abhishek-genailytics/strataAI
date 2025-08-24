@@ -1,2 +1,5 @@
-// Export all components from this directory
-// Components will be added in later tasks
+// Export all components
+export { ProtectedRoute, PublicRoute } from './ProtectedRoute';
+export { ErrorBoundary } from './ErrorBoundary';
+export * from './ui';
+export * from './layout';

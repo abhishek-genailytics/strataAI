@@ -1,6 +1,11 @@
 from .ai_provider import AIProvider, AIProviderCreate, AIProviderUpdate
 from .api_key import APIKey, APIKeyCreate, APIKeyUpdate, APIKeyWithProvider
 from .api_request import APIRequest, APIRequestCreate, APIRequestWithDetails
+from .chat_completion import (
+    ChatMessage, ChatCompletionRequest, ChatCompletionResponse, 
+    ChatCompletionChoice, ChatCompletionUsage, ChatCompletionStreamChunk,
+    ProviderModelInfo, ProviderError
+)
 from .project import Project, ProjectCreate, ProjectUpdate
 from .rate_limit import RateLimit, RateLimitCreate, RateLimitUpdate, RateLimitWithDetails
 from .usage_metrics import UsageMetrics, UsageMetricsCreate, UsageMetricsUpdate, UsageMetricsWithDetails
@@ -28,6 +33,15 @@ __all__ = [
     "APIRequest",
     "APIRequestCreate",
     "APIRequestWithDetails",
+    # Chat Completion models
+    "ChatMessage",
+    "ChatCompletionRequest",
+    "ChatCompletionResponse",
+    "ChatCompletionChoice",
+    "ChatCompletionUsage",
+    "ChatCompletionStreamChunk",
+    "ProviderModelInfo",
+    "ProviderError",
     # Usage Metrics models
     "UsageMetrics",
     "UsageMetricsCreate",

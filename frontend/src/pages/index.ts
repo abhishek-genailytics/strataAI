@@ -1,2 +1,4 @@
-// Export all pages from this directory
-// Pages will be added in later tasks
+// Export all pages
+export { Dashboard } from './Dashboard';
+export { Login } from './Login';
+export { Register } from './Register';

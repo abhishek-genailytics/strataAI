@@ -18,8 +18,16 @@ class Settings(BaseSettings):
     # Redis Configuration
     REDIS_URL: str = os.getenv("REDIS_URL", "redis://localhost:6379")
     
-    # Rate Limiting
-    RATE_LIMIT_PER_MINUTE: int = 60
+    # Rate Limiting Configuration
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+    RATE_LIMIT_PER_HOUR: int = int(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))
+    RATE_LIMIT_BURST: int = int(os.getenv("RATE_LIMIT_BURST", "10"))
+    
+    # Cache Configuration
+    CACHE_TTL_DEFAULT: int = int(os.getenv("CACHE_TTL_DEFAULT", "300"))  # 5 minutes
+    CACHE_TTL_MODELS: int = int(os.getenv("CACHE_TTL_MODELS", "3600"))  # 1 hour
+    CACHE_TTL_ANALYTICS: int = int(os.getenv("CACHE_TTL_ANALYTICS", "60"))  # 1 minute
+    CACHE_ENABLED: bool = os.getenv("CACHE_ENABLED", "true").lower() == "true"
     
     # Encryption
     ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")

@@ -1,13 +1,41 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 from app.core.config import settings
+from app.core.redis import redis_manager
 from app.api.routes import api_router
+from app.middleware import (
+    UsageLoggingMiddleware,
+    RateLimitingMiddleware,
+    ResponseCachingMiddleware,
+    IPRateLimitingMiddleware
+)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await redis_manager.connect()
+    yield
+    # Shutdown
+    await redis_manager.disconnect()
 
 app = FastAPI(
     title="StrataAI API Gateway",
     description="Unified API gateway for multiple AI providers with observability and cost tracking",
     version="1.0.0",
+    lifespan=lifespan
 )
+
+# Add middleware in order (last added = first executed)
+# 1. Response caching (should be early to cache before processing)
+app.add_middleware(ResponseCachingMiddleware)
+
+# 2. Rate limiting (should be before business logic)
+app.add_middleware(RateLimitingMiddleware)
+app.add_middleware(IPRateLimitingMiddleware)
+
+# 3. Usage logging (should be last to capture all requests)
+app.add_middleware(UsageLoggingMiddleware)
 
 # Configure CORS
 app.add_middleware(
