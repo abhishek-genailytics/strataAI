@@ -18,10 +18,6 @@ const Login: React.FC = () => {
 
   const from = location.state?.from?.pathname || '/dashboard';
 
-  if (user) {
-    return <Navigate to={from} replace />;
-  }
-
   // Real-time validation
   useEffect(() => {
     const validators = {
@@ -76,6 +72,10 @@ const Login: React.FC = () => {
     
     setIsLoading(false);
   };
+
+  if (user) {
+    return <Navigate to={from} replace />;
+  }
 
   if (loading) {
     return (

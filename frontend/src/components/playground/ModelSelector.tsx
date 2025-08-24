@@ -42,7 +42,7 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         // Filter models to only show those for providers with active API keys
         const availableProviders = activeApiKeys.map(key => key.provider);
         const filteredModels = modelsResponse.data?.filter(model => 
-          availableProviders.includes(model.provider)
+          availableProviders.includes(model.provider as 'openai' | 'anthropic' | 'google')
         ) || [];
 
         setModels(filteredModels);

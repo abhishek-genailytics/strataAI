@@ -5,6 +5,11 @@ export interface User {
   email: string;
   created_at: string;
   updated_at: string;
+  user_metadata?: {
+    display_name?: string;
+    full_name?: string;
+    [key: string]: any;
+  };
 }
 
 export interface Organization {
@@ -78,7 +83,7 @@ export interface UsageMetrics {
 // Component prop types
 export interface ButtonProps {
   children: any;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
   size?: 'sm' | 'md' | 'lg';
   disabled?: boolean;
   loading?: boolean;

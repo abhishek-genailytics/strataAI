@@ -25,10 +25,6 @@ export const Register: React.FC = () => {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [passwordStrength, setPasswordStrength] = useState(getPasswordStrength(''));
 
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
   // Real-time validation
   useEffect(() => {
     const validators = {
@@ -96,6 +92,10 @@ export const Register: React.FC = () => {
     
     setIsLoading(false);
   };
+
+  if (user) {
+    return <Navigate to="/dashboard" replace />;
+  }
 
   if (loading) {
     return (
