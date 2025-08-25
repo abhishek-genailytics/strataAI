@@ -10,11 +10,23 @@ class ScaleKitService:
     """Service for ScaleKit authentication and organization management"""
     
     def __init__(self):
-        self.client = ScalekitClient(
-            environment_url=settings.SCALEKIT_ENVIRONMENT_URL,
-            client_id=settings.SCALEKIT_CLIENT_ID,
-            client_secret=settings.SCALEKIT_CLIENT_SECRET
-        )
+        try:
+            # Only initialize ScaleKit client if credentials are properly configured
+            if (settings.SCALEKIT_ENVIRONMENT_URL and 
+                settings.SCALEKIT_CLIENT_ID and 
+                settings.SCALEKIT_CLIENT_SECRET and
+                not settings.SCALEKIT_ENVIRONMENT_URL.startswith('https://example')):
+                self.client = ScalekitClient(
+                    env_url=settings.SCALEKIT_ENVIRONMENT_URL,
+                    client_id=settings.SCALEKIT_CLIENT_ID,
+                    client_secret=settings.SCALEKIT_CLIENT_SECRET
+                )
+            else:
+                logger.warning("ScaleKit credentials not configured, running in development mode")
+                self.client = None
+        except Exception as e:
+            logger.error(f"Failed to initialize ScaleKit client: {e}")
+            self.client = None
     
     def get_authorization_url(
         self, 

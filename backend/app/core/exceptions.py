@@ -3,7 +3,7 @@ Custom exception classes for structured error handling.
 """
 from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, status
-from .models.error_response import ErrorType, ErrorSeverity, ErrorDetail
+from ..models.error_response import ErrorType, ErrorSeverity, ErrorDetail
 
 
 class StrataAIException(Exception):

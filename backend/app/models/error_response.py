@@ -3,7 +3,7 @@ Error response models for structured error handling.
 """
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union, Literal
 from pydantic import BaseModel, Field
 
 
@@ -58,38 +58,38 @@ class ErrorResponse(BaseModel):
 
 class ValidationErrorResponse(ErrorResponse):
     """Specialized error response for validation errors."""
-    error_type: ErrorType = Field(ErrorType.VALIDATION_ERROR, const=True)
+    error_type: Literal[ErrorType.VALIDATION_ERROR] = ErrorType.VALIDATION_ERROR
     details: List[ErrorDetail] = Field(..., description="Validation error details")
 
 
 class AuthenticationErrorResponse(ErrorResponse):
     """Specialized error response for authentication errors."""
-    error_type: ErrorType = Field(ErrorType.AUTHENTICATION_ERROR, const=True)
+    error_type: Literal[ErrorType.AUTHENTICATION_ERROR] = ErrorType.AUTHENTICATION_ERROR
     message: str = Field("Authentication required", description="Authentication error message")
 
 
 class AuthorizationErrorResponse(ErrorResponse):
     """Specialized error response for authorization errors."""
-    error_type: ErrorType = Field(ErrorType.AUTHORIZATION_ERROR, const=True)
+    error_type: Literal[ErrorType.AUTHORIZATION_ERROR] = ErrorType.AUTHORIZATION_ERROR
     message: str = Field("Insufficient permissions", description="Authorization error message")
 
 
 class NotFoundErrorResponse(ErrorResponse):
     """Specialized error response for resource not found errors."""
-    error_type: ErrorType = Field(ErrorType.NOT_FOUND_ERROR, const=True)
+    error_type: Literal[ErrorType.NOT_FOUND_ERROR] = ErrorType.NOT_FOUND_ERROR
     message: str = Field("Resource not found", description="Not found error message")
 
 
 class RateLimitErrorResponse(ErrorResponse):
     """Specialized error response for rate limit errors."""
-    error_type: ErrorType = Field(ErrorType.RATE_LIMIT_ERROR, const=True)
+    error_type: Literal[ErrorType.RATE_LIMIT_ERROR] = ErrorType.RATE_LIMIT_ERROR
     message: str = Field("Rate limit exceeded", description="Rate limit error message")
     retry_after: int = Field(..., description="Seconds to wait before retrying")
 
 
 class ProviderErrorResponse(ErrorResponse):
     """Specialized error response for AI provider errors."""
-    error_type: ErrorType = Field(ErrorType.PROVIDER_ERROR, const=True)
+    error_type: Literal[ErrorType.PROVIDER_ERROR] = ErrorType.PROVIDER_ERROR
     provider: Optional[str] = Field(None, description="AI provider that caused the error")
     provider_error_code: Optional[str] = Field(None, description="Original provider error code")
     provider_message: Optional[str] = Field(None, description="Original provider error message")
@@ -97,9 +97,9 @@ class ProviderErrorResponse(ErrorResponse):
 
 class InternalErrorResponse(ErrorResponse):
     """Specialized error response for internal server errors."""
-    error_type: ErrorType = Field(ErrorType.INTERNAL_ERROR, const=True)
+    error_type: Literal[ErrorType.INTERNAL_ERROR] = ErrorType.INTERNAL_ERROR
     message: str = Field("Internal server error", description="Internal error message")
-    severity: ErrorSeverity = Field(ErrorSeverity.HIGH, const=True)
+    severity: Literal[ErrorSeverity.HIGH] = ErrorSeverity.HIGH
 
 
 # Error response union type for OpenAPI documentation

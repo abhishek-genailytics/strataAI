@@ -153,7 +153,8 @@ class ErrorLoggingService {
    */
   async getErrorStatistics(): Promise<any> {
     try {
-      const response = await fetch('/api/errors/statistics', {
+      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${baseURL}/api/v1/api/errors/statistics`, {
         headers: this.getAuthHeaders(),
       });
       
@@ -174,9 +175,13 @@ class ErrorLoggingService {
   private async sendErrorToBackend(endpoint: string, errorData: any): Promise<void> {
     let lastError: Error | null = null;
     
+    // Get the backend base URL
+    const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const fullUrl = `${baseURL}/api/v1${endpoint}`;
+    
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
-        const response = await fetch(endpoint, {
+        const response = await fetch(fullUrl, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
