@@ -50,23 +50,38 @@ async def get_current_user(
     try:
         # First try to validate as Supabase JWT token
         try:
-            payload = jwt.decode(
-                token, 
-                settings.SUPABASE_JWT_SECRET, 
-                algorithms=["HS256"],
-                options={"verify_aud": False}
-            )
-            user_id = payload.get("sub")
-            email = payload.get("email")
-            
-            if user_id and email:
-                user_uuid = UUID(user_id)
-                # Get user's organizations
-                organizations = await organization_service.get_user_organizations(user_uuid)
-                return CurrentUser(user_uuid, email, organizations)
+            # Use Supabase client to validate the token directly
+            user_response = supabase.auth.get_user(token)
+            if user_response.user:
+                user_id = user_response.user.id
+                email = user_response.user.email
                 
-        except (JWTError, ValueError):
-            pass
+                if user_id and email:
+                    user_uuid = UUID(user_id)
+                    # Get user's organizations
+                    organizations = await organization_service.get_user_organizations(user_uuid)
+                    return CurrentUser(user_uuid, email, organizations)
+                
+        except Exception:
+            # Fallback to JWT decode
+            try:
+                payload = jwt.decode(
+                    token, 
+                    settings.SUPABASE_JWT_SECRET, 
+                    algorithms=["HS256"],
+                    options={"verify_aud": False}
+                )
+                user_id = payload.get("sub")
+                email = payload.get("email")
+                
+                if user_id and email:
+                    user_uuid = UUID(user_id)
+                    # Get user's organizations
+                    organizations = await organization_service.get_user_organizations(user_uuid)
+                    return CurrentUser(user_uuid, email, organizations)
+                    
+            except (JWTError, ValueError):
+                pass
         
         # Try ScaleKit token validation
         try:

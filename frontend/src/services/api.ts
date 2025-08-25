@@ -62,7 +62,7 @@ class ApiService {
 
   private getAuthToken(): string | null {
     // Get token from Supabase auth or localStorage
-    const supabaseAuth = localStorage.getItem('sb-' + process.env.REACT_APP_SUPABASE_URL?.split('//')[1]?.split('.')[0] + '-auth-token');
+    const supabaseAuth = localStorage.getItem('sb-pucvturagllxmkvmwoqv-auth-token');
     if (supabaseAuth) {
       try {
         const parsed = JSON.parse(supabaseAuth);
@@ -195,7 +195,7 @@ class ApiService {
     start_date?: string;
     end_date?: string;
   }): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/analytics/usage-summary', { params }));
+    return this.handleResponse(this.api.get('/mock-analytics/usage-summary', { params }));
   }
 
   async getUsageTrends(params?: {
@@ -203,7 +203,7 @@ class ApiService {
     end_date?: string;
     group_by?: string;
   }): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/analytics/usage-trends', { params }));
+    return this.handleResponse(this.api.get('/mock-analytics/usage-trends', { params }));
   }
 
   async getCurrentUsage(): Promise<ApiResponse<any>> {
@@ -230,7 +230,7 @@ class ApiService {
     end_date?: string;
     group_by?: string;
   }): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/analytics/cost-analysis', { params }));
+    return this.handleResponse(this.api.get('/mock-analytics/cost-analysis', { params }));
   }
 
   // Cache Management

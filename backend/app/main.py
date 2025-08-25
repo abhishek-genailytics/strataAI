@@ -44,9 +44,9 @@ app.add_middleware(RequestContextMiddleware)
 # 3. Response caching (should be early to cache before processing)
 app.add_middleware(ResponseCachingMiddleware)
 
-# 4. Rate limiting (should be before business logic)
-app.add_middleware(RateLimitingMiddleware)
-app.add_middleware(IPRateLimitingMiddleware)
+# 4. Rate limiting (should be before business logic) - Temporarily disabled for debugging
+# app.add_middleware(RateLimitingMiddleware)
+# app.add_middleware(IPRateLimitingMiddleware, calls_per_minute=100)
 
 # 5. Usage logging (should be last to capture all requests)
 app.add_middleware(UsageLoggingMiddleware)

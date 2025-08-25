@@ -146,25 +146,25 @@ export const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold text-gray-900">Observability Dashboard</h1>
-          <div className="mt-1 space-y-1">
+          <div className="mt-2 space-y-1">
             <p className="text-sm text-gray-500">
               Monitor your API usage, costs, and performance metrics
             </p>
             {currentOrganization ? (
               <div className="flex items-center text-sm text-blue-600">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-4m-5 0H3m2 0h3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                 </svg>
-                Organization: {currentOrganization.display_name || currentOrganization.name}
+                <span className="truncate">Organization: {currentOrganization.display_name || currentOrganization.name}</span>
               </div>
             ) : (
               <div className="flex items-center text-sm text-gray-500">
-                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
                 Personal Workspace
@@ -172,28 +172,30 @@ export const Dashboard: React.FC = () => {
             )}
           </div>
         </div>
-        <button
-          onClick={handleRefresh}
-          disabled={loading}
-          className="mt-4 sm:mt-0 inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          {loading ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
-              Loading...
-            </>
-          ) : (
-            <>
-              <span className="mr-2">🔄</span>
-              Refresh
-            </>
-          )}
-        </button>
+        <div className="flex-shrink-0">
+          <button
+            onClick={handleRefresh}
+            disabled={loading}
+            className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 transition-colors duration-150"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2"></div>
+                Loading...
+              </>
+            ) : (
+              <>
+                <span className="mr-2">🔄</span>
+                Refresh
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-4 sm:space-y-0">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <TimeRangeSelector
             value={filters.timeRange}
             onChange={handleTimeRangeChange}
@@ -208,9 +210,7 @@ export const Dashboard: React.FC = () => {
       </div>
 
       {/* Metrics Overview */}
-      {summary && (
-        <MetricsOverview summary={summary} loading={loading} />
-      )}
+      <MetricsOverview summary={summary || undefined} loading={loading} />
 
       {/* Usage Charts */}
       <UsageChart 
@@ -226,21 +226,23 @@ export const Dashboard: React.FC = () => {
 
       {/* Empty State */}
       {!loading && (!summary || summary.total_requests === 0) && (
-        <div className="text-center py-12">
-          <div className="text-6xl mb-4">📊</div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No data available</h3>
-          <p className="text-gray-500 mb-6">
-            Start making API requests to see your usage analytics and cost breakdown.
-          </p>
-          <a
-            href="/playground"
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-          >
-            Try the Playground
-          </a>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12">
+          <div className="text-center">
+            <div className="text-6xl mb-4">📊</div>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No data available</h3>
+            <p className="text-gray-500 mb-6 max-w-md mx-auto">
+              Start making API requests to see your usage analytics and cost breakdown.
+            </p>
+            <a
+              href="/playground"
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-150"
+            >
+              Try the Playground
+            </a>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
 

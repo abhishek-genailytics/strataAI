@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProviderModelInfo, ApiKey } from '../../types';
 import { apiService } from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -13,8 +14,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   onModelChange,
   disabled = false
 }) => {
+  const { user } = useAuth();
   const [models, setModels] = useState<ProviderModelInfo[]>([]);
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +32,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         }
 
         const activeApiKeys = apiKeysResponse.data?.filter(key => key.is_active) || [];
-        setApiKeys(activeApiKeys);
 
         // Fetch all available models
         const modelsResponse = await apiService.getModels();

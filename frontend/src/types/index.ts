@@ -203,14 +203,14 @@ export interface PlaygroundState {
 
 // Dashboard Analytics Types
 export interface UsageSummary {
-  total_requests: number;
-  total_tokens: number;
-  total_cost: number;
-  average_latency: number;
-  success_rate: number;
-  failed_requests: number;
-  unique_users: number;
-  providers: {
+  total_requests?: number;
+  total_tokens?: number;
+  total_cost?: number;
+  average_latency?: number;
+  success_rate?: number;
+  failed_requests?: number;
+  unique_users?: number;
+  providers?: {
     [key: string]: {
       requests: number;
       tokens: number;
@@ -243,6 +243,11 @@ export interface CostAnalysis {
     requests: number;
   }[];
   cost_trends: {
+    date: string;
+    cost: number;
+    provider?: string;
+  }[];
+  daily_costs: {
     date: string;
     cost: number;
     provider?: string;
@@ -283,7 +288,7 @@ export interface DashboardData {
 
 // Dashboard Component Props
 export interface MetricsOverviewProps {
-  summary: UsageSummary;
+  summary?: UsageSummary;
   loading?: boolean;
 }
 

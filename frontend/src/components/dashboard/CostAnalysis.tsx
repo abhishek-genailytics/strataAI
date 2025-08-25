@@ -56,7 +56,7 @@ const CostAnalysis: React.FC<CostAnalysisProps> = ({ data, loading = false }) =>
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  const costTrendsData = data.cost_trends.map(item => ({
+  const costTrendsData = (data.daily_costs || data.cost_trends || []).map(item => ({
     ...item,
     date: formatDate(item.date),
   }));
