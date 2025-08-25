@@ -23,29 +23,31 @@ export const useToast = () => {
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [toasts, setToasts] = useState<ToastProps[]>([]);
 
-  const showToast = useCallback((
-    type: ToastType,
-    title: string,
-    message?: string,
-    duration?: number
-  ) => {
-    const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    
-    const newToast: ToastProps = {
-      id,
-      type,
-      title,
-      message,
-      duration,
-      onClose: removeToast,
-    };
-
-    setToasts(prev => [...prev, newToast]);
-  }, []);
-
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
   }, []);
+
+  const showToast = useCallback(
+    (
+      type: ToastType,
+      title: string,
+      message?: string,
+      duration?: number
+    ) => {
+      const id = `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const newToast: ToastProps = {
+        id,
+        type,
+        title,
+        message,
+        duration,
+        onClose: removeToast,
+      };
+  
+      setToasts(prev => [...prev, newToast]);
+    }, [removeToast]
+  );
 
   const showSuccess = useCallback((title: string, message?: string) => {
     showToast('success', title, message);

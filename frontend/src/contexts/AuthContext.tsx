@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { createClient, SupabaseClient, User as SupabaseUser, Session } from '@supabase/supabase-js';
+import { createClient, SupabaseClient, User as SupabaseUser } from '@supabase/supabase-js';
 import { AuthState, Organization, UserOrganization, User } from '../types';
 import { apiService } from '../services/api';
 import { scalekitService, ScaleKitAuthResult } from '../services/scalekit';

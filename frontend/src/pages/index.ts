@@ -5,3 +5,5 @@ export { default as Register } from './Register';
 export { default as ApiKeys } from './ApiKeys';
 export { default as Playground } from './Playground';
 export { default as SSOCallback } from './SSOCallback';
+export { default as Providers } from './Providers';
+export { default as ModelPricing } from './ModelPricing';

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { ProviderModelInfo, ApiKey } from '../../types';
+import { ProviderModelInfo } from '../../types';
 import { apiService } from '../../services/api';
-import { useAuth } from '../../contexts/AuthContext';
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -14,7 +13,6 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
   onModelChange,
   disabled = false
 }) => {
-  const { user } = useAuth();
   const [models, setModels] = useState<ProviderModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

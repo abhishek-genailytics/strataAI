@@ -6,7 +6,7 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { OrganizationProvider } from './components/OrganizationProvider';
 import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
 import { Layout } from './components/layout/Layout';
-import { Dashboard, Login, Register, ApiKeys, Playground, SSOCallback } from './pages';
+import { Dashboard, Login, Register, ApiKeys, Playground, SSOCallback, Providers, ModelPricing } from './pages';
 import { ForgotPassword, UserProfile } from './components';
 import './App.css';
 
@@ -71,6 +71,20 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Playground />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/providers" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Providers />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/models" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <ModelPricing />
                   </Layout>
                 </ProtectedRoute>
               } />

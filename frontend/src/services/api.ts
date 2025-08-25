@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
 import { 
-  User, 
   ApiKey, 
   RequestLog, 
   UsageMetrics, 
@@ -78,7 +77,6 @@ class ApiService {
     // Extract request metadata
     const config = error.config as any;
     const requestId = config?.metadata?.requestId;
-    const startTime = config?.metadata?.startTime;
     
     // Log the API error
     await errorLoggingService.logApiError({

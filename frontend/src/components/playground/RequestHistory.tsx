@@ -24,7 +24,21 @@ const RequestHistory: React.FC<RequestHistoryProps> = ({
 
   useEffect(() => {
     if (currentRequest) {
-      addToHistory(currentRequest);
+      const historyItem: RequestHistoryItem = {
+        id: Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        request: currentRequest,
+      };
+
+      setHistory(prev => {
+        const newHistory = [historyItem, ...prev].slice(0, MAX_HISTORY_ITEMS);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newHistory));
+        } catch (error) {
+          console.error('Failed to save request history:', error);
+        }
+        return newHistory;
+      });
     }
   }, [currentRequest]);
 
@@ -48,17 +62,6 @@ const RequestHistory: React.FC<RequestHistoryProps> = ({
     }
   };
 
-  const addToHistory = (request: PlaygroundRequest) => {
-    const historyItem: RequestHistoryItem = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      request,
-    };
-
-    const newHistory = [historyItem, ...history].slice(0, MAX_HISTORY_ITEMS);
-    setHistory(newHistory);
-    saveHistory(newHistory);
-  };
 
   const clearHistory = () => {
     setHistory([]);

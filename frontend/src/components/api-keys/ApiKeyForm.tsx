@@ -10,9 +10,37 @@ interface ApiKeyFormProps {
 }
 
 const PROVIDERS = [
-  { value: 'openai', label: 'OpenAI', icon: '🤖' },
-  { value: 'anthropic', label: 'Anthropic', icon: '🧠' },
-  { value: 'google', label: 'Google', icon: '🔍' },
+  { 
+    value: 'openai', 
+    label: 'OpenAI', 
+    icon: '🤖',
+    models: [
+      { id: 'gpt-4', name: 'GPT-4', type: 'Chat' },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', type: 'Chat' },
+      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', type: 'Chat' },
+      { id: 'gpt-3.5-turbo-0125', name: 'GPT-3.5 Turbo 0125', type: 'Chat' },
+      { id: 'gpt-3.5-turbo-1106', name: 'GPT-3.5 Turbo 1106', type: 'Chat' },
+    ]
+  },
+  { 
+    value: 'anthropic', 
+    label: 'Anthropic', 
+    icon: '🧠',
+    models: [
+      { id: 'claude-3-opus', name: 'Claude 3 Opus', type: 'Chat' },
+      { id: 'claude-3-sonnet', name: 'Claude 3 Sonnet', type: 'Chat' },
+      { id: 'claude-3-haiku', name: 'Claude 3 Haiku', type: 'Chat' },
+    ]
+  },
+  { 
+    value: 'google', 
+    label: 'Google', 
+    icon: '🔍',
+    models: [
+      { id: 'gemini-pro', name: 'Gemini Pro', type: 'Chat' },
+      { id: 'gemini-pro-vision', name: 'Gemini Pro Vision', type: 'Chat' },
+    ]
+  },
 ];
 
 export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({
@@ -24,6 +52,8 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({
     provider: '',
     key_name: '',
     api_key: '',
+    selectedModels: [] as string[],
+    collaborators: [] as { email: string; role: 'manager' | 'user' }[],
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -35,6 +65,8 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({
         provider: editingKey.provider,
         key_name: editingKey.key_name,
         api_key: '', // Don't pre-fill the API key for security
+        selectedModels: [],
+        collaborators: [],
       });
     }
   }, [editingKey]);
@@ -229,6 +261,119 @@ export const ApiKeyForm: React.FC<ApiKeyFormProps> = ({
           <p className="text-sm text-red-800">{errors.submit}</p>
         </div>
       )}
+
+      {/* Model Selection */}
+      {formData.provider && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            Select Models
+          </label>
+          <div className="space-y-2 max-h-48 overflow-y-auto">
+            {PROVIDERS.find(p => p.value === formData.provider)?.models.map((model) => (
+              <label key={model.id} className="flex items-center space-x-3 p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={formData.selectedModels.includes(model.id)}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setFormData({
+                        ...formData,
+                        selectedModels: [...formData.selectedModels, model.id]
+                      });
+                    } else {
+                      setFormData({
+                        ...formData,
+                        selectedModels: formData.selectedModels.filter(id => id !== model.id)
+                      });
+                    }
+                  }}
+                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-gray-900">{model.name}</span>
+                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">{model.type}</span>
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Collaborators */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <label className="block text-sm font-medium text-gray-700">
+            Collaborators (Optional)
+          </label>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setFormData({
+                ...formData,
+                collaborators: [...formData.collaborators, { email: '', role: 'user' }]
+              });
+            }}
+          >
+            + Add Collaborator
+          </Button>
+        </div>
+        <p className="text-sm text-gray-500 mb-3">
+          List of users who have access to this provider account
+        </p>
+        
+        {formData.collaborators.length > 0 && (
+          <div className="space-y-3">
+            {formData.collaborators.map((collaborator, index) => (
+              <div key={index} className="flex items-center space-x-3 p-3 border rounded-lg">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 font-medium text-sm">
+                    {collaborator.email ? collaborator.email[0].toUpperCase() : 'U'}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <Input
+                    placeholder="Enter email address"
+                    value={collaborator.email}
+                    onChange={(value) => {
+                      const newCollaborators = [...formData.collaborators];
+                      newCollaborators[index].email = value;
+                      setFormData({ ...formData, collaborators: newCollaborators });
+                    }}
+                  />
+                </div>
+                <select
+                  value={collaborator.role}
+                  onChange={(e) => {
+                    const newCollaborators = [...formData.collaborators];
+                    newCollaborators[index].role = e.target.value as 'manager' | 'user';
+                    setFormData({ ...formData, collaborators: newCollaborators });
+                  }}
+                  className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="user">User</option>
+                  <option value="manager">Manager</option>
+                </select>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    const newCollaborators = formData.collaborators.filter((_, i) => i !== index);
+                    setFormData({ ...formData, collaborators: newCollaborators });
+                  }}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Actions */}
       <div className="flex justify-end space-x-3">

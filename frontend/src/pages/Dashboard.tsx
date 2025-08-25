@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   UsageSummary, 
   UsageTrend, 
@@ -46,7 +46,7 @@ export const Dashboard: React.FC = () => {
     };
   };
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -92,11 +92,11 @@ export const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     fetchDashboardData();
-  }, [filters, currentOrganization]); // Refetch when organization changes
+  }, [fetchDashboardData]); // Refetch when organization changes
 
   const handleTimeRangeChange = (timeRange: TimeRange) => {
     setFilters(prev => ({ ...prev, timeRange }));
