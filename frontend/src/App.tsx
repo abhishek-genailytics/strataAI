@@ -20,7 +20,7 @@ import {
   Providers,
   ModelPricing,
 } from "./pages";
-import { Monitor } from "./pages/Monitor";
+import Monitor from "./pages/Monitor";
 import { ForgotPassword, UserProfile } from "./components";
 import "./App.css";
 

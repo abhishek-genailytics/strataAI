@@ -16,14 +16,28 @@ import {
 
 interface MetricData {
   time: string;
-  models: Record<string, number>;
+  [key: string]: string | number;
 }
+
+// Color mapping for different models
+const colors = {
+  "openai-main/gpt-4o": "#3b82f6",
+  "gw-test-anthropic/claude-3-7-sonnet-20250219": "#10b981",
+  "openai-fake-provider/gpt-4": "#f59e0b",
+  "internal-google/gemini-2-0-flash": "#ef4444",
+  "openai-fake-provider/gpt-3-5": "#06b6d4",
+  "openai-fake-provider/gpt-3-5-turbo": "#8b5cf6",
+  "openai-fake-provider/o4-mini": "#84cc16",
+  "openai-main/gpt-4o-2024-11-20": "#f97316",
+  "openai-main/gpt-4o-mini": "#ec4899",
+  "llm-gateway-test-openai/openai-0": "#6366f1",
+  "openai-main/o4-mini": "#14b8a6",
+};
 
 const metricData: MetricData[] = [
   {
     time: "08:00",
-    models: {
-      "openai-main/gpt-4o": 0,
+    "openai-main/gpt-4o": 0,
     "gw-test-anthropic/claude-3-7-sonnet-20250219": 0,
     "openai-fake-provider/gpt-4": 0,
     "internal-google/gemini-2-0-flash": 0,
@@ -143,7 +157,7 @@ const costData: MetricData[] = [
     time: "10:00",
     "openai-main/gpt-4o": 0,
     "gw-test-anthropic/claude-3-7-sonnet-20250219": 0,
-    "openai-fake-provider/gpt-4": 0.13,
+    "openai-fake-provider/gpt-4": 0,
     "internal-google/gemini-2-0-flash": 0,
     "openai-fake-provider/gpt-3-5": 0,
     "openai-fake-provider/gpt-3-5-turbo": 0,
@@ -151,56 +165,11 @@ const costData: MetricData[] = [
     "openai-main/gpt-4o-2024-11-20": 0,
     "openai-main/gpt-4o-mini": 0,
     "llm-gateway-test-openai/openai-0": 0,
-    "openai-main/o4-mini": 0,
+    "openai-main/o4-mini": 0.13,
   },
 ];
 
-// Helper function to sum all values across all models for a specific field
-const sumFieldValues = (data: any[], field: string): number => {
-  return data.reduce((sum, item) => {
-    return sum + Object.entries(item).reduce((modelSum, [key, value]) => {
-      return modelSum + (key !== 'time' && key !== field ? (value as number) : 0);
-    }, 0);
-  }, 0);
-};
-
-// Helper to format large numbers
-const formatLargeNumber = (num: number): string => {
-  if (num >= 1000000) {
-    return `${(num / 1000000).toFixed(2)}M`;
-  } else if (num >= 1000) {
-    return `${(num / 1000).toFixed(1)}K`;
-  }
-  return num.toString();
-};
-
-// Helper to format currency
-const formatCurrency = (amount: number): string => {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 5,
-  }).format(amount);
-};
-
-// Helper to get data filtered by percentile
-const filterDataByPercentile = (data: any[], percentile: number): any[] => {
-  return data.map(item => {
-    const filteredItem = { ...item };
-    Object.keys(filteredItem).forEach(key => {
-      if (key !== 'time' && Array.isArray(filteredItem[key])) {
-        // Sort the array and get the value at the requested percentile
-        const sortedValues = [...filteredItem[key]].sort((a, b) => a - b);
-        const index = Math.ceil((percentile / 100) * sortedValues.length) - 1;
-        filteredItem[key] = sortedValues[Math.max(0, index)] || 0;
-      }
-    });
-    return filteredItem;
-  });
-};
-
-const latencyData = [
+const latencyData: MetricData[] = [
   {
     time: "08:00",
     "openai-main/gpt-4o": 5000,
@@ -245,7 +214,7 @@ const latencyData = [
   },
 ];
 
-const timeToFirstTokenData = [
+const timeToFirstTokenData: MetricData[] = [
   {
     time: "08:00",
     "openai-main/gpt-4o": 2000,
@@ -291,9 +260,9 @@ const timeToFirstTokenData = [
 ];
 
 const interTokenLatencyData = [
-  { time: "08:00", value: 350 },
-  { time: "09:00", value: 380 },
-  { time: "10:00", value: 420 },
+  { time: "08:00", P99: 350, P90: 300, P50: 250 },
+  { time: "09:00", P99: 380, P90: 320, P50: 270 },
+  { time: "10:00", P99: 420, P90: 350, P50: 290 },
 ];
 
 const requestsPerSecondData = [
@@ -302,23 +271,54 @@ const requestsPerSecondData = [
   { time: "10:00", value: 12 },
 ];
 
-// Inside your Monitor component, before the return(...)
-const [timeRange, setTimeRange] = useState("Last 3 hours");
+// Helper function to sum all values across all models for a specific field
+const sumFieldValues = (data: MetricData[], field: string): number => {
+  return data.reduce((sum, item) => {
+    return (
+      sum +
+      Object.entries(item).reduce((modelSum, [key, value]) => {
+        return (
+          modelSum + (key !== "time" && key !== field ? (value as number) : 0)
+        );
+      }, 0)
+    );
+  }, 0);
+};
 
-...
+// Helper to format large numbers
+const formatLargeNumber = (num: number): string => {
+  if (num >= 1000000) {
+    return `${(num / 1000000).toFixed(2)}M`;
+  } else if (num >= 1000) {
+    return `${(num / 1000).toFixed(1)}K`;
+  }
+  return num.toString();
+};
 
-// In your JSX (replacing the original <select> block)
-<select
-  value={timeRange}
-  onChange={(e) => setTimeRange(e.target.value)}
-  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
->
-  <option>Last 3 hours</option>
-  <option>Last 24 hours</option>
-  <option>Last 7 days</option>
-</select>
-  "openai-fake-provider/gpt-3-5": "#06b6d4",
-  "openai-fake-provider/gpt-3-5-turbo": "#8b5cf6",
+// Helper to format currency
+const formatCurrency = (amount: number): string => {
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 5,
+  }).format(amount);
+};
+
+// Helper to get data filtered by percentile
+const filterDataByPercentile = (data: any[], percentile: number): any[] => {
+  return data.map((item) => {
+    const filteredItem = { ...item };
+    Object.keys(filteredItem).forEach((key) => {
+      if (key !== "time" && Array.isArray(filteredItem[key])) {
+        // Sort the array and get the value at the requested percentile
+        const sortedValues = [...filteredItem[key]].sort((a, b) => a - b);
+        const index = Math.ceil((percentile / 100) * sortedValues.length) - 1;
+        filteredItem[key] = sortedValues[Math.max(0, index)] || 0;
+      }
+    });
+    return filteredItem;
+  });
 };
 
 // Tab content components
@@ -329,11 +329,16 @@ interface ModelsTabProps {
   setSelectedPercentile: (value: number) => void;
 }
 
-const ModelsTab = ({ metricData, latencyData, selectedPercentile, setSelectedPercentile }: ModelsTabProps) => {
+const ModelsTab = ({
+  metricData,
+  latencyData,
+  selectedPercentile,
+  setSelectedPercentile,
+}: ModelsTabProps) => {
   // Helper function to safely sum numeric values from an object
   const sumNumericValues = (obj: Record<string, any>): number => {
     return Object.values(obj).reduce((sum: number, val) => {
-      return typeof val === 'number' ? sum + val : sum;
+      return typeof val === "number" ? sum + val : sum;
     }, 0);
   };
 
@@ -345,7 +350,9 @@ const ModelsTab = ({ metricData, latencyData, selectedPercentile, setSelectedPer
             Total Input Tokens
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatLargeNumber(metricData.reduce((sum, item) => sum + sumNumericValues(item), 0))}
+            {formatLargeNumber(
+              metricData.reduce((sum, item) => sum + sumNumericValues(item), 0)
+            )}
           </p>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -353,79 +360,102 @@ const ModelsTab = ({ metricData, latencyData, selectedPercentile, setSelectedPer
             Total Output Tokens
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatLargeNumber(latencyData.reduce((sum, item) => sum + sumNumericValues(item), 0))}
+            {formatLargeNumber(
+              latencyData.reduce((sum, item) => sum + sumNumericValues(item), 0)
+            )}
           </p>
         </div>
-      <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">
-          Total Count of Requests
-        </h3>
-        <p className="text-2xl font-bold text-gray-900">
-          {formatLargeNumber(metricData.length * 3)}
-        </p>
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Total Count of Requests
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatLargeNumber(metricData.length * 3)}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Total Cost of Tokens
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatCurrency(
+              metricData.length * 0.05 + latencyData.length * 0.03
+            )}
+          </p>
+        </div>
       </div>
       <div className="bg-white p-6 rounded-lg border border-gray-200">
-        <h3 className="text-sm font-medium text-gray-500 mb-2">
-          Total Cost of Tokens
-        </h3>
-        <p className="text-2xl font-bold text-gray-900">
-          {formatCurrency(metricData.length * 0.05 + latencyData.length * 0.03)}
+        <h2 className="text-lg font-semibold mb-4">Model Performance</h2>
+        <p className="text-gray-600">
+          Model-specific metrics and charts will be displayed here.
         </p>
       </div>
     </div>
-    <div className="bg-white p-6 rounded-lg border border-gray-200">
-      <h2 className="text-lg font-semibold mb-4">Model Performance</h2>
-      <p className="text-gray-600">Model-specific metrics and charts will be displayed here.</p>
-    </div>
-  </div>
-);
+  );
+};
 
 const UsersTab = () => (
   <div className="bg-white p-6 rounded-lg border border-gray-200">
     <h2 className="text-lg font-semibold mb-4">User Analytics</h2>
-    <p className="text-gray-600">User-specific metrics and analytics will be displayed here.</p>
+    <p className="text-gray-600">
+      User-specific metrics and analytics will be displayed here.
+    </p>
   </div>
 );
 
 const TeamsTab = () => (
   <div className="bg-white p-6 rounded-lg border border-gray-200">
     <h2 className="text-lg font-semibold mb-4">Team Performance</h2>
-    <p className="text-gray-600">Team-based metrics and analytics will be displayed here.</p>
+    <p className="text-gray-600">
+      Team-based metrics and analytics will be displayed here.
+    </p>
   </div>
 );
 
 const ConfigTab = () => (
   <div className="bg-white p-6 rounded-lg border border-gray-200">
     <h2 className="text-lg font-semibold mb-4">Monitor Configuration</h2>
-    <p className="text-gray-600">Monitoring settings and configuration options will be displayed here.</p>
+    <p className="text-gray-600">
+      Monitoring settings and configuration options will be displayed here.
+    </p>
   </div>
 );
 
 const TABS = [
-  { id: 'models', name: 'Models' },
-  { id: 'users', name: 'Users' },
-  { id: 'teams', name: 'Teams' },
-  { id: 'config', name: 'Config' }
+  { id: "models", name: "Models" },
+  { id: "users", name: "Users" },
+  { id: "teams", name: "Teams" },
+  { id: "config", name: "Config" },
 ] as const;
 
 export default function Monitor() {
   const navigate = useNavigate();
   const [selectedMetric, setSelectedMetric] = useState("latency");
   const [selectedProvider, setSelectedProvider] = useState("all");
-  const [activeTab, setActiveTab] = useState<string>('models');
+  const [activeTab, setActiveTab] = useState<string>("models");
   const [selectedPercentile, setSelectedPercentile] = useState<number>(90);
-  
+  const [timeRange, setTimeRange] = useState("Last 3 hours");
+
   // Apply percentile filter to latency-related data
-  const filteredLatencyData = filterDataByPercentile(latencyData, selectedPercentile);
-  const filteredTimeToFirstTokenData = filterDataByPercentile(timeToFirstTokenData, selectedPercentile);
-  const filteredInterTokenLatencyData = filterDataByPercentile(interTokenLatencyData, selectedPercentile);
+  const filteredLatencyData = filterDataByPercentile(
+    latencyData,
+    selectedPercentile
+  );
+  const filteredTimeToFirstTokenData = filterDataByPercentile(
+    timeToFirstTokenData,
+    selectedPercentile
+  );
+  const filteredInterTokenLatencyData = filterDataByPercentile(
+    interTokenLatencyData,
+    selectedPercentile
+  );
 
   return (
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <button 
+          <button
             type="button"
             className="text-gray-500 hover:text-gray-700"
             onClick={() => navigate(-1)}
@@ -452,7 +482,11 @@ export default function Monitor() {
             <Filter className="w-4 h-4" />
             <span>Filter</span>
           </button>
-          <select className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+          <select
+            value={timeRange}
+            onChange={(e) => setTimeRange(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          >
             <option>Last 3 hours</option>
             <option>Last 24 hours</option>
             <option>Last 7 days</option>
@@ -496,8 +530,8 @@ export default function Monitor() {
             onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg ${
               activeTab === tab.id
-                ? 'bg-white border-t border-l border-r border-gray-200 text-blue-600 border-b-2 border-b-blue-600'
-                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                ? "bg-white border-t border-l border-r border-gray-200 text-blue-600 border-b-2 border-b-blue-600"
+                : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             }`}
           >
             {tab.name}
@@ -507,49 +541,53 @@ export default function Monitor() {
 
       {/* Tab Content */}
       <div className="mt-6">
-        {activeTab === 'models' && (
-          <ModelsTab 
-            metricData={metricData} 
-            latencyData={latencyData} 
-            selectedPercentile={selectedPercentile} 
-            setSelectedPercentile={setSelectedPercentile} 
+        {activeTab === "models" && (
+          <ModelsTab
+            metricData={metricData}
+            latencyData={latencyData}
+            selectedPercentile={selectedPercentile}
+            setSelectedPercentile={setSelectedPercentile}
           />
         )}
-        {activeTab === 'users' && <UsersTab />}
-        {activeTab === 'teams' && <TeamsTab />}
-        {activeTab === 'config' && <ConfigTab />}
-        
-        {!['models', 'users', 'teams', 'config'].includes(activeTab) && (
+        {activeTab === "users" && <UsersTab />}
+        {activeTab === "teams" && <TeamsTab />}
+        {activeTab === "config" && <ConfigTab />}
+
+        {!["models", "users", "teams", "config"].includes(activeTab) && (
           <div className="bg-white p-6 rounded-lg border border-gray-200">
             <h2 className="text-lg font-semibold mb-4">Select a View</h2>
-            <p className="text-gray-600">Please select a view from the tabs above to see the relevant metrics.</p>
+            <p className="text-gray-600">
+              Please select a view from the tabs above to see the relevant
+              metrics.
+            </p>
           </div>
         )}
       </div>
-          {/* Models Summary Statistics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                Total Input Tokens
-              </h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatLargeNumber(sumFieldValues(metricData, 'time'))}
-              </p>
-            </div>
-            <div className="bg-white p-6 rounded-lg border border-gray-200">
-              <h3 className="text-sm font-medium text-gray-500 mb-2">
-                Total Output Tokens
-              </h3>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatLargeNumber(sumFieldValues(latencyData, 'time'))}
-              </p>
-            </div>
+
+      {/* Models Summary Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Total Input Tokens
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatLargeNumber(sumFieldValues(metricData, "time"))}
+          </p>
+        </div>
+        <div className="bg-white p-6 rounded-lg border border-gray-200">
+          <h3 className="text-sm font-medium text-gray-500 mb-2">
+            Total Output Tokens
+          </h3>
+          <p className="text-2xl font-bold text-gray-900">
+            {formatLargeNumber(sumFieldValues(outputData, "time"))}
+          </p>
+        </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <h3 className="text-sm font-medium text-gray-500 mb-2">
             Total Count of Requests
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatLargeNumber(metricData.length * 3)} {/* Assuming 3 requests per timepoint as an example */}
+            {formatLargeNumber(metricData.length * 3)}
           </p>
         </div>
         <div className="bg-white p-6 rounded-lg border border-gray-200">
@@ -557,7 +595,10 @@ export default function Monitor() {
             Total Cost of Tokens
           </h3>
           <p className="text-2xl font-bold text-gray-900">
-            {formatCurrency(sumFieldValues(metricData, 'time') * 0.00002 + sumFieldValues(latencyData, 'time') * 0.00003)}
+            {formatCurrency(
+              sumFieldValues(metricData, "time") * 0.00002 +
+                sumFieldValues(outputData, "time") * 0.00003
+            )}
           </p>
         </div>
       </div>
@@ -577,29 +618,19 @@ export default function Monitor() {
               <XAxis dataKey="time" />
               <YAxis />
               <Tooltip />
-//</BarChart> Update the data structure to include percentile-specific fields:
-const interTokenLatencyData = [
-  { time: "08:00", P99: 350, P90: 300, P50: 250 },
-  // ... etc
-];
+              <Legend />
+              {Object.keys(colors).map((key) => (
+                <Bar
+                  key={key}
+                  dataKey={key}
+                  fill={colors[key as keyof typeof colors]}
+                />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-// …later, in your JSX render/return:
-
-<ResponsiveContainer width="100%" height={400}>
-  <LineChart data={interTokenLatencyData}>
-    <CartesianGrid strokeDasharray="3 3" />
-    <XAxis dataKey="time" />
-    <YAxis />
-    <Tooltip />
-    <Line
-      type="monotone"
-      // now driven by the selectedPercentile state (e.g. "P99", "P90", "P50")
-      dataKey={selectedPercentile}
-      stroke="#3b82f6"
-      strokeWidth={2}
-    />
-  </LineChart>
-</ResponsiveContainer>
+        {/* Output Tokens Chart */}
         <div className="bg-white p-6 rounded-lg border border-gray-200">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">
@@ -758,13 +789,15 @@ const interTokenLatencyData = [
             </h3>
             <div className="flex space-x-1">
               {["P99", "P90", "P50"].map((percentile) => {
-                const percentileValue = parseInt(percentile.slice(1));
+                const percentileValue = percentile;
                 return (
                   <button
                     key={percentile}
-                    onClick={() => setSelectedPercentile(percentileValue)}
+                    onClick={() =>
+                      setSelectedPercentile(parseInt(percentile.slice(1)))
+                    }
                     className={`px-3 py-1 text-sm rounded ${
-                      selectedPercentile === percentileValue
+                      selectedPercentile === parseInt(percentile.slice(1))
                         ? "bg-blue-600 text-white"
                         : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
                     }`}
@@ -776,14 +809,20 @@ const interTokenLatencyData = [
             </div>
           </div>
           <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={filteredInterTokenLatencyData}>
+            <LineChart data={interTokenLatencyData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="time" />
               <YAxis />
               <Tooltip />
               <Line
                 type="monotone"
-                dataKey="value"
+                dataKey={
+                  selectedPercentile === 99
+                    ? "P99"
+                    : selectedPercentile === 90
+                    ? "P90"
+                    : "P50"
+                }
                 stroke="#3b82f6"
                 strokeWidth={2}
               />

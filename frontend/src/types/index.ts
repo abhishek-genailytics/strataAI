@@ -27,7 +27,7 @@ export interface UserOrganization {
   id: string;
   user_id: string;
   organization_id: string;
-  role: 'admin' | 'member';
+  role: "admin" | "member";
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -42,10 +42,80 @@ export interface AuthState {
   error: string | null;
 }
 
+// Enhanced AI Provider types
+export interface AIProvider {
+  id: string;
+  name: string;
+  display_name: string;
+  base_url: string;
+  logo_url?: string;
+  website_url?: string;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIModel {
+  id: string;
+  provider_id: string;
+  model_name: string;
+  display_name: string;
+  description?: string;
+  model_type:
+    | "chat"
+    | "completion"
+    | "embedding"
+    | "image"
+    | "audio"
+    | "multimodal";
+  max_tokens?: number;
+  max_input_tokens?: number;
+  supports_streaming: boolean;
+  supports_function_calling: boolean;
+  supports_vision: boolean;
+  supports_audio: boolean;
+  capabilities: Record<string, any>;
+  metadata: Record<string, any>;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ModelPricing {
+  id: string;
+  model_id: string;
+  pricing_type: "input" | "output" | "per_request" | "per_second";
+  price_per_unit: number;
+  unit: "token" | "request" | "second" | "minute";
+  currency: string;
+  region: string;
+  effective_from: string;
+  effective_until?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProviderCapability {
+  id: string;
+  provider_id: string;
+  capability_name: string;
+  capability_value?: Record<string, any>;
+  description?: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AIModelWithPricing extends AIModel {
+  pricing: ModelPricing[];
+}
+
 export interface ApiKey {
   id: string;
   user_id: string;
-  provider: 'openai' | 'anthropic' | 'google';
+  provider: "openai" | "anthropic" | "google";
   key_name: string;
   masked_key: string;
   is_active: boolean;
@@ -68,7 +138,7 @@ export interface RequestLog {
   tokens_used: number;
   cost: number;
   latency: number;
-  status: 'success' | 'error';
+  status: "success" | "error";
   created_at: string;
 }
 
@@ -83,19 +153,19 @@ export interface UsageMetrics {
 // Component prop types
 export interface ButtonProps {
   children: any;
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost' | 'outline';
-  size?: 'sm' | 'md' | 'lg';
+  variant?: "primary" | "secondary" | "danger" | "ghost" | "outline";
+  size?: "sm" | "md" | "lg";
   disabled?: boolean;
   loading?: boolean;
   onClick?: () => void;
-  type?: 'button' | 'submit' | 'reset';
+  type?: "button" | "submit" | "reset";
   className?: string;
 }
 
 export interface InputProps {
   label?: string;
   placeholder?: string;
-  type?: 'text' | 'email' | 'password' | 'number';
+  type?: "text" | "email" | "password" | "number";
   value?: string;
   onChange?: (value: string) => void;
   onBlur?: () => void;
@@ -110,7 +180,7 @@ export interface ModalProps {
   onClose: () => void;
   title?: string;
   children: any;
-  size?: 'sm' | 'md' | 'lg' | 'xl';
+  size?: "sm" | "md" | "lg" | "xl";
 }
 
 export interface CardProps {
@@ -122,7 +192,7 @@ export interface CardProps {
 
 // Playground types
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: "system" | "user" | "assistant";
   content: string;
   name?: string;
 }

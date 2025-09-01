@@ -9,8 +9,9 @@ class AIProviderBase(BaseModel):
     name: str
     display_name: str
     base_url: str
-    supported_models: List[str] = []
-    pricing_info: Dict[str, Any] = {}
+    logo_url: Optional[str] = None
+    website_url: Optional[str] = None
+    description: Optional[str] = None
     is_active: bool = True
 
 
@@ -22,8 +23,9 @@ class AIProviderUpdate(BaseModel):
     name: Optional[str] = None
     display_name: Optional[str] = None
     base_url: Optional[str] = None
-    supported_models: Optional[List[str]] = None
-    pricing_info: Optional[Dict[str, Any]] = None
+    logo_url: Optional[str] = None
+    website_url: Optional[str] = None
+    description: Optional[str] = None
     is_active: Optional[bool] = None
 
 

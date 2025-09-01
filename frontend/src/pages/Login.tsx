@@ -1,47 +1,47 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation, Navigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
-
-/**
- * Safely validates and normalizes a path for internal redirects.
- * Only allows paths starting with a single '/' and containing no scheme/host.
- * Falls back to defaultPath if validation fails.
- */
-const getSafePath = (candidate: unknown, defaultPath: string = '/'): string => {
-  // If not a string, return default
-  if (typeof candidate !== 'string') {
-    return defaultPath;
-  }
-  
-  // Normalize by trimming and ensuring it starts with a single '/'
-  let path = candidate.trim();
-  
-  // Reject empty strings or paths not starting with '/'
-  if (!path || !path.startsWith('/')) {
-    return defaultPath;
-  }
-  
-  // Remove any duplicate leading slashes
-  path = path.replace(/^\/+/, '/');
-  
-  // Reject URLs with schemes (e.g., http:, https:, //, etc.)
-  if (path.startsWith('//') || /^[a-z]+:/.test(path)) {
-    return defaultPath;
-  }
-  
-  // Reject URLs with host/colon before first slash
-  if (path.includes(':')) {
-    return defaultPath;
-  }
-  
-  return path || defaultPath;
-};
 import { Button, Input, Card } from "../components/ui";
 import {
   validateEmail,
   validatePassword,
   validateForm,
 } from "../utils/validation";
+
+/**
+ * Safely validates and normalizes a path for internal redirects.
+ * Only allows paths starting with a single '/' and containing no scheme/host.
+ * Falls back to defaultPath if validation fails.
+ */
+const getSafePath = (candidate: unknown, defaultPath: string = "/"): string => {
+  // If not a string, return default
+  if (typeof candidate !== "string") {
+    return defaultPath;
+  }
+
+  // Normalize by trimming and ensuring it starts with a single '/'
+  let path = candidate.trim();
+
+  // Reject empty strings or paths not starting with '/'
+  if (!path || !path.startsWith("/")) {
+    return defaultPath;
+  }
+
+  // Remove any duplicate leading slashes
+  path = path.replace(/^\/+/, "/");
+
+  // Reject URLs with schemes (e.g., http:, https:, //, etc.)
+  if (path.startsWith("//") || /^[a-z]+:/.test(path)) {
+    return defaultPath;
+  }
+
+  // Reject URLs with host/colon before first slash
+  if (path.includes(":")) {
+    return defaultPath;
+  }
+
+  return path || defaultPath;
+};
 
 export const Login: React.FC = () => {
   const { signIn, user, loading } = useAuth();
@@ -54,7 +54,7 @@ export const Login: React.FC = () => {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   // Safely get and validate the redirect path
-  const from = getSafePath(location.state?.from?.pathname, '/dashboard');
+  const from = getSafePath(location.state?.from?.pathname, "/dashboard");
 
   // Real-time validation
   useEffect(() => {

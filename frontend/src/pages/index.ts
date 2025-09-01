@@ -8,4 +8,4 @@ export { Playground } from "./Playground";
 export { SSOCallback } from "./SSOCallback";
 export { Providers } from "./Providers";
 export { ModelPricing } from "./ModelPricing";
-export { Monitor } from "./Monitor";
+export { default as Monitor } from "./Monitor";

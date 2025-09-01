@@ -1,4 +1,7 @@
 from .ai_provider import AIProvider, AIProviderCreate
+from .ai_model import AIModel, AIModelCreate, AIModelUpdate
+from .model_pricing import ModelPricing, ModelPricingCreate, ModelPricingUpdate
+from .provider_capability import ProviderCapability, ProviderCapabilityCreate, ProviderCapabilityUpdate
 from .api_key import APIKey, APIKeyCreate, APIKeyUpdate, APIKeyDisplay
 from .api_request import APIRequest, APIRequestCreate, APIRequestWithDetails
 from .api_key import *
@@ -46,6 +49,18 @@ __all__ = [
     "AIProvider",
     "AIProviderCreate",
     "AIProviderUpdate",
+    # AI Model models
+    "AIModel",
+    "AIModelCreate",
+    "AIModelUpdate",
+    # Model Pricing models
+    "ModelPricing",
+    "ModelPricingCreate",
+    "ModelPricingUpdate",
+    # Provider Capability models
+    "ProviderCapability",
+    "ProviderCapabilityCreate",
+    "ProviderCapabilityUpdate",
     # API Key models
     "APIKey",
     "APIKeyCreate",

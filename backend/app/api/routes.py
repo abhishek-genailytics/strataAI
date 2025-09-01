@@ -4,6 +4,7 @@ from app.api.api_keys import router as api_keys_router
 from app.api.chat import router as chat_router
 from app.api.usage_analytics import router as usage_analytics_router
 from app.api.organizations import router as organizations_router
+from app.api.providers import router as providers_router
 from .cache_management import router as cache_management_router
 from .error_management import router as error_management_router
 from .scalekit_auth import router as scalekit_auth_router
@@ -28,6 +29,9 @@ api_router.include_router(mock_analytics_router, prefix="/mock-analytics", tags=
 
 # Include organization management routes
 api_router.include_router(organizations_router, prefix="/organizations", tags=["organizations"])
+
+# Include provider management routes
+api_router.include_router(providers_router, prefix="/providers", tags=["providers"])
 
 # Include system management routes
 api_router.include_router(cache_management_router, prefix="/system", tags=["system"])

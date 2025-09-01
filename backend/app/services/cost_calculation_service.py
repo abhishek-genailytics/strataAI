@@ -6,6 +6,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..models import AIProvider
+from ..models.model_pricing import ModelPricing
+from ..models.ai_model import AIModel
 
 
 class CostCalculationService:
@@ -25,16 +27,40 @@ class CostCalculationService:
         }
     }
     
-    async def get_provider_pricing(self, db: AsyncSession, provider_id: UUID) -> Optional[Dict]:
-        """Get pricing information for a provider from database."""
-        result = await db.execute(
-            select(AIProvider.pricing_info, AIProvider.name)
-            .where(AIProvider.id == provider_id)
+    async def get_model_pricing(self, db: AsyncSession, model_name: str) -> Optional[Dict]:
+        """Get pricing information for a model from the new model_pricing table."""
+        from datetime import datetime
+        
+        # First find the model
+        model_result = await db.execute(
+            select(AIModel).where(AIModel.model_name == model_name, AIModel.is_active == True)
         )
-        row = result.first()
-        if row:
-            return {"pricing_info": row.pricing_info, "provider_name": row.name}
-        return None
+        model = model_result.scalars().first()
+        
+        if not model:
+            return None
+        
+        # Get current pricing for the model
+        pricing_result = await db.execute(
+            select(ModelPricing).where(
+                ModelPricing.model_id == model.id,
+                ModelPricing.is_active == True,
+                ModelPricing.effective_from <= datetime.utcnow(),
+                (ModelPricing.effective_until.is_(None) | (ModelPricing.effective_until > datetime.utcnow()))
+            )
+        )
+        pricing_records = pricing_result.scalars().all()
+        
+        if not pricing_records:
+            return None
+        
+        # Convert to the expected format
+        pricing_info = {}
+        for pricing in pricing_records:
+            if pricing.pricing_type in ["input", "output"]:
+                pricing_info[pricing.pricing_type] = float(pricing.price_per_unit)
+        
+        return pricing_info
     
     async def calculate_cost(
         self, 
@@ -45,15 +71,16 @@ class CostCalculationService:
         output_tokens: int
     ) -> Decimal:
         """Calculate cost for a request based on token usage."""
-        # Get provider pricing from database
-        provider_data = await self.get_provider_pricing(db, provider_id)
+        # Get model pricing from the new model_pricing table
+        model_pricing = await self.get_model_pricing(db, model_name)
         
-        if provider_data and provider_data["pricing_info"]:
-            pricing_info = provider_data["pricing_info"]
-            model_pricing = pricing_info.get(model_name)
-        else:
-            # Fallback to default pricing
-            provider_name = provider_data["provider_name"].lower() if provider_data else "openai"
+        if not model_pricing:
+            # Fallback to default pricing based on provider
+            provider_result = await db.execute(
+                select(AIProvider.name).where(AIProvider.id == provider_id)
+            )
+            provider = provider_result.scalars().first()
+            provider_name = provider.name.lower() if provider else "openai"
             model_pricing = self.DEFAULT_PRICING.get(provider_name, {}).get(model_name)
         
         if not model_pricing:
@@ -72,7 +99,7 @@ class CostCalculationService:
         return total_cost.quantize(Decimal('0.000001'))  # Round to 6 decimal places
     
     def get_model_pricing_info(self, provider_name: str, model_name: str) -> Optional[Dict]:
-        """Get pricing information for a specific model."""
+        """Get pricing information for a specific model (fallback method)."""
         provider_pricing = self.DEFAULT_PRICING.get(provider_name.lower())
         if provider_pricing:
             return provider_pricing.get(model_name)
