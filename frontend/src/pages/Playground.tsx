@@ -100,18 +100,10 @@ export const Playground: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="p-6 lg:p-8">
+    <>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-3">
-            <button className="text-slate-500 hover:text-slate-700 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
-              </svg>
-            </button>
-            <h1 className="text-2xl font-bold text-slate-900">Playground</h1>
-          </div>
+          <h1 className="text-3xl font-bold text-slate-900">Playground</h1>
 
           <div className="flex items-center space-x-3">
             <span className="text-sm text-slate-600 px-3 py-1 bg-white/60 rounded-full border border-slate-200">
@@ -366,7 +358,6 @@ export const Playground: React.FC = () => {
             </Card>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 };

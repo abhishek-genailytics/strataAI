@@ -661,31 +661,13 @@ export const ModelPricing: React.FC = () => {
 
   // Main connected view
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-      <div className="p-6 lg:p-8">
+    <>
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-3">
-            <button className="text-slate-500 hover:text-slate-700 transition-colors">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                />
-              </svg>
-            </button>
-            <h1 className="text-2xl font-bold text-slate-900">Models</h1>
-          </div>
+          <h1 className="text-3xl font-bold text-slate-900">Models</h1>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
           {/* Left Sidebar - Provider Selection */}
           <div className="xl:col-span-1 space-y-6">
             {/* Connected Providers */}
@@ -773,8 +755,8 @@ export const ModelPricing: React.FC = () => {
           </div>
 
           {/* Main Content - Models Table */}
-          <div className="xl:col-span-4">
-            {selectedProvider === "openai" && (
+          <div className="xl:col-span-3">
+            {selectedProvider === 'openai' && (
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 {/* Account Header */}
                 <div className="border-b border-slate-200 pb-6 mb-6">

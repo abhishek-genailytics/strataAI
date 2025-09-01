@@ -155,11 +155,11 @@ export const Dashboard: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <h1 className="text-2xl font-semibold text-gray-900">
+          <h1 className="text-3xl font-bold text-slate-900">
             Observability Dashboard
           </h1>
           <div className="mt-2 space-y-1">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-slate-600">
               Monitor your API usage, costs, and performance metrics
             </p>
             {currentOrganization ? (

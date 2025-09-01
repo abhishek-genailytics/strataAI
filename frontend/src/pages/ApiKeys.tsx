@@ -84,13 +84,13 @@ export const ApiKeys: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <>
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">API Keys</h1>
+          <h1 className="text-3xl font-bold text-slate-900">API Keys</h1>
           <div className="mt-1 space-y-1">
-            <p className="text-gray-500">
+            <p className="text-slate-600">
               Manage your API keys for different AI providers
             </p>
             {currentOrganization ? (
@@ -192,6 +192,6 @@ export const ApiKeys: React.FC = () => {
         onSuccess={handleModalSuccess}
         editingKey={editingKey}
       />
-    </div>
+    </>
   );
 };
