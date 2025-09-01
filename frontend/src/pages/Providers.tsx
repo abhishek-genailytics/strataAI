@@ -1,205 +1,207 @@
-import React, { useState, useEffect } from 'react';
-import { MagicCard } from '../components/ui/magic-card';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { apiService } from '../services/api';
-import { ApiKey } from '../types';
+import React, { useState, useEffect } from "react";
+import { MagicCard } from "../components/ui/magic-card";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { apiService } from "../services/api";
+import { ApiKey } from "../types";
 
 interface Provider {
   id: string;
   name: string;
   description: string;
   icon: string;
-  status: 'connected' | 'disconnected' | 'setup';
+  status: "connected" | "disconnected" | "setup";
   models?: string[];
   pricing?: string;
 }
 
 const providers: Provider[] = [
   {
-    id: 'openai',
-    name: 'OpenAI',
-    description: 'GPT-4, GPT-3.5 Turbo, and more advanced language models',
-    icon: '🤖',
-    status: 'disconnected',
-    models: ['gpt-4', 'gpt-3.5-turbo', 'gpt-4-turbo'],
-    pricing: 'From $0.01/1K tokens'
+    id: "openai",
+    name: "OpenAI",
+    description: "GPT-4, GPT-3.5 Turbo, and more advanced language models",
+    icon: "🤖",
+    status: "disconnected",
+    models: ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"],
+    pricing: "From $0.01/1K tokens",
   },
   {
-    id: 'anthropic',
-    name: 'Anthropic',
-    description: 'Claude 3 family of models for advanced reasoning',
-    icon: '🧠',
-    status: 'disconnected',
-    models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-    pricing: 'From $0.25/1K tokens'
+    id: "anthropic",
+    name: "Anthropic",
+    description: "Claude 3 family of models for advanced reasoning",
+    icon: "🧠",
+    status: "disconnected",
+    models: ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+    pricing: "From $0.25/1K tokens",
   },
   {
-    id: 'google',
-    name: 'Google Vertex AI',
-    description: 'Gemini Pro and other Google AI models',
-    icon: '🔍',
-    status: 'disconnected',
-    models: ['gemini-pro', 'gemini-pro-vision'],
-    pricing: 'From $0.125/1K tokens'
+    id: "google",
+    name: "Google Vertex AI",
+    description: "Gemini Pro and other Google AI models",
+    icon: "🔍",
+    status: "disconnected",
+    models: ["gemini-pro", "gemini-pro-vision"],
+    pricing: "From $0.125/1K tokens",
   },
   {
-    id: 'google-gemini',
-    name: 'Google Gemini',
-    description: 'Direct access to Gemini models via Google AI',
-    icon: '💎',
-    status: 'disconnected',
-    models: ['gemini-1.5-pro', 'gemini-1.5-flash'],
-    pricing: 'From $0.075/1K tokens'
+    id: "google-gemini",
+    name: "Google Gemini",
+    description: "Direct access to Gemini models via Google AI",
+    icon: "💎",
+    status: "disconnected",
+    models: ["gemini-1.5-pro", "gemini-1.5-flash"],
+    pricing: "From $0.075/1K tokens",
   },
   {
-    id: 'azure-openai',
-    name: 'Azure OpenAI',
-    description: 'OpenAI models hosted on Microsoft Azure',
-    icon: '☁️',
-    status: 'disconnected',
-    models: ['gpt-4', 'gpt-35-turbo'],
-    pricing: 'Enterprise pricing'
+    id: "azure-openai",
+    name: "Azure OpenAI",
+    description: "OpenAI models hosted on Microsoft Azure",
+    icon: "☁️",
+    status: "disconnected",
+    models: ["gpt-4", "gpt-35-turbo"],
+    pricing: "Enterprise pricing",
   },
   {
-    id: 'azure-foundry',
-    name: 'Azure AI Foundry',
-    description: 'Microsoft\'s AI model marketplace and platform',
-    icon: '🏗️',
-    status: 'disconnected',
-    models: ['phi-3', 'llama-2'],
-    pricing: 'Variable pricing'
+    id: "azure-foundry",
+    name: "Azure AI Foundry",
+    description: "Microsoft's AI model marketplace and platform",
+    icon: "🏗️",
+    status: "disconnected",
+    models: ["phi-3", "llama-2"],
+    pricing: "Variable pricing",
   },
   {
-    id: 'aws-bedrock',
-    name: 'AWS Bedrock',
-    description: 'Amazon\'s managed AI service with multiple providers',
-    icon: '🪨',
-    status: 'disconnected',
-    models: ['claude-3', 'titan', 'jurassic-2'],
-    pricing: 'Pay-per-use'
+    id: "aws-bedrock",
+    name: "AWS Bedrock",
+    description: "Amazon's managed AI service with multiple providers",
+    icon: "🪨",
+    status: "disconnected",
+    models: ["claude-3", "titan", "jurassic-2"],
+    pricing: "Pay-per-use",
   },
   {
-    id: 'cohere',
-    name: 'Cohere',
-    description: 'Command and Embed models for enterprise applications',
-    icon: '🔗',
-    status: 'disconnected',
-    models: ['command-r', 'command-r-plus', 'embed-v3'],
-    pricing: 'From $0.15/1K tokens'
+    id: "cohere",
+    name: "Cohere",
+    description: "Command and Embed models for enterprise applications",
+    icon: "🔗",
+    status: "disconnected",
+    models: ["command-r", "command-r-plus", "embed-v3"],
+    pricing: "From $0.15/1K tokens",
   },
   {
-    id: 'databricks',
-    name: 'Databricks',
-    description: 'DBRX and other models for data-driven applications',
-    icon: '🧱',
-    status: 'disconnected',
-    models: ['dbrx-instruct', 'dolly-v2'],
-    pricing: 'Enterprise pricing'
+    id: "databricks",
+    name: "Databricks",
+    description: "DBRX and other models for data-driven applications",
+    icon: "🧱",
+    status: "disconnected",
+    models: ["dbrx-instruct", "dolly-v2"],
+    pricing: "Enterprise pricing",
   },
   {
-    id: 'groq',
-    name: 'Groq',
-    description: 'Ultra-fast inference for Llama, Mixtral, and Gemma',
-    icon: '⚡',
-    status: 'disconnected',
-    models: ['llama-3-70b', 'mixtral-8x7b', 'gemma-7b'],
-    pricing: 'From $0.27/1K tokens'
+    id: "groq",
+    name: "Groq",
+    description: "Ultra-fast inference for Llama, Mixtral, and Gemma",
+    icon: "⚡",
+    status: "disconnected",
+    models: ["llama-3-70b", "mixtral-8x7b", "gemma-7b"],
+    pricing: "From $0.27/1K tokens",
   },
   {
-    id: 'mistral',
-    name: 'Mistral AI',
-    description: 'Mistral 7B, Mixtral, and other European AI models',
-    icon: '🌪️',
-    status: 'disconnected',
-    models: ['mistral-large', 'mixtral-8x7b', 'mistral-7b'],
-    pricing: 'From $0.25/1K tokens'
+    id: "mistral",
+    name: "Mistral AI",
+    description: "Mistral 7B, Mixtral, and other European AI models",
+    icon: "🌪️",
+    status: "disconnected",
+    models: ["mistral-large", "mixtral-8x7b", "mistral-7b"],
+    pricing: "From $0.25/1K tokens",
   },
   {
-    id: 'ai21',
-    name: 'AI21 Labs',
-    description: 'Jurassic-2 models for text generation and analysis',
-    icon: '🦕',
-    status: 'disconnected',
-    models: ['j2-ultra', 'j2-mid', 'j2-light'],
-    pricing: 'From $0.125/1K tokens'
+    id: "ai21",
+    name: "AI21 Labs",
+    description: "Jurassic-2 models for text generation and analysis",
+    icon: "🦕",
+    status: "disconnected",
+    models: ["j2-ultra", "j2-mid", "j2-light"],
+    pricing: "From $0.125/1K tokens",
   },
   {
-    id: 'anyscale',
-    name: 'Anyscale',
-    description: 'Scalable deployment of open-source models',
-    icon: '📈',
-    status: 'disconnected',
-    models: ['llama-2-70b', 'codellama-34b'],
-    pricing: 'From $0.15/1K tokens'
+    id: "anyscale",
+    name: "Anyscale",
+    description: "Scalable deployment of open-source models",
+    icon: "📈",
+    status: "disconnected",
+    models: ["llama-2-70b", "codellama-34b"],
+    pricing: "From $0.15/1K tokens",
   },
   {
-    id: 'deepinfra',
-    name: 'DeepInfra',
-    description: 'Serverless inference for popular open-source models',
-    icon: '🏗️',
-    status: 'disconnected',
-    models: ['llama-2-70b', 'falcon-40b'],
-    pricing: 'From $0.27/1K tokens'
+    id: "deepinfra",
+    name: "DeepInfra",
+    description: "Serverless inference for popular open-source models",
+    icon: "🏗️",
+    status: "disconnected",
+    models: ["llama-2-70b", "falcon-40b"],
+    pricing: "From $0.27/1K tokens",
   },
   {
-    id: 'nomic',
-    name: 'Nomic AI',
-    description: 'GPT4All and embedding models for local deployment',
-    icon: '🏠',
-    status: 'disconnected',
-    models: ['gpt4all-j', 'nomic-embed-text'],
-    pricing: 'Open source'
+    id: "nomic",
+    name: "Nomic AI",
+    description: "GPT4All and embedding models for local deployment",
+    icon: "🏠",
+    status: "disconnected",
+    models: ["gpt4all-j", "nomic-embed-text"],
+    pricing: "Open source",
   },
   {
-    id: 'ollama',
-    name: 'Ollama',
-    description: 'Run large language models locally on your machine',
-    icon: '🦙',
-    status: 'disconnected',
-    models: ['llama2', 'codellama', 'mistral'],
-    pricing: 'Free (local)'
+    id: "ollama",
+    name: "Ollama",
+    description: "Run large language models locally on your machine",
+    icon: "🦙",
+    status: "disconnected",
+    models: ["llama2", "codellama", "mistral"],
+    pricing: "Free (local)",
   },
   {
-    id: 'palm',
-    name: 'PaLM API',
-    description: 'Google\'s Pathways Language Model API',
-    icon: '🌴',
-    status: 'disconnected',
-    models: ['text-bison', 'chat-bison'],
-    pricing: 'From $0.125/1K tokens'
+    id: "palm",
+    name: "PaLM API",
+    description: "Google's Pathways Language Model API",
+    icon: "🌴",
+    status: "disconnected",
+    models: ["text-bison", "chat-bison"],
+    pricing: "From $0.125/1K tokens",
   },
   {
-    id: 'perplexity',
-    name: 'Perplexity AI',
-    description: 'Search-augmented language models for accurate responses',
-    icon: '🔍',
-    status: 'disconnected',
-    models: ['pplx-7b-online', 'pplx-70b-online'],
-    pricing: 'From $0.20/1K tokens'
+    id: "perplexity",
+    name: "Perplexity AI",
+    description: "Search-augmented language models for accurate responses",
+    icon: "🔍",
+    status: "disconnected",
+    models: ["pplx-7b-online", "pplx-70b-online"],
+    pricing: "From $0.20/1K tokens",
   },
   {
-    id: 'together',
-    name: 'Together AI',
-    description: 'Fast inference for open-source models at scale',
-    icon: '🤝',
-    status: 'disconnected',
-    models: ['llama-2-70b', 'falcon-40b', 'redpajama-7b'],
-    pricing: 'From $0.20/1K tokens'
+    id: "together",
+    name: "Together AI",
+    description: "Fast inference for open-source models at scale",
+    icon: "🤝",
+    status: "disconnected",
+    models: ["llama-2-70b", "falcon-40b", "redpajama-7b"],
+    pricing: "From $0.20/1K tokens",
   },
   {
-    id: 'self-hosted',
-    name: 'Self-Hosted',
-    description: 'Connect your own model endpoints and deployments',
-    icon: '🏠',
-    status: 'disconnected',
-    models: ['Custom endpoints'],
-    pricing: 'Your infrastructure'
-  }
+    id: "self-hosted",
+    name: "Self-Hosted",
+    description: "Connect your own model endpoints and deployments",
+    icon: "🏠",
+    status: "disconnected",
+    models: ["Custom endpoints"],
+    pricing: "Your infrastructure",
+  },
 ];
 
-export default function Providers() {
-  const [providerStatuses, setProviderStatuses] = useState<Record<string, Provider['status']>>({});
+export const Providers: React.FC = () => {
+  const [providerStatuses, setProviderStatuses] = useState<
+    Record<string, Provider["status"]>
+  >({});
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -213,16 +215,18 @@ export default function Providers() {
       const response = await apiService.getApiKeys();
       const keys = response.data || [];
       setApiKeys(keys);
-      
+
       // Update provider statuses based on API keys
-      const statuses: Record<string, Provider['status']> = {};
-      providers.forEach(provider => {
-        const hasKey = keys.some((key: ApiKey) => key.provider === provider.id && key.is_active);
-        statuses[provider.id] = hasKey ? 'connected' : 'disconnected';
+      const statuses: Record<string, Provider["status"]> = {};
+      providers.forEach((provider) => {
+        const hasKey = keys.some(
+          (key: ApiKey) => key.provider === provider.id && key.is_active
+        );
+        statuses[provider.id] = hasKey ? "connected" : "disconnected";
       });
       setProviderStatuses(statuses);
     } catch (error) {
-      console.error('Failed to fetch API keys:', error);
+      console.error("Failed to fetch API keys:", error);
     } finally {
       setLoading(false);
     }
@@ -233,25 +237,25 @@ export default function Providers() {
     window.location.href = `/api-keys?provider=${providerId}`;
   };
 
-  const getStatusColor = (status: Provider['status']) => {
+  const getStatusColor = (status: Provider["status"]) => {
     switch (status) {
-      case 'connected':
-        return 'text-green-600 bg-green-50 border-green-200';
-      case 'setup':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case "connected":
+        return "text-green-600 bg-green-50 border-green-200";
+      case "setup":
+        return "text-yellow-600 bg-yellow-50 border-yellow-200";
       default:
-        return 'text-gray-600 bg-gray-50 border-gray-200';
+        return "text-gray-600 bg-gray-50 border-gray-200";
     }
   };
 
-  const getStatusText = (status: Provider['status']) => {
+  const getStatusText = (status: Provider["status"]) => {
     switch (status) {
-      case 'connected':
-        return 'Connected';
-      case 'setup':
-        return 'Setup Required';
+      case "connected":
+        return "Connected";
+      case "setup":
+        return "Setup Required";
       default:
-        return 'Not Connected';
+        return "Not Connected";
     }
   };
 
@@ -261,7 +265,9 @@ export default function Providers() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600 dark:text-gray-400">Loading providers...</p>
+            <p className="mt-4 text-gray-600 dark:text-gray-400">
+              Loading providers...
+            </p>
           </div>
         </div>
       </div>
@@ -277,7 +283,8 @@ export default function Providers() {
             AI Providers
           </h1>
           <p className="text-gray-600 dark:text-gray-400 text-lg">
-            Configure and manage your AI provider connections. Connect to multiple providers to access different models and capabilities.
+            Configure and manage your AI provider connections. Connect to
+            multiple providers to access different models and capabilities.
           </p>
         </div>
 
@@ -289,37 +296,50 @@ export default function Providers() {
                 <span className="text-2xl">🔗</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Connected Providers</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Connected Providers
+                </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {Object.values(providerStatuses).filter(status => status === 'connected').length}
+                  {
+                    Object.values(providerStatuses).filter(
+                      (status) => status === "connected"
+                    ).length
+                  }
                 </p>
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-6">
             <div className="flex items-center">
               <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
                 <span className="text-2xl">🤖</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Available Models</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  Available Models
+                </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {providers.reduce((acc, provider) => acc + (provider.models?.length || 0), 0)}
+                  {providers.reduce(
+                    (acc, provider) => acc + (provider.models?.length || 0),
+                    0
+                  )}
                 </p>
               </div>
             </div>
           </Card>
-          
+
           <Card className="p-6">
             <div className="flex items-center">
               <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
                 <span className="text-2xl">🔑</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">API Keys</p>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  API Keys
+                </p>
                 <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {apiKeys.filter(key => key.is_active).length}
+                  {apiKeys.filter((key) => key.is_active).length}
                 </p>
               </div>
             </div>
@@ -330,7 +350,7 @@ export default function Providers() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {providers.map((provider) => {
             const status = providerStatuses[provider.id] || provider.status;
-            
+
             return (
               <MagicCard
                 key={provider.id}
@@ -348,7 +368,11 @@ export default function Providers() {
                         <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
                           {provider.name}
                         </h3>
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(status)}`}>
+                        <span
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
+                            status
+                          )}`}
+                        >
                           {getStatusText(status)}
                         </span>
                       </div>
@@ -398,11 +422,11 @@ export default function Providers() {
 
                   {/* Action Button */}
                   <Button
-                    variant={status === 'connected' ? 'secondary' : 'primary'}
+                    variant={status === "connected" ? "secondary" : "primary"}
                     size="sm"
                     className="w-full mt-auto"
                   >
-                    {status === 'connected' ? 'Manage' : 'Setup'}
+                    {status === "connected" ? "Manage" : "Setup"}
                   </Button>
                 </div>
               </MagicCard>
@@ -432,10 +456,20 @@ export default function Providers() {
                 Popular Combinations
               </h3>
               <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                <li>• <strong>OpenAI + Anthropic:</strong> Best for general use cases</li>
-                <li>• <strong>Google + Mistral:</strong> Great for multilingual tasks</li>
-                <li>• <strong>Groq + Together:</strong> Ultra-fast inference</li>
-                <li>• <strong>Ollama + Self-hosted:</strong> Complete privacy</li>
+                <li>
+                  • <strong>OpenAI + Anthropic:</strong> Best for general use
+                  cases
+                </li>
+                <li>
+                  • <strong>Google + Mistral:</strong> Great for multilingual
+                  tasks
+                </li>
+                <li>
+                  • <strong>Groq + Together:</strong> Ultra-fast inference
+                </li>
+                <li>
+                  • <strong>Ollama + Self-hosted:</strong> Complete privacy
+                </li>
               </ul>
             </div>
           </div>
@@ -443,4 +477,4 @@ export default function Providers() {
       </div>
     </div>
   );
-}
+};

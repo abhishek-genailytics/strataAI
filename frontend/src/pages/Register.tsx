@@ -1,62 +1,68 @@
-import React, { useState, useEffect } from 'react';
-import { Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Button } from '../components/ui/Button';
-import { Input } from '../components/ui/Input';
-import { Card } from '../components/ui/Card';
-import { PasswordStrengthIndicator } from '../components/ui/PasswordStrengthIndicator';
-import { 
-  validateEmail, 
-  validatePassword, 
-  validatePasswordConfirmation, 
+import React, { useState, useEffect } from "react";
+import { Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { Card } from "../components/ui/Card";
+import { PasswordStrengthIndicator } from "../components/ui/PasswordStrengthIndicator";
+import {
+  validateEmail,
+  validatePassword,
+  validatePasswordConfirmation,
   getPasswordStrength,
-  validateForm 
-} from '../utils/validation';
+  validateForm,
+} from "../utils/validation";
 
 export const Register: React.FC = () => {
   const { signUp, user, loading } = useAuth();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [passwordStrength, setPasswordStrength] = useState(getPasswordStrength(''));
+  const [passwordStrength, setPasswordStrength] = useState(
+    getPasswordStrength("")
+  );
 
   // Real-time validation
   useEffect(() => {
     const validators = {
       email: validateEmail,
       password: validatePassword,
-      confirmPassword: (value: string) => validatePasswordConfirmation(password, value),
+      confirmPassword: (value: string) =>
+        validatePasswordConfirmation(password, value),
     };
 
-    const { errors } = validateForm({ email, password, confirmPassword }, validators);
-    
+    const { errors } = validateForm(
+      { email, password, confirmPassword },
+      validators
+    );
+
     // Only show errors for touched fields
     const touchedErrors: Record<string, string> = {};
-    Object.keys(errors).forEach(field => {
+    Object.keys(errors).forEach((field) => {
       if (touched[field]) {
         touchedErrors[field] = errors[field];
       }
     });
-    
+
     setFieldErrors(touchedErrors);
-    
+
     // Update password strength
     setPasswordStrength(getPasswordStrength(password));
   }, [email, password, confirmPassword, touched]);
 
   const handleFieldBlur = (field: string) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
     setSuccess(false);
 
     // Mark all fields as touched for validation
@@ -66,16 +72,20 @@ export const Register: React.FC = () => {
     const validators = {
       email: validateEmail,
       password: validatePassword,
-      confirmPassword: (value: string) => validatePasswordConfirmation(password, value),
+      confirmPassword: (value: string) =>
+        validatePasswordConfirmation(password, value),
     };
 
-    const { isValid, errors } = validateForm({ email, password, confirmPassword }, validators);
-    
+    const { isValid, errors } = validateForm(
+      { email, password, confirmPassword },
+      validators
+    );
+
     // Also check password strength
     if (!passwordStrength.isValid) {
-      errors.password = 'Password is not strong enough';
+      errors.password = "Password is not strong enough";
     }
-    
+
     if (!isValid || !passwordStrength.isValid) {
       setFieldErrors(errors);
       setIsLoading(false);
@@ -83,13 +93,13 @@ export const Register: React.FC = () => {
     }
 
     const result = await signUp(email, password);
-    
+
     if (result.error) {
       setError(result.error);
     } else {
       setSuccess(true);
     }
-    
+
     setIsLoading(false);
   };
 
@@ -116,14 +126,15 @@ export const Register: React.FC = () => {
             Get started with your unified AI API gateway
           </p>
         </div>
-        
+
         <Card>
           {success ? (
             <div className="text-center space-y-4">
               <div className="bg-green-50 border border-green-200 text-green-600 px-4 py-3 rounded-md">
-                Registration successful! Please check your email to verify your account.
+                Registration successful! Please check your email to verify your
+                account.
               </div>
-              <Button onClick={() => window.location.href = '/login'}>
+              <Button onClick={() => (window.location.href = "/login")}>
                 Go to Login
               </Button>
             </div>
@@ -134,25 +145,25 @@ export const Register: React.FC = () => {
                   {error}
                 </div>
               )}
-              
+
               <Input
                 label="Email address"
                 type="email"
                 value={email}
                 onChange={setEmail}
-                onBlur={() => handleFieldBlur('email')}
+                onBlur={() => handleFieldBlur("email")}
                 error={fieldErrors.email}
                 required
                 placeholder="Enter your email"
               />
-              
+
               <div className="space-y-2">
                 <Input
                   label="Password"
                   type="password"
                   value={password}
                   onChange={setPassword}
-                  onBlur={() => handleFieldBlur('password')}
+                  onBlur={() => handleFieldBlur("password")}
                   error={fieldErrors.password}
                   required
                   placeholder="Enter your password"
@@ -167,26 +178,25 @@ export const Register: React.FC = () => {
                 type="password"
                 value={confirmPassword}
                 onChange={setConfirmPassword}
-                onBlur={() => handleFieldBlur('confirmPassword')}
+                onBlur={() => handleFieldBlur("confirmPassword")}
                 error={fieldErrors.confirmPassword}
                 required
                 placeholder="Confirm your password"
               />
 
-              <Button
-                type="submit"
-                loading={isLoading}
-                className="w-full"
-              >
+              <Button type="submit" loading={isLoading} className="w-full">
                 Create Account
               </Button>
             </form>
           )}
-          
+
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Already have an account?{' '}
-              <a href="/login" className="font-medium text-primary-600 hover:text-primary-500">
+              Already have an account?{" "}
+              <a
+                href="/login"
+                className="font-medium text-primary-600 hover:text-primary-500"
+              >
                 Sign in
               </a>
             </p>
@@ -196,5 +206,3 @@ export const Register: React.FC = () => {
     </div>
   );
 };
-
-export default Register;

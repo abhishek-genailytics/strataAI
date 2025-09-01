@@ -1,20 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useLocation, Navigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Button, Input, Card } from '../components/ui';
-import { validateEmail, validatePassword, validateForm } from '../utils/validation';
+import React, { useState, useEffect } from "react";
+import { Link, useLocation, Navigate } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 
-const Login: React.FC = () => {
+/**
+ * Safely validates and normalizes a path for internal redirects.
+ * Only allows paths starting with a single '/' and containing no scheme/host.
+ * Falls back to defaultPath if validation fails.
+ */
+const getSafePath = (candidate: unknown, defaultPath: string = '/'): string => {
+  // If not a string, return default
+  if (typeof candidate !== 'string') {
+    return defaultPath;
+  }
+  
+  // Normalize by trimming and ensuring it starts with a single '/'
+  let path = candidate.trim();
+  
+  // Reject empty strings or paths not starting with '/'
+  if (!path || !path.startsWith('/')) {
+    return defaultPath;
+  }
+  
+  // Remove any duplicate leading slashes
+  path = path.replace(/^\/+/, '/');
+  
+  // Reject URLs with schemes (e.g., http:, https:, //, etc.)
+  if (path.startsWith('//') || /^[a-z]+:/.test(path)) {
+    return defaultPath;
+  }
+  
+  // Reject URLs with host/colon before first slash
+  if (path.includes(':')) {
+    return defaultPath;
+  }
+  
+  return path || defaultPath;
+};
+import { Button, Input, Card } from "../components/ui";
+import {
+  validateEmail,
+  validatePassword,
+  validateForm,
+} from "../utils/validation";
+
+export const Login: React.FC = () => {
   const { signIn, user, loading } = useAuth();
   const location = useLocation();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
-  const from = location.state?.from?.pathname || '/dashboard';
+  // Safely get and validate the redirect path
+  const from = getSafePath(location.state?.from?.pathname, '/dashboard');
 
   // Real-time validation
   useEffect(() => {
@@ -24,26 +64,26 @@ const Login: React.FC = () => {
     };
 
     const { errors } = validateForm({ email, password }, validators);
-    
+
     // Only show errors for touched fields
     const touchedErrors: Record<string, string> = {};
-    Object.keys(errors).forEach(field => {
+    Object.keys(errors).forEach((field) => {
       if (touched[field]) {
         touchedErrors[field] = errors[field];
       }
     });
-    
+
     setFieldErrors(touchedErrors);
   }, [email, password, touched]);
 
   const handleFieldBlur = (field: string) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError('');
+    setError("");
 
     // Mark all fields as touched for validation
     setTouched({ email: true, password: true });
@@ -55,7 +95,7 @@ const Login: React.FC = () => {
     };
 
     const { isValid, errors } = validateForm({ email, password }, validators);
-    
+
     if (!isValid) {
       setFieldErrors(errors);
       setIsLoading(false);
@@ -63,11 +103,11 @@ const Login: React.FC = () => {
     }
 
     const result = await signIn(email, password);
-    
+
     if (result.error) {
       setError(result.error);
     }
-    
+
     setIsLoading(false);
   };
 
@@ -94,7 +134,7 @@ const Login: React.FC = () => {
             Access your unified AI API gateway
           </p>
         </div>
-        
+
         <Card>
           <form className="space-y-6" onSubmit={handleSubmit}>
             {error && (
@@ -102,47 +142,49 @@ const Login: React.FC = () => {
                 {error}
               </div>
             )}
-            
+
             <Input
               label="Email address"
               type="email"
               value={email}
               onChange={setEmail}
-              onBlur={() => handleFieldBlur('email')}
+              onBlur={() => handleFieldBlur("email")}
               error={fieldErrors.email}
               required
               placeholder="Enter your email"
             />
-            
+
             <Input
               label="Password"
               type="password"
               value={password}
               onChange={setPassword}
-              onBlur={() => handleFieldBlur('password')}
+              onBlur={() => handleFieldBlur("password")}
               error={fieldErrors.password}
               required
               placeholder="Enter your password"
             />
 
-            <Button
-              type="submit"
-              loading={isLoading}
-              className="w-full"
-            >
+            <Button type="submit" loading={isLoading} className="w-full">
               Sign in
             </Button>
           </form>
-          
+
           <div className="mt-6 text-center space-y-3">
             <p className="text-sm text-gray-600">
-              <Link to="/forgot-password" className="font-medium text-primary-600 hover:text-primary-500">
+              <Link
+                to="/forgot-password"
+                className="font-medium text-primary-600 hover:text-primary-500"
+              >
                 Forgot your password?
               </Link>
             </p>
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
-              <Link to="/register" className="font-medium text-primary-600 hover:text-primary-500">
+              Don't have an account?{" "}
+              <Link
+                to="/register"
+                className="font-medium text-primary-600 hover:text-primary-500"
+              >
                 Sign up
               </Link>
             </p>
@@ -152,5 +194,3 @@ const Login: React.FC = () => {
     </div>
   );
 };
-
-export default Login;

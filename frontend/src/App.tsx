@@ -1,14 +1,28 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './contexts/AuthContext';
-import { ToastProvider } from './contexts/ToastContext';
-import { ErrorBoundary } from './components/ErrorBoundary';
-import { OrganizationProvider } from './components/OrganizationProvider';
-import { ProtectedRoute, PublicRoute } from './components/ProtectedRoute';
-import { Layout } from './components/layout/Layout';
-import { Dashboard, Login, Register, ApiKeys, Playground, SSOCallback, Providers, ModelPricing } from './pages';
-import { ForgotPassword, UserProfile } from './components';
-import './App.css';
+import React from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { AuthProvider } from "./contexts/AuthContext";
+import { ToastProvider } from "./contexts/ToastContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
+import { OrganizationProvider } from "./components/OrganizationProvider";
+import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
+import { Layout } from "./components/layout/Layout";
+import {
+  Login,
+  Register,
+  ApiKeys,
+  Playground,
+  SSOCallback,
+  Providers,
+  ModelPricing,
+} from "./pages";
+import { Monitor } from "./pages/Monitor";
+import { ForgotPassword, UserProfile } from "./components";
+import "./App.css";
 
 function App() {
   return (
@@ -17,88 +31,207 @@ function App() {
         <AuthProvider>
           <OrganizationProvider>
             <Router>
-            <Routes>
-              {/* Public routes */}
-              <Route path="/login" element={
-                <PublicRoute>
-                  <Login />
-                </PublicRoute>
-              } />
-              <Route path="/register" element={
-                <PublicRoute>
-                  <Register />
-                </PublicRoute>
-              } />
-              <Route path="/forgot-password" element={
-                <PublicRoute>
-                  <ForgotPassword />
-                </PublicRoute>
-              } />
-              
-              {/* SSO Callback route - public but handles auth */}
-              <Route path="/auth/callback" element={<SSOCallback />} />
+              <Routes>
+                {/* Public routes */}
+                <Route
+                  path="/login"
+                  element={
+                    <PublicRoute>
+                      <Login />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/register"
+                  element={
+                    <PublicRoute>
+                      <Register />
+                    </PublicRoute>
+                  }
+                />
+                <Route
+                  path="/forgot-password"
+                  element={
+                    <PublicRoute>
+                      <ForgotPassword />
+                    </PublicRoute>
+                  }
+                />
 
-              {/* Protected routes */}
-              <Route path="/" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/analytics" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Dashboard />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/api-keys" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ApiKeys />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/playground" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Playground />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/providers" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <Providers />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/models" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <ModelPricing />
-                  </Layout>
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <Layout>
-                    <UserProfile />
-                  </Layout>
-                </ProtectedRoute>
-              } />
+                {/* SSO Callback route - public but handles auth */}
+                <Route path="/auth/callback" element={<SSOCallback />} />
 
-              {/* Catch all route */}
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
+                {/* Protected routes */}
+                <Route
+                  path="/"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Navigate to="/models" replace />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/models"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <ModelPricing />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/playground"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Playground />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/monitor"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Monitor />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/mcp-servers"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <div className="p-6">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                            MCP Servers
+                          </h1>
+                          <p className="text-gray-600">
+                            MCP Servers page coming soon...
+                          </p>
+                        </div>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/guardrails"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <div className="p-6">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                            Guardrails
+                          </h1>
+                          <p className="text-gray-600">
+                            Guardrails page coming soon...
+                          </p>
+                        </div>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/configs"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <div className="p-6">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                            Configs
+                          </h1>
+                          <p className="text-gray-600">
+                            Configs page coming soon...
+                          </p>
+                        </div>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/platform"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <div className="p-6">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                            Platform
+                          </h1>
+                          <p className="text-gray-600">
+                            Platform page coming soon...
+                          </p>
+                        </div>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/access"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <div className="p-6">
+                          <h1 className="text-2xl font-bold text-gray-900 mb-6">
+                            Access
+                          </h1>
+                          <p className="text-gray-600">
+                            Access page coming soon...
+                          </p>
+                        </div>
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/api-keys"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <ApiKeys />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/providers"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <Providers />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                      <Layout>
+                        <UserProfile />
+                      </Layout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                {/* Catch all route */}
+                <Route path="*" element={<Navigate to="/models" replace />} />
+              </Routes>
             </Router>
           </OrganizationProvider>
         </AuthProvider>

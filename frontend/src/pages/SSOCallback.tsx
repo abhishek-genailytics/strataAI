@@ -1,21 +1,27 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
-import { Card } from '../components/ui';
+import React, { useEffect, useRef, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { Card } from "../components/ui";
 
-const SSOCallback: React.FC = () => {
+export const SSOCallback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const hasProcessed = useRef(false);
   const { handleSSOCallback } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Skip if already processed or in the middle of processing
+    if (hasProcessed.current) return;
+    hasProcessed.current = true;
+
     const processCallback = async () => {
-      const code = searchParams.get('code');
-      const state = searchParams.get('state');
-      const errorParam = searchParams.get('error');
-      const errorDescription = searchParams.get('error_description');
+      const code = searchParams.get("code");
+      const state = searchParams.get("state");
+      const errorParam = searchParams.get("error");
+      const errorDescription = searchParams.get("error_description");
 
       if (errorParam) {
         setError(errorDescription || errorParam);
@@ -24,29 +30,29 @@ const SSOCallback: React.FC = () => {
       }
 
       if (!code) {
-        setError('Authorization code not found');
+        setError("Authorization code not found");
         setLoading(false);
         return;
       }
 
       try {
         const result = await handleSSOCallback(code, state || undefined);
-        
+
         if (result.error) {
           setError(result.error);
         } else {
           // Success - redirect to dashboard
-          navigate('/dashboard', { replace: true });
+          navigate("/dashboard", { replace: true });
         }
       } catch (err) {
-        setError('Authentication failed');
+        setError("Authentication failed");
       } finally {
         setLoading(false);
       }
     };
 
     processCallback();
-  }, [searchParams, handleSSOCallback, navigate]);
+  }, [location.search, handleSSOCallback, navigate]);
 
   if (loading) {
     return (
@@ -69,18 +75,26 @@ const SSOCallback: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Card className="w-full max-w-md text-center" padding>
           <div className="rounded-full bg-red-100 p-3 mx-auto mb-4 w-16 h-16 flex items-center justify-center">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            <svg
+              className="w-8 h-8 text-red-600"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </div>
           <h2 className="text-xl font-semibold text-gray-900 mb-2">
             Authentication Failed
           </h2>
-          <p className="text-gray-600 mb-6">
-            {error}
-          </p>
+          <p className="text-gray-600 mb-6">{error}</p>
           <button
-            onClick={() => navigate('/login')}
+            onClick={() => navigate("/login")}
             className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors"
           >
             Back to Login
@@ -92,5 +106,3 @@ const SSOCallback: React.FC = () => {
 
   return null;
 };
-
-export default SSOCallback;
