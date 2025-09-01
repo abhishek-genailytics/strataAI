@@ -269,5 +269,75 @@ class OrganizationService:
             logger.error(f"Error getting organization members for {org_id}: {e}")
             return []
 
+    async def get_organization_users(self, org_id: str) -> List[Dict[str, Any]]:
+        """
+        Get all users in an organization with their details.
+        
+        Args:
+            org_id: Organization ID (string)
+            
+        Returns:
+            List of users with their organization roles
+        """
+        try:
+            response = supabase.table("user_organizations").select(
+                "*, auth.users(id, email, created_at), user_profiles(full_name, avatar_url)"
+            ).eq("organization_id", org_id).eq("is_active", True).execute()
+            
+            users = []
+            for item in response.data or []:
+                user_data = item.get("users", {})
+                profile_data = item.get("user_profiles", {})
+                
+                users.append({
+                    "id": user_data.get("id"),
+                    "email": user_data.get("email"),
+                    "display_name": profile_data.get("full_name"),
+                    "role": item.get("role"),
+                    "joined_at": item.get("joined_at"),
+                    "updated_at": item.get("updated_at")
+                })
+            
+            return users
+            
+        except Exception as e:
+            logger.error(f"Error getting organization users for {org_id}: {e}")
+            return []
+
+    async def get_organization_user_by_email(self, org_id: str, email: str) -> Optional[Dict[str, Any]]:
+        """
+        Get a specific user in an organization by email.
+        
+        Args:
+            org_id: Organization ID (string)
+            email: User email
+            
+        Returns:
+            User data or None if not found
+        """
+        try:
+            response = supabase.table("user_organizations").select(
+                "*, auth.users(id, email, created_at), user_profiles(full_name, avatar_url)"
+            ).eq("organization_id", org_id).eq("is_active", True).execute()
+            
+            for item in response.data or []:
+                user_data = item.get("users", {})
+                if user_data.get("email") == email:
+                    profile_data = item.get("user_profiles", {})
+                    return {
+                        "id": user_data.get("id"),
+                        "email": user_data.get("email"),
+                        "display_name": profile_data.get("full_name"),
+                        "role": item.get("role"),
+                        "joined_at": item.get("joined_at"),
+                        "updated_at": item.get("updated_at")
+                    }
+            
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error getting organization user by email {email} for {org_id}: {e}")
+            return None
+
 # Create service instance
 organization_service = OrganizationService()

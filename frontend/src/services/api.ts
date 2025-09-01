@@ -155,8 +155,8 @@ class ApiService {
     return this.handleResponse(this.api.put(url, data));
   }
 
-  async delete<T = any>(url: string): Promise<ApiResponse<T>> {
-    return this.handleResponse(this.api.delete(url));
+  async delete<T = any>(url: string, config?: any): Promise<ApiResponse<T>> {
+    return this.handleResponse(this.api.delete(url, config));
   }
 
   // Chat Completions

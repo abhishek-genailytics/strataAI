@@ -5,6 +5,7 @@ from app.api.chat import router as chat_router
 from app.api.usage_analytics import router as usage_analytics_router
 from app.api.organizations import router as organizations_router
 from app.api.providers import router as providers_router
+from app.api.user_management import router as user_management_router
 from .cache_management import router as cache_management_router
 from .error_management import router as error_management_router
 from .mock_analytics import router as mock_analytics_router
@@ -28,6 +29,9 @@ api_router.include_router(mock_analytics_router, prefix="/mock-analytics", tags=
 
 # Include organization management routes
 api_router.include_router(organizations_router, prefix="/organizations", tags=["organizations"])
+
+# Include user management routes
+api_router.include_router(user_management_router, prefix="/user-management", tags=["user-management"])
 
 # Include provider management routes
 api_router.include_router(providers_router, prefix="/providers", tags=["providers"])

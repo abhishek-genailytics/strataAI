@@ -1,192 +1,208 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Plus, MoreHorizontal, Trash2, Edit, Shield } from 'lucide-react';
-import { Button } from '../components/ui/Button';
-import { Card } from '../components/ui/Card';
-import { Modal } from '../components/ui/Modal';
-import { Input } from '../components/ui/Input';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useState, useEffect } from "react";
+import {
+  Search,
+  Plus,
+  MoreHorizontal,
+  Trash2,
+  Edit,
+  Shield,
+  Copy,
+  Check,
+} from "lucide-react";
+import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
+import { Modal } from "../components/ui/Modal";
+import { Input } from "../components/ui/Input";
+import { useAuth } from "../contexts/AuthContext";
+import {
+  userManagementService,
+  User,
+  PersonalAccessToken,
+  PersonalAccessTokenCreate,
+} from "../services/userManagementService";
+import { useToast } from "../contexts/ToastContext";
 
-interface User {
-  id: string;
-  email: string;
-  displayName?: string;
-  role: 'ADMIN' | 'MEMBER';
-  status: 'active' | 'pending' | 'inactive';
-  createdAt: string;
-  lastActivity?: string;
-}
-
-interface PersonalAccessToken {
-  id: string;
-  name: string;
-  maskedToken: string;
-  createdAt: string;
-  expirationDate?: string;
-  lastUsed?: string;
-  scopes: string[];
-}
+// Remove the duplicate interfaces since we're importing them from the service
 
 export const Access: React.FC = () => {
   const { user, currentOrganization } = useAuth();
-  const [activeTab, setActiveTab] = useState<'users' | 'tokens'>('users');
-  const [users, setUsers] = useState<User[]>([
-    {
-      id: '1',
-      email: 'abhishek@genailytics.com',
-      displayName: '',
-      role: 'ADMIN',
-      status: 'active',
-      createdAt: '2024-08-15T10:30:00Z'
-    },
-    {
-      id: '2',
-      email: 'abhishek.lagran@gmail.com',
-      displayName: 'Abhishek Shah',
-      role: 'MEMBER',
-      status: 'active',
-      createdAt: '2024-08-20T14:15:00Z'
-    },
-    {
-      id: '3',
-      email: 'tfy-user@truefoundry.com',
-      displayName: '',
-      role: 'ADMIN',
-      status: 'active',
-      createdAt: '2024-08-25T09:45:00Z'
-    }
-  ]);
-  
-  const [tokens, setTokens] = useState<PersonalAccessToken[]>([
-    {
-      id: '1',
-      name: 'default-cmegy6t3zdf5401syap4te7ty',
-      maskedToken: 'pat_cmegy...te7ty',
-      createdAt: '2025-08-25T15:42:00Z',
-      scopes: ['api:read', 'api:write']
-    }
-  ]);
-
-  const [searchTerm, setSearchTerm] = useState('');
-  const [showInviteModal, setShowInviteModal] = useState(false);
+  const { showToast } = useToast();
+  const [activeTab, setActiveTab] = useState<"users" | "tokens">("users");
+  const [users, setUsers] = useState<User[]>([]);
+  const [tokens, setTokens] = useState<PersonalAccessToken[]>([]);
+  const [newlyCreatedToken, setNewlyCreatedToken] =
+    useState<PersonalAccessTokenCreate | null>(null);
   const [showTokenModal, setShowTokenModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<'ADMIN' | 'MEMBER'>('MEMBER');
-  const [tokenName, setTokenName] = useState('');
-  const [tokenExpiration, setTokenExpiration] = useState('');
+  const [showNewTokenModal, setShowNewTokenModal] = useState(false);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showInviteModal, setShowInviteModal] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteRole, setInviteRole] = useState<"admin" | "member">("member");
+  const [tokenName, setTokenName] = useState("");
+  const [tokenExpiration, setTokenExpiration] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
   const tabs = [
-    { key: 'users', label: 'Users', icon: '👥' },
-    { key: 'tokens', label: 'Personal Access Tokens', icon: '🔑' }
+    { key: "users", label: "Users", icon: "👥" },
+    { key: "tokens", label: "Personal Access Tokens", icon: "🔑" },
   ];
 
-  const filteredUsers = users.filter(u => 
-    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
+  // Load data on component mount
+  useEffect(() => {
+    loadUsers();
+    loadTokens();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const usersData = await userManagementService.getOrganizationUsers();
+      setUsers(usersData);
+    } catch (error) {
+      console.error("Failed to load users:", error);
+      showToast("error", "Failed to load users");
+    }
+  };
+
+  const loadTokens = async () => {
+    try {
+      const tokensData = await userManagementService.getPersonalAccessTokens();
+      setTokens(tokensData);
+    } catch (error) {
+      console.error("Failed to load tokens:", error);
+      showToast("error", "Failed to load tokens");
+    }
+  };
+
+  const filteredUsers = users.filter(
+    (u) =>
+      u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      u.displayName?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredTokens = tokens.filter(t => 
+  const filteredTokens = tokens.filter((t) =>
     t.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleInviteUser = async () => {
     if (!inviteEmail) return;
-    
+
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newUser: User = {
-        id: Date.now().toString(),
+    try {
+      await userManagementService.inviteUser({
         email: inviteEmail,
-        displayName: '',
         role: inviteRole,
-        status: 'pending',
-        createdAt: new Date().toISOString()
-      };
-      setUsers(prev => [...prev, newUser]);
+      });
+
+      showToast("success", "User invitation sent successfully");
       setShowInviteModal(false);
-      setInviteEmail('');
-      setInviteRole('MEMBER');
+      setInviteEmail("");
+      setInviteRole("member");
+
+      // Reload users to show the new invitation
+      await loadUsers();
+    } catch (error: any) {
+      console.error("Failed to invite user:", error);
+      showToast(
+        "error",
+        error.response?.data?.detail || "Failed to invite user"
+      );
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   };
 
   const handleCreateToken = async () => {
     if (!tokenName) return;
-    
+
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      const newToken: PersonalAccessToken = {
-        id: Date.now().toString(),
+    try {
+      const newToken = await userManagementService.createPersonalAccessToken({
         name: tokenName,
-        maskedToken: `pat_${Math.random().toString(36).substring(2, 8)}...${Math.random().toString(36).substring(2, 6)}`,
-        createdAt: new Date().toISOString(),
-        expirationDate: tokenExpiration || undefined,
-        scopes: ['api:read', 'api:write']
-      };
-      setTokens(prev => [...prev, newToken]);
+        expiresAt: tokenExpiration || undefined,
+      });
+
+      setNewlyCreatedToken(newToken);
+      setShowNewTokenModal(true);
       setShowTokenModal(false);
-      setTokenName('');
-      setTokenExpiration('');
+      setTokenName("");
+      setTokenExpiration("");
+
+      // Reload tokens
+      await loadTokens();
+    } catch (error: any) {
+      console.error("Failed to create token:", error);
+      showToast(
+        "error",
+        error.response?.data?.detail || "Failed to create token"
+      );
+    } finally {
       setIsLoading(false);
-    }, 1000);
-  };
-
-  const handleDeleteUser = (userId: string) => {
-    if (window.confirm('Are you sure you want to remove this user?')) {
-      setUsers(prev => prev.filter(u => u.id !== userId));
     }
   };
 
-  const handleDeleteToken = (tokenId: string) => {
-    if (window.confirm('Are you sure you want to delete this token? This action cannot be undone.')) {
-      setTokens(prev => prev.filter(t => t.id !== tokenId));
+  const handleDeleteUser = async (userId: string) => {
+    if (window.confirm("Are you sure you want to remove this user?")) {
+      try {
+        await userManagementService.removeUser(userId);
+        showToast("success", "User removed successfully");
+        await loadUsers();
+      } catch (error: any) {
+        console.error("Failed to remove user:", error);
+        showToast(
+          "error",
+          error.response?.data?.detail || "Failed to remove user"
+        );
+      }
     }
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
-  const getRoleColor = (role: string) => {
-    switch (role) {
-      case 'ADMIN':
-        return 'bg-blue-100 text-blue-800 border border-blue-200';
-      case 'MEMBER':
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border border-gray-200';
+  const handleDeleteToken = async (tokenId: string) => {
+    if (
+      window.confirm(
+        "Are you sure you want to delete this token? This action cannot be undone."
+      )
+    ) {
+      try {
+        await userManagementService.deletePersonalAccessToken(tokenId);
+        showToast("success", "Token deleted successfully");
+        await loadTokens();
+      } catch (error: any) {
+        console.error("Failed to delete token:", error);
+        showToast(
+          "error",
+          error.response?.data?.detail || "Failed to delete token"
+        );
+      }
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'inactive':
-        return 'bg-red-100 text-red-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+  const handleCopyToken = async (token: string) => {
+    try {
+      await navigator.clipboard.writeText(token);
+      setCopiedToken(token);
+      showToast("success", "Token copied to clipboard");
+      setTimeout(() => setCopiedToken(null), 2000);
+    } catch (error) {
+      console.error("Failed to copy token:", error);
+      showToast("error", "Failed to copy token");
     }
   };
+
+  // Helper functions moved to userManagementService
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Access Management</h1>
+          <h1 className="text-3xl font-bold text-slate-900">
+            Access Management
+          </h1>
           <p className="text-slate-600 mt-1">
-            Manage users and access tokens for your {currentOrganization ? 'organization' : 'workspace'}
+            Manage users and access tokens for your{" "}
+            {currentOrganization ? "organization" : "workspace"}
           </p>
         </div>
       </div>
@@ -200,8 +216,8 @@ export const Access: React.FC = () => {
               onClick={() => setActiveTab(tab.key as any)}
               className={`py-4 px-2 border-b-2 font-medium text-sm transition-all duration-200 flex items-center space-x-2 ${
                 activeTab === tab.key
-                  ? 'border-blue-500 text-blue-600 bg-blue-50/50'
-                  : 'border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300'
+                  ? "border-blue-500 text-blue-600 bg-blue-50/50"
+                  : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
               }`}
             >
               <span className="text-lg">{tab.icon}</span>
@@ -213,12 +229,14 @@ export const Access: React.FC = () => {
 
       {/* Content */}
       <Card className="bg-white shadow-lg border border-slate-200 min-h-[600px]">
-        {activeTab === 'users' && (
+        {activeTab === "users" && (
           <div className="space-y-6">
             {/* Users Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">ALL USERS</h2>
+                <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">
+                  ALL USERS
+                </h2>
                 <p className="text-sm text-slate-500">
                   Showing 1 to {filteredUsers.length} of {users.length} results
                 </p>
@@ -234,7 +252,10 @@ export const Access: React.FC = () => {
                     className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
                   />
                 </div>
-                <Button onClick={() => setShowInviteModal(true)} className="bg-slate-900 hover:bg-slate-800">
+                <Button
+                  onClick={() => setShowInviteModal(true)}
+                  className="bg-slate-900 hover:bg-slate-800"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   Invite User
                 </Button>
@@ -262,13 +283,18 @@ export const Access: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
                   {filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-slate-50 transition-colors duration-150">
+                    <tr
+                      key={user.id}
+                      className="hover:bg-slate-50 transition-colors duration-150"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
                             {user.email[0].toUpperCase()}
                           </div>
-                          <span className="text-sm font-medium text-slate-900">{user.email}</span>
+                          <span className="text-sm font-medium text-slate-900">
+                            {user.email}
+                          </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -283,13 +309,17 @@ export const Access: React.FC = () => {
                             </div>
                           )}
                           <span className="text-sm text-slate-900">
-                            {user.displayName || '—'}
+                            {user.displayName || "—"}
                           </span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${getRoleColor(user.role)}`}>
-                          {user.role}
+                        <span
+                          className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-wide ${userManagementService.getRoleColor(
+                            user.role
+                          )}`}
+                        >
+                          {user.role.toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -332,11 +362,23 @@ export const Access: React.FC = () => {
                   </select>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" disabled className="text-slate-400">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="text-slate-400"
+                  >
                     Previous
                   </Button>
-                  <span className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium">1</span>
-                  <Button variant="ghost" size="sm" disabled className="text-slate-400">
+                  <span className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium">
+                    1
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="text-slate-400"
+                  >
                     Next
                   </Button>
                 </div>
@@ -345,14 +387,17 @@ export const Access: React.FC = () => {
           </div>
         )}
 
-        {activeTab === 'tokens' && (
+        {activeTab === "tokens" && (
           <div className="space-y-6">
             {/* Tokens Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">ALL PATs</h2>
+                <h2 className="text-lg font-semibold text-slate-900 uppercase tracking-wide">
+                  ALL PATs
+                </h2>
                 <p className="text-sm text-slate-500">
-                  Showing 1 to {filteredTokens.length} of {tokens.length} results
+                  Showing 1 to {filteredTokens.length} of {tokens.length}{" "}
+                  results
                 </p>
               </div>
               <div className="flex items-center space-x-3">
@@ -366,7 +411,10 @@ export const Access: React.FC = () => {
                     className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
                   />
                 </div>
-                <Button onClick={() => setShowTokenModal(true)} className="bg-slate-900 hover:bg-slate-800">
+                <Button
+                  onClick={() => setShowTokenModal(true)}
+                  className="bg-slate-900 hover:bg-slate-800"
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   New Personal Access Token
                 </Button>
@@ -394,24 +442,35 @@ export const Access: React.FC = () => {
                 </thead>
                 <tbody className="bg-white divide-y divide-slate-100">
                   {filteredTokens.map((token) => (
-                    <tr key={token.id} className="hover:bg-slate-50 transition-colors duration-150">
+                    <tr
+                      key={token.id}
+                      className="hover:bg-slate-50 transition-colors duration-150"
+                    >
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-600 rounded-full flex items-center justify-center text-white font-semibold text-sm mr-3">
                             🔑
                           </div>
                           <div>
-                            <div className="text-sm font-medium text-slate-900">{token.name}</div>
-                            <div className="text-xs font-mono text-slate-500">{token.maskedToken}</div>
+                            <div className="text-sm font-medium text-slate-900">
+                              {token.name}
+                            </div>
+                            <div className="text-xs font-mono text-slate-500">
+                              {token.tokenPrefix}
+                            </div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-slate-900">{formatDate(token.createdAt)}</span>
+                        <span className="text-sm text-slate-900">
+                          {userManagementService.formatDate(token.createdAt)}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-sm text-slate-900">
-                          {token.expirationDate ? formatDate(token.expirationDate) : '—'}
+                          {token.expiresAt
+                            ? userManagementService.formatDate(token.expiresAt)
+                            : "—"}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
@@ -447,11 +506,23 @@ export const Access: React.FC = () => {
                   </select>
                 </div>
                 <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" disabled className="text-slate-400">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="text-slate-400"
+                  >
                     Previous
                   </Button>
-                  <span className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium">1</span>
-                  <Button variant="ghost" size="sm" disabled className="text-slate-400">
+                  <span className="px-3 py-1 bg-blue-600 text-white rounded text-sm font-medium">
+                    1
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled
+                    className="text-slate-400"
+                  >
                     Next
                   </Button>
                 </div>
@@ -477,18 +548,20 @@ export const Access: React.FC = () => {
             onChange={setInviteEmail}
             required
           />
-          
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Role *
             </label>
             <select
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as 'ADMIN' | 'MEMBER')}
+              onChange={(e) =>
+                setInviteRole(e.target.value as "admin" | "member")
+              }
               className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
-              <option value="MEMBER">Member</option>
-              <option value="ADMIN">Admin</option>
+              <option value="member">Member</option>
+              <option value="admin">Admin</option>
             </select>
           </div>
 
@@ -523,9 +596,12 @@ export const Access: React.FC = () => {
             <div className="flex items-start">
               <Shield className="w-5 h-5 text-blue-600 mr-3 mt-0.5" />
               <div>
-                <h4 className="text-sm font-medium text-blue-900">Security Notice</h4>
+                <h4 className="text-sm font-medium text-blue-900">
+                  Security Notice
+                </h4>
                 <p className="text-sm text-blue-700 mt-1">
-                  Personal access tokens function like passwords. Keep them secure and don't share them.
+                  Personal access tokens function like passwords. Keep them
+                  secure and don't share them.
                 </p>
               </div>
             </div>
@@ -538,7 +614,7 @@ export const Access: React.FC = () => {
             onChange={setTokenName}
             required
           />
-          
+
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-2">
               Expiration (Optional)
@@ -565,6 +641,105 @@ export const Access: React.FC = () => {
               disabled={!tokenName}
             >
               Create Token
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* New Token Modal */}
+      <Modal
+        isOpen={showNewTokenModal}
+        onClose={() => setShowNewTokenModal(false)}
+        title="Personal Access Token Created"
+        size="lg"
+      >
+        <div className="space-y-4">
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <Shield className="w-5 h-5 text-green-600 mr-3 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-medium text-green-900">
+                  Token Created Successfully
+                </h4>
+                <p className="text-sm text-green-700 mt-1">
+                  Make sure to copy your token now. You won't be able to see it
+                  again!
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {newlyCreatedToken && (
+            <>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Token Name
+                </label>
+                <div className="text-sm text-slate-900 bg-slate-50 px-3 py-2 rounded border">
+                  {newlyCreatedToken.name}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Personal Access Token
+                </label>
+                <div className="flex items-center space-x-2">
+                  <div className="flex-1 bg-slate-50 px-3 py-2 rounded border font-mono text-sm">
+                    {newlyCreatedToken.token}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleCopyToken(newlyCreatedToken.token)}
+                    className="flex-shrink-0"
+                  >
+                    {copiedToken === newlyCreatedToken.token ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Scopes
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {newlyCreatedToken.scopes.map((scope) => (
+                    <span
+                      key={scope}
+                      className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
+                    >
+                      {scope}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {newlyCreatedToken.expiresAt && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Expires At
+                  </label>
+                  <div className="text-sm text-slate-900 bg-slate-50 px-3 py-2 rounded border">
+                    {userManagementService.formatDate(
+                      newlyCreatedToken.expiresAt
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          <div className="flex justify-end space-x-3 pt-4">
+            <Button
+              onClick={() => setShowNewTokenModal(false)}
+              className="bg-slate-900 hover:bg-slate-800"
+            >
+              Done
             </Button>
           </div>
         </div>
