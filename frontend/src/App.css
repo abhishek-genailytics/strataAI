@@ -2,6 +2,17 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Ensure proper sidebar spacing */
+.sidebar-space {
+  margin-left: 16rem; /* 256px - width of sidebar */
+}
+
+@media (max-width: 768px) {
+  .sidebar-space {
+    margin-left: 0;
+  }
+}
+
 /* Custom scrollbar styles */
 ::-webkit-scrollbar {
   width: 8px;

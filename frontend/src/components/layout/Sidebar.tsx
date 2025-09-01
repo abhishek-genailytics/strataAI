@@ -13,6 +13,7 @@ import {
   ChevronUp,
   ChevronDown,
   Key,
+  ArrowLeft,
 } from "lucide-react";
 
 interface SidebarItem {
@@ -103,14 +104,14 @@ export const Sidebar: React.FC = () => {
     isCollapsed: boolean = false
   ) => (
     <div key={section.title} className="mb-8">
-      <div className="flex items-center justify-between px-4 mb-4">
-        <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+      <div className="flex items-center justify-between px-4 mb-3">
+        <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider">
           {section.title}
         </h3>
         {section.collapsible && (
           <button
             onClick={() => setAiGatewayCollapsed(!aiGatewayCollapsed)}
-            className="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-1.5 rounded-lg hover:bg-gray-100"
+            className="text-gray-400 hover:text-gray-600 p-1 rounded hover:bg-gray-100 transition-all duration-200"
           >
             {isCollapsed ? (
               <ChevronDown className="w-4 h-4" />
@@ -122,16 +123,16 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {(!section.collapsible || !isCollapsed) && (
-        <nav className="space-y-1 px-3">
+        <nav className="space-y-2 px-3">
           {section.items.map((item) => (
             <Link
               key={item.name}
               to={item.href}
               className={`${
                 isActive(item.href)
-                  ? "bg-blue-600 text-white shadow-lg border-l-4 border-blue-400"
-                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-900 border-l-4 border-transparent hover:border-gray-300"
-              } group flex items-center px-3 py-3 text-sm font-medium rounded-r-lg transition-all duration-200`}
+                  ? "bg-blue-600 text-white shadow-md"
+                  : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+              } group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 transform hover:translate-x-1`}
             >
               <span className={`mr-3 flex-shrink-0 ${
                 isActive(item.href) 
@@ -154,7 +155,7 @@ export const Sidebar: React.FC = () => {
   );
 
   return (
-    <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 shadow-lg transform md:translate-x-0 transition-transform duration-300 ease-in-out">
+    <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 shadow-xl">
       <div className="flex flex-col h-full">
         {/* Header */}
         <div className="flex items-center h-16 px-4 bg-white border-b border-gray-200">
@@ -162,27 +163,14 @@ export const Sidebar: React.FC = () => {
             <button 
               type="button"
               onClick={() => window.history.back()}
-              className="text-gray-400 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-lg p-2 hover:bg-gray-100 transition-all duration-200"
+              className="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-lg p-2 hover:bg-gray-100 transition-all duration-200"
               aria-label="Go back"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
-                />
-              </svg>
+              <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-lg font-bold text-gray-900">StrataAI</h1>
-              <span className="text-xs text-blue-600 font-medium">v0.79.7</span>
+              <h1 className="text-xl font-bold text-gray-900">StrataAI</h1>
+              <span className="text-xs text-blue-600 font-semibold">v0.79.7</span>
             </div>
           </div>
         </div>
