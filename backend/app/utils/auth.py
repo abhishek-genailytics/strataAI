@@ -38,7 +38,7 @@ def verify_jwt_token(token: str) -> Dict[str, Any]:
 
 def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
     """
-    Extract user information from JWT token.
+    Extract user information from JWT token using Supabase client.
     
     Args:
         token: JWT token string
@@ -47,19 +47,21 @@ def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
         User information dict or None if invalid
     """
     try:
-        payload = verify_jwt_token(token)
-        user_id = payload.get("sub")
-        email = payload.get("email")
+        # Remove 'Bearer ' prefix if present
+        if token.startswith('Bearer '):
+            token = token[7:]
         
-        if not user_id:
-            return None
-            
-        return {
-            "id": user_id,
-            "email": email,
-            "role": payload.get("role", "authenticated")
-        }
-    except AuthError:
+        # Use Supabase client to get user from token
+        response = supabase.auth.get_user(token)
+        
+        if response.user:
+            return {
+                "id": response.user.id,
+                "email": response.user.email,
+                "role": "authenticated"
+            }
+        return None
+    except Exception:
         return None
 
 async def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:

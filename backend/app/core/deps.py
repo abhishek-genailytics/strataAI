@@ -1,9 +1,10 @@
-from typing import Optional, Dict, Any
-from fastapi import Depends, HTTPException, status
+from typing import Optional, Dict, Any, List
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.utils.supabase_client import supabase
 from app.utils.auth import get_user_from_token, get_user_by_id
 from app.services.organization_service import organization_service
+from app.models.organization import Organization
 from uuid import UUID
 import logging
 
@@ -16,6 +17,11 @@ class CurrentUser:
         self.user_id = user_id
         self.email = email
         self.organizations = organizations or []
+    
+    @property
+    def id(self) -> UUID:
+        """Alias for user_id to maintain compatibility."""
+        return self.user_id
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)

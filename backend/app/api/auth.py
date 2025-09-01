@@ -54,13 +54,22 @@ async def register(user_data: UserRegister):
                 detail="Registration failed"
             )
         
-        # User profile will be automatically created by the database trigger
-        # But we can update it with additional data if needed
-        profile_data = {
-            "full_name": user_data.full_name
-        }
-        
-        supabase.table("user_profiles").update(profile_data).eq("id", auth_response.user.id).execute()
+        # Ensure user profile exists (trigger should create it, but let's be safe)
+        try:
+            # Try to update first (in case profile exists)
+            profile_data = {
+                "full_name": user_data.full_name
+            }
+            supabase.table("user_profiles").update(profile_data).eq("id", auth_response.user.id).execute()
+        except Exception:
+            # If update fails, try to insert (in case trigger didn't work)
+            profile_data = {
+                "id": auth_response.user.id,
+                "full_name": user_data.full_name,
+                "created_at": auth_response.user.created_at,
+                "updated_at": auth_response.user.updated_at
+            }
+            supabase.table("user_profiles").insert(profile_data).execute()
         
         return AuthResponse(
             access_token=auth_response.session.access_token,

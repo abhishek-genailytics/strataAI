@@ -180,10 +180,24 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             error_code="INTERNAL_ERROR",
         )
         
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content=error_response.dict(),
-        )
+        # Ensure the response content is JSON serializable
+        try:
+            content = error_response.dict()
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content=content,
+            )
+        except (TypeError, ValueError) as e:
+            # Fallback to a simple error response if serialization fails
+            logger.error(f"Error serializing error response: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "message": "An unexpected error occurred. Please try again later.",
+                    "request_id": request_id,
+                    "error_code": "INTERNAL_ERROR",
+                },
+            )
 
 
 class RequestContextMiddleware(BaseHTTPMiddleware):

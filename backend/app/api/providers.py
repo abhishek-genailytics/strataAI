@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from ..core.deps import get_db, get_current_user
+from ..core.deps import get_current_user
 from ..models.ai_provider import AIProvider, AIProviderCreate, AIProviderUpdate
 from ..models.ai_model import AIModel, AIModelCreate, AIModelUpdate
 from ..models.model_pricing import ModelPricing, ModelPricingCreate, ModelPricingUpdate
@@ -20,7 +20,6 @@ router = APIRouter()
 # Provider endpoints
 @router.get("/", response_model=List[AIProvider])
 async def list_providers(
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     active_only: bool = Query(True, description="Return only active providers")
 ):
@@ -33,7 +32,6 @@ async def list_providers(
 @router.get("/{provider_id}", response_model=AIProvider)
 async def get_provider(
     provider_id: UUID,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific AI provider."""
@@ -44,7 +42,6 @@ async def get_provider(
 @router.post("/", response_model=AIProvider)
 async def create_provider(
     provider_data: AIProviderCreate,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Create a new AI provider."""
@@ -56,7 +53,6 @@ async def create_provider(
 async def update_provider(
     provider_id: UUID,
     provider_data: AIProviderUpdate,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Update an AI provider."""
@@ -68,7 +64,6 @@ async def update_provider(
 @router.get("/{provider_id}/models", response_model=List[AIModel])
 async def list_provider_models(
     provider_id: UUID,
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     model_type: Optional[str] = Query(None, description="Filter by model type")
 ):
@@ -83,7 +78,6 @@ async def list_provider_models(
 
 @router.get("/models", response_model=List[dict])
 async def list_all_models_with_pricing(
-    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
     model_type: Optional[str] = Query(None, description="Filter by model type")

@@ -108,9 +108,11 @@ class ApiService {
 
   private getCurrentUserId(): string | null {
     try {
-      const authData = localStorage.getItem("auth");
-      if (authData) {
-        const parsed = JSON.parse(authData);
+      const supabaseAuth = localStorage.getItem(
+        "sb-pucvturagllxmkvmwoqv-auth-token"
+      );
+      if (supabaseAuth) {
+        const parsed = JSON.parse(supabaseAuth);
         return parsed.user?.id || null;
       }
     } catch {

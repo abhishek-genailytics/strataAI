@@ -25,7 +25,7 @@ import { useToast } from "../contexts/ToastContext";
 // Remove the duplicate interfaces since we're importing them from the service
 
 export const Access: React.FC = () => {
-  const { user, currentOrganization } = useAuth();
+  const { currentOrganization } = useAuth();
   const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState<"users" | "tokens">("users");
   const [users, setUsers] = useState<User[]>([]);
@@ -319,7 +319,9 @@ export const Access: React.FC = () => {
                             user.role
                           )}`}
                         >
-                          {user.role.toUpperCase()}
+                          {user.role === "no_org"
+                            ? "NO ORG"
+                            : user.role.toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">

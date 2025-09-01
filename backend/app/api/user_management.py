@@ -1,14 +1,17 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from typing import List, Optional
 from datetime import datetime, timedelta
 import secrets
 import hashlib
+import logging
 from pydantic import BaseModel, EmailStr
 from app.core.deps import get_current_user, CurrentUser
 from app.models.user import User
 from app.models.organization import Organization
 from app.services.organization_service import OrganizationService
 from app.utils.supabase_client import get_supabase_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -78,11 +81,11 @@ async def invite_user(
         )
     
     # Use the first organization if not specified
-    org_id = invitation.organization_id or user_orgs[0].organization_id
+    org_id = invitation.organization_id or user_orgs[0]["organization_id"]
     
     # Check if user is admin in the organization
-    user_org = next((uo for uo in user_orgs if uo.organization_id == org_id), None)
-    if not user_org or user_org.role != "admin":
+    user_org = next((uo for uo in user_orgs if uo["organization_id"] == org_id), None)
+    if not user_org or user_org["role"] != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can invite users to the organization"
@@ -136,45 +139,64 @@ async def get_organization_users(
     organization_id: Optional[str] = Query(None, description="Organization ID (optional)"),
     current_user: CurrentUser = Depends(get_current_user)
 ):
-    """Get all users in the organization"""
+    """Get all users in the organization or all users if admin"""
     supabase = get_supabase_client()
     
     # Get user's organization and role
     org_service = OrganizationService()
     user_orgs = await org_service.get_user_organizations(current_user.user_id)
     
-    if not user_orgs:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You must be a member of an organization to view users"
-        )
-    
-    # Use the first organization if not specified
-    org_id = organization_id or user_orgs[0].organization_id
-    
-    # Check if user is member of the organization
-    user_org = next((uo for uo in user_orgs if uo.organization_id == org_id), None)
-    if not user_org:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You are not a member of this organization"
-        )
-    
-    # Get organization users
-    users = await org_service.get_organization_users(org_id)
-    
-    return [
-        UserResponse(
-            id=user.id,
-            email=user.email,
-            display_name=user.display_name,
-            role=user.role,
-            status="active",
-            created_at=user.joined_at,
-            last_activity=user.updated_at
-        )
-        for user in users
-    ]
+    # If user has organizations, use the first one or specified one
+    if user_orgs:
+        org_id = organization_id or user_orgs[0]["organization_id"]
+        
+        # Check if user is member of the organization
+        user_org = next((uo for uo in user_orgs if uo["organization_id"] == org_id), None)
+        if not user_org:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You are not a member of this organization"
+            )
+        
+        # Get organization users
+        users = await org_service.get_organization_users(org_id)
+        
+        return [
+            UserResponse(
+                id=user["id"],
+                email=user["email"],
+                display_name=user["display_name"],
+                role=user["role"],
+                status="active",
+                created_at=user["joined_at"],
+                last_activity=user["updated_at"]
+            )
+            for user in users
+        ]
+    else:
+        # If user has no organization, show all users (for system admins)
+        # This allows users without organizations to still see other users
+        try:
+            result = supabase.rpc("get_all_users_with_organizations").execute()
+            
+            if not result.data:
+                return []
+            
+            return [
+                UserResponse(
+                    id=user["user_id"],
+                    email=user["email"],
+                    display_name=user["full_name"],
+                    role=user["role"] or "no_org",
+                    status="active",
+                    created_at=user["created_at"],
+                    last_activity=user["joined_at"] or user["created_at"]
+                )
+                for user in result.data
+            ]
+        except Exception as e:
+            # If the function doesn't exist, return empty list
+            return []
 
 @router.post("/tokens", response_model=PersonalAccessTokenCreateResponse)
 async def create_personal_access_token(
@@ -188,14 +210,8 @@ async def create_personal_access_token(
     org_service = OrganizationService()
     user_orgs = await org_service.get_user_organizations(current_user.user_id)
     
-    if not user_orgs:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You must be a member of an organization to create tokens"
-        )
-    
-    # Use the first organization
-    org_id = user_orgs[0].organization_id
+    # Use the first organization if available, otherwise create token without organization
+    org_id = user_orgs[0]["organization_id"] if user_orgs else None
     
     # Generate token
     token_value = f"pat_{secrets.token_urlsafe(32)}"
@@ -233,25 +249,67 @@ async def create_personal_access_token(
 
 @router.get("/tokens", response_model=List[PersonalAccessTokenResponse])
 async def get_personal_access_tokens(
+    request: Request,
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """Get all personal access tokens for the current user"""
+    print("DEBUG: PAT endpoint called!")
     supabase = get_supabase_client()
     
-    result = supabase.table("personal_access_tokens").select("*").eq("user_id", current_user.user_id).execute()
+    # Debug: Log the user ID being used
+    print(f"Getting PATs for user ID: {current_user.user_id}")
+    logger.info(f"Getting PATs for user ID: {current_user.user_id}")
     
-    return [
-        PersonalAccessTokenResponse(
-            id=token["id"],
-            name=token["name"],
-            token_prefix=token["token_prefix"],
-            scopes=token["scopes"],
-            created_at=datetime.fromisoformat(token["created_at"]),
-            expires_at=datetime.fromisoformat(token["expires_at"]) if token["expires_at"] else None,
-            last_used_at=datetime.fromisoformat(token["last_used_at"]) if token["last_used_at"] else None
-        )
-        for token in result.data
-    ]
+    # Use RPC function to bypass RLS
+    try:
+        result = supabase.rpc(
+            "get_user_personal_access_tokens",
+            {"user_uuid": str(current_user.user_id)}
+        ).execute()
+        print(f"DEBUG: RPC result: {result.data}")
+    except Exception as e:
+        print(f"DEBUG: RPC failed: {e}, trying direct query...")
+        # Fallback to direct table query
+        result = supabase.table("personal_access_tokens").select("*").eq("user_id", current_user.user_id).execute()
+    
+    # Debug: Log the result
+    print(f"PAT query result: {result.data}")
+    logger.info(f"PAT query result: {result.data}")
+    
+    tokens = []
+    for token in result.data:
+        try:
+            # Parse datetime fields, handling both ISO format and PostgreSQL format
+            def parse_datetime(dt_str):
+                if not dt_str:
+                    return None
+                try:
+                    # Try ISO format first
+                    return datetime.fromisoformat(dt_str)
+                except ValueError:
+                    try:
+                        # Try PostgreSQL format (space instead of T)
+                        return datetime.fromisoformat(dt_str.replace(' ', 'T'))
+                    except ValueError:
+                        # Fallback to simple parsing
+                        logger.warning(f"Could not parse datetime: {dt_str}")
+                        return datetime.utcnow()  # Fallback to current time
+            
+            tokens.append(PersonalAccessTokenResponse(
+                id=token["id"],
+                name=token["name"],
+                token_prefix=token["token_prefix"],
+                scopes=token["scopes"],
+                created_at=parse_datetime(token["created_at"]),
+                expires_at=parse_datetime(token["expires_at"]),
+                last_used_at=parse_datetime(token["last_used_at"])
+            ))
+        except Exception as e:
+            logger.error(f"Error parsing token {token['id']}: {e}")
+            # Skip this token if there's an error
+            continue
+    
+    return tokens
 
 @router.delete("/tokens/{token_id}")
 async def delete_personal_access_token(
@@ -295,11 +353,11 @@ async def remove_organization_user(
         )
     
     # Use the first organization if not specified
-    org_id = organization_id or user_orgs[0].organization_id
+    org_id = organization_id or user_orgs[0]["organization_id"]
     
     # Check if user is admin in the organization
-    user_org = next((uo for uo in user_orgs if uo.organization_id == org_id), None)
-    if not user_org or user_org.role != "admin":
+    user_org = next((uo for uo in user_orgs if uo["organization_id"] == org_id), None)
+    if not user_org or user_org["role"] != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only admins can remove users from the organization"

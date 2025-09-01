@@ -4,7 +4,7 @@ export interface User {
   id: string;
   email: string;
   displayName?: string;
-  role: "admin" | "member";
+  role: "admin" | "member" | "no_org";
   status: "active" | "pending" | "inactive";
   createdAt: string;
   lastActivity?: string;
@@ -177,6 +177,8 @@ class UserManagementService {
         return "bg-blue-100 text-blue-800 border border-blue-200";
       case "member":
         return "bg-gray-100 text-gray-800 border border-gray-200";
+      case "no_org":
+        return "bg-orange-100 text-orange-800 border border-orange-200";
       default:
         return "bg-gray-100 text-gray-800 border border-gray-200";
     }

@@ -62,7 +62,7 @@ class ErrorLoggingService:
         # Log to structured logger
         self.logger.error(
             f"Application error: {error.message}",
-            extra=error_data
+            extra={k: v for k, v in error_data.items() if k != 'message'}
         )
         
         # Store in database for monitoring
@@ -120,7 +120,7 @@ class ErrorLoggingService:
         # Log to structured logger
         self.logger.warning(
             f"Validation error: {len(validation_details)} field(s) failed validation",
-            extra=error_data
+            extra={k: v for k, v in error_data.items() if k != 'message'}
         )
         
         # Store in database
@@ -165,7 +165,7 @@ class ErrorLoggingService:
         # Log to structured logger
         self.logger.critical(
             f"Unexpected error: {str(error)}",
-            extra=error_data
+            extra={k: v for k, v in error_data.items() if k != 'message'}
         )
         
         # Store in database

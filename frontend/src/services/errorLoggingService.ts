@@ -1,7 +1,7 @@
 /**
  * Client-side error logging service for StrataAI.
  */
-import { ErrorInfo } from 'react';
+import { ErrorInfo } from "react";
 
 export interface ClientErrorLog {
   error: Error;
@@ -33,12 +33,12 @@ class ErrorLoggingService {
    */
   async logClientError(errorLog: ClientErrorLog): Promise<string> {
     const errorId = this.generateErrorId();
-    
+
     try {
       // Prepare error data for logging
       const errorData = {
         id: errorId,
-        type: 'client_error',
+        type: "client_error",
         message: errorLog.error.message,
         stack: errorLog.error.stack,
         componentStack: errorLog.errorInfo?.componentStack,
@@ -50,27 +50,27 @@ class ErrorLoggingService {
       };
 
       // Log to console for development
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         console.group(`🚨 Client Error [${errorId}]`);
-        console.error('Error:', errorLog.error);
-        console.error('Error Info:', errorLog.errorInfo);
-        console.error('Context:', errorData);
+        console.error("Error:", errorLog.error);
+        console.error("Error Info:", errorLog.errorInfo);
+        console.error("Context:", errorData);
         console.groupEnd();
       }
 
       // Send to backend error logging endpoint
-      await this.sendErrorToBackend('/api/errors/client', errorData);
+      await this.sendErrorToBackend("/errors/client", errorData);
 
       // Store in local storage as backup
       this.storeErrorLocally(errorData);
 
       return errorId;
     } catch (loggingError) {
-      console.error('Failed to log client error:', loggingError);
+      console.error("Failed to log client error:", loggingError);
       // Still store locally even if backend fails
       this.storeErrorLocally({
         id: errorId,
-        type: 'client_error',
+        type: "client_error",
         message: errorLog.error.message,
         timestamp: errorLog.timestamp,
         failed_to_send: true,
@@ -84,11 +84,11 @@ class ErrorLoggingService {
    */
   async logApiError(errorLog: ApiErrorLog): Promise<string> {
     const errorId = this.generateErrorId();
-    
+
     try {
       const errorData = {
         id: errorId,
-        type: 'api_error',
+        type: "api_error",
         message: errorLog.message,
         status: errorLog.status,
         endpoint: errorLog.endpoint,
@@ -100,23 +100,25 @@ class ErrorLoggingService {
       };
 
       // Log to console for development
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NODE_ENV === "development") {
         console.group(`🔥 API Error [${errorId}]`);
-        console.error(`${errorLog.method} ${errorLog.endpoint} - ${errorLog.status}`);
-        console.error('Message:', errorLog.message);
-        console.error('Response:', errorLog.responseData);
+        console.error(
+          `${errorLog.method} ${errorLog.endpoint} - ${errorLog.status}`
+        );
+        console.error("Message:", errorLog.message);
+        console.error("Response:", errorLog.responseData);
         console.groupEnd();
       }
 
       // Send to backend
-      await this.sendErrorToBackend('/api/errors/api', errorData);
+      await this.sendErrorToBackend("/errors/api", errorData);
 
       // Store locally
       this.storeErrorLocally(errorData);
 
       return errorId;
     } catch (loggingError) {
-      console.error('Failed to log API error:', loggingError);
+      console.error("Failed to log API error:", loggingError);
       return errorId;
     }
   }
@@ -124,13 +126,16 @@ class ErrorLoggingService {
   /**
    * Log a user action error (form validation, user input errors, etc.)
    */
-  async logUserError(message: string, context?: Record<string, any>): Promise<string> {
+  async logUserError(
+    message: string,
+    context?: Record<string, any>
+  ): Promise<string> {
     const errorId = this.generateErrorId();
-    
+
     try {
       const errorData = {
         id: errorId,
-        type: 'user_error',
+        type: "user_error",
         message,
         timestamp: new Date().toISOString(),
         url: window.location.href,
@@ -139,11 +144,11 @@ class ErrorLoggingService {
       };
 
       // Only log to backend for user errors, not console (too noisy)
-      await this.sendErrorToBackend('/api/errors/user', errorData);
+      await this.sendErrorToBackend("/errors/user", errorData);
 
       return errorId;
     } catch (loggingError) {
-      console.error('Failed to log user error:', loggingError);
+      console.error("Failed to log user error:", loggingError);
       return errorId;
     }
   }
@@ -153,18 +158,18 @@ class ErrorLoggingService {
    */
   async getErrorStatistics(): Promise<any> {
     try {
-      const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${baseURL}/api/v1/api/errors/statistics`, {
+      const baseURL = process.env.REACT_APP_API_URL || "http://localhost:8000";
+      const response = await fetch(`${baseURL}/api/v1/errors/statistics`, {
         headers: this.getAuthHeaders(),
       });
-      
+
       if (!response.ok) {
         throw new Error(`Failed to fetch error statistics: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
-      console.error('Failed to fetch error statistics:', error);
+      console.error("Failed to fetch error statistics:", error);
       return null;
     }
   }
@@ -172,19 +177,22 @@ class ErrorLoggingService {
   /**
    * Send error data to backend with retry logic
    */
-  private async sendErrorToBackend(endpoint: string, errorData: any): Promise<void> {
+  private async sendErrorToBackend(
+    endpoint: string,
+    errorData: any
+  ): Promise<void> {
     let lastError: Error | null = null;
-    
+
     // Get the backend base URL
-    const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+    const baseURL = process.env.REACT_APP_API_URL || "http://localhost:8000";
     const fullUrl = `${baseURL}/api/v1${endpoint}`;
-    
+
     for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
       try {
         const response = await fetch(fullUrl, {
-          method: 'POST',
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             ...this.getAuthHeaders(),
           },
           body: JSON.stringify(errorData),
@@ -198,10 +206,12 @@ class ErrorLoggingService {
         return;
       } catch (error) {
         lastError = error as Error;
-        
+
         if (attempt < this.maxRetries) {
           // Wait before retrying
-          await new Promise(resolve => setTimeout(resolve, this.retryDelay * attempt));
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.retryDelay * attempt)
+          );
         }
       }
     }
@@ -217,13 +227,13 @@ class ErrorLoggingService {
     try {
       const key = `error_log_${Date.now()}`;
       const existingLogs = this.getLocalErrorLogs();
-      
+
       // Limit local storage to last 50 errors
       const logs = [...existingLogs, { key, data: errorData }].slice(-50);
-      
-      localStorage.setItem('strata_ai_error_logs', JSON.stringify(logs));
+
+      localStorage.setItem("strata_ai_error_logs", JSON.stringify(logs));
     } catch (error) {
-      console.error('Failed to store error locally:', error);
+      console.error("Failed to store error locally:", error);
     }
   }
 
@@ -232,7 +242,7 @@ class ErrorLoggingService {
    */
   private getLocalErrorLogs(): Array<{ key: string; data: any }> {
     try {
-      const logs = localStorage.getItem('strata_ai_error_logs');
+      const logs = localStorage.getItem("strata_ai_error_logs");
       return logs ? JSON.parse(logs) : [];
     } catch {
       return [];
@@ -244,9 +254,9 @@ class ErrorLoggingService {
    */
   clearLocalErrorLogs(): void {
     try {
-      localStorage.removeItem('strata_ai_error_logs');
+      localStorage.removeItem("strata_ai_error_logs");
     } catch (error) {
-      console.error('Failed to clear local error logs:', error);
+      console.error("Failed to clear local error logs:", error);
     }
   }
 
@@ -262,10 +272,15 @@ class ErrorLoggingService {
    */
   private getCurrentUserId(): string | null {
     try {
-      const authData = localStorage.getItem('auth');
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        return parsed.user?.id || null;
+      // Get user ID from Supabase auth storage
+      const supabaseAuth = localStorage.getItem(
+        "sb-pucvturagllxmkvmwoqv-auth-token"
+      );
+      if (supabaseAuth) {
+        const parsed = JSON.parse(supabaseAuth);
+        if (parsed.user?.id) {
+          return parsed.user.id;
+        }
       }
     } catch {
       // Ignore parsing errors
@@ -278,19 +293,22 @@ class ErrorLoggingService {
    */
   private getAuthHeaders(): Record<string, string> {
     const headers: Record<string, string> = {};
-    
+
     try {
-      const authData = localStorage.getItem('auth');
-      if (authData) {
-        const parsed = JSON.parse(authData);
-        if (parsed.token) {
-          headers['Authorization'] = `Bearer ${parsed.token}`;
+      // Get token from Supabase auth storage
+      const supabaseAuth = localStorage.getItem(
+        "sb-pucvturagllxmkvmwoqv-auth-token"
+      );
+      if (supabaseAuth) {
+        const parsed = JSON.parse(supabaseAuth);
+        if (parsed.access_token) {
+          headers["Authorization"] = `Bearer ${parsed.access_token}`;
         }
       }
     } catch {
       // Ignore auth errors
     }
-    
+
     return headers;
   }
 }

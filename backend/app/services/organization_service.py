@@ -151,7 +151,17 @@ class OrganizationService:
         """
         try:
             response = supabase.rpc("get_user_organizations", {"user_uuid": str(user_id)}).execute()
-            return response.data or []
+            
+            # Convert the response to the expected format
+            organizations = []
+            for item in response.data or []:
+                organizations.append({
+                    "organization_id": item.get("organization_id"),
+                    "organization_name": item.get("organization_name"),
+                    "role": item.get("user_role")
+                })
+            
+            return organizations
             
         except Exception as e:
             logger.error(f"Error getting user organizations for {user_id}: {e}")
@@ -280,19 +290,30 @@ class OrganizationService:
             List of users with their organization roles
         """
         try:
+            # Use a direct SQL query to get the correct structure
+            response = supabase.rpc(
+                "get_organization_users_with_details",
+                {"org_uuid": org_id}
+            ).execute()
+            
+            if response.data:
+                return response.data
+            
+            # Fallback to the original method if RPC doesn't exist
             response = supabase.table("user_organizations").select(
                 "*, auth.users(id, email, created_at), user_profiles(full_name, avatar_url)"
             ).eq("organization_id", org_id).eq("is_active", True).execute()
             
             users = []
             for item in response.data or []:
-                user_data = item.get("users", {})
-                profile_data = item.get("user_profiles", {})
+                # Handle the nested structure from Supabase
+                user_data = item.get("users", {}) if isinstance(item.get("users"), dict) else {}
+                profile_data = item.get("user_profiles", {}) if isinstance(item.get("user_profiles"), dict) else {}
                 
                 users.append({
-                    "id": user_data.get("id"),
-                    "email": user_data.get("email"),
-                    "display_name": profile_data.get("full_name"),
+                    "id": user_data.get("id") or item.get("user_id"),
+                    "email": user_data.get("email") or item.get("user_email"),
+                    "display_name": profile_data.get("full_name") or item.get("full_name"),
                     "role": item.get("role"),
                     "joined_at": item.get("joined_at"),
                     "updated_at": item.get("updated_at")
