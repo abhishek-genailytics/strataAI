@@ -5,7 +5,6 @@ export { Login } from "./Login";
 export { Register } from "./Register";
 export { ApiKeys } from "./ApiKeys";
 export { Playground } from "./Playground";
-export { SSOCallback } from "./SSOCallback";
 export { Providers } from "./Providers";
 export { ModelPricing } from "./ModelPricing";
 export { default as Monitor } from "./Monitor";

@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, EmailStr
 from app.utils.supabase_client import supabase
 from app.core.middleware import require_auth
+from app.models.user import UserProfileCreate, UserProfileUpdate
 from gotrue.errors import AuthApiError
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
@@ -24,7 +25,7 @@ class AuthResponse(BaseModel):
 @router.post("/register", response_model=AuthResponse)
 async def register(user_data: UserRegister):
     """
-    Register a new user with Supabase Auth.
+    Register a new user with Supabase Auth and create user profile.
     
     Args:
         user_data: User registration data
@@ -53,15 +54,13 @@ async def register(user_data: UserRegister):
                 detail="Registration failed"
             )
         
-        # Create user record in users table
-        user_record = {
-            "id": auth_response.user.id,
-            "email": auth_response.user.email,
-            "full_name": user_data.full_name,
-            "created_at": auth_response.user.created_at
+        # User profile will be automatically created by the database trigger
+        # But we can update it with additional data if needed
+        profile_data = {
+            "full_name": user_data.full_name
         }
         
-        supabase.table("users").insert(user_record).execute()
+        supabase.table("user_profiles").update(profile_data).eq("id", auth_response.user.id).execute()
         
         return AuthResponse(
             access_token=auth_response.session.access_token,
@@ -110,16 +109,16 @@ async def login(user_data: UserLogin):
                 detail="Invalid credentials"
             )
         
-        # Get user details from users table
-        user_response = supabase.table("users").select("*").eq("id", auth_response.user.id).execute()
-        user_details = user_response.data[0] if user_response.data else {}
+        # Get user profile details
+        profile_response = supabase.table("user_profiles").select("*").eq("id", auth_response.user.id).execute()
+        profile_data = profile_response.data[0] if profile_response.data else {}
         
         return AuthResponse(
             access_token=auth_response.session.access_token,
             user={
                 "id": auth_response.user.id,
                 "email": auth_response.user.email,
-                "full_name": user_details.get("full_name", "")
+                "full_name": profile_data.get("full_name", "")
             }
         )
         
@@ -137,17 +136,19 @@ async def login(user_data: UserLogin):
 @router.post("/logout")
 async def logout(current_user: Dict[str, Any] = Depends(require_auth)):
     """
-    Logout current user by invalidating their session.
+    Logout current user.
     
     Args:
-        current_user: Current authenticated user
+        current_user: Current authenticated user from middleware
         
     Returns:
         Success message
     """
     try:
-        supabase.auth.sign_out()
-        return {"message": "Successfully logged out"}
+        # Supabase handles logout automatically when token expires
+        # This endpoint can be used for additional cleanup if needed
+        return {"message": "Logged out successfully"}
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -157,31 +158,29 @@ async def logout(current_user: Dict[str, Any] = Depends(require_auth)):
 @router.get("/me")
 async def get_current_user(current_user: Dict[str, Any] = Depends(require_auth)):
     """
-    Get current authenticated user information.
+    Get current authenticated user information with profile.
     
     Args:
         current_user: Current authenticated user from middleware
         
     Returns:
-        User information
+        User information with profile
     """
     try:
-        # Get detailed user information from users table
-        user_response = supabase.table("users").select("*").eq("id", current_user["id"]).execute()
+        # Get user profile with organizations using the database function
+        response = supabase.rpc(
+            "get_user_profile_with_organizations",
+            {"user_uuid": current_user["id"]}
+        ).execute()
         
-        if not user_response.data:
+        if not response.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found"
             )
         
-        user_data = user_response.data[0]
-        return {
-            "id": user_data["id"],
-            "email": user_data["email"],
-            "full_name": user_data.get("full_name", ""),
-            "created_at": user_data.get("created_at")
-        }
+        user_data = response.data[0]
+        return user_data
         
     except HTTPException:
         raise
@@ -193,7 +192,7 @@ async def get_current_user(current_user: Dict[str, Any] = Depends(require_auth))
 
 @router.put("/profile")
 async def update_profile(
-    profile_data: Dict[str, Any],
+    profile_data: UserProfileUpdate,
     current_user: Dict[str, Any] = Depends(require_auth)
 ):
     """
@@ -204,12 +203,11 @@ async def update_profile(
         current_user: Current authenticated user
         
     Returns:
-        Updated user information
+        Updated user profile
     """
     try:
-        # Update user record in users table
-        allowed_fields = ["full_name"]
-        update_data = {k: v for k, v in profile_data.items() if k in allowed_fields}
+        # Convert Pydantic model to dict, excluding None values
+        update_data = profile_data.model_dump(exclude_unset=True)
         
         if not update_data:
             raise HTTPException(
@@ -217,12 +215,12 @@ async def update_profile(
                 detail="No valid fields to update"
             )
         
-        response = supabase.table("users").update(update_data).eq("id", current_user["id"]).execute()
+        response = supabase.table("user_profiles").update(update_data).eq("id", current_user["id"]).execute()
         
         if not response.data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="User not found"
+                detail="User profile not found"
             )
         
         return response.data[0]
@@ -233,4 +231,25 @@ async def update_profile(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to update profile"
+        )
+
+@router.post("/reset-password")
+async def reset_password(email: str):
+    """
+    Send password reset email.
+    
+    Args:
+        email: User email address
+        
+    Returns:
+        Success message
+    """
+    try:
+        supabase.auth.reset_password_email(email)
+        return {"message": "Password reset email sent"}
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send password reset email"
         )

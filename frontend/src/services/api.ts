@@ -1,15 +1,15 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-import { 
-  ApiKey, 
-  RequestLog, 
-  UsageMetrics, 
+import axios, { AxiosInstance, AxiosResponse, AxiosError } from "axios";
+import {
+  ApiKey,
+  RequestLog,
+  UsageMetrics,
   ApiResponse,
   PlaygroundRequest,
   PlaygroundResponse,
   ProviderModelInfo,
-  UserOrganization
-} from '../types';
-import { errorLoggingService } from './errorLoggingService';
+  UserOrganization,
+} from "../types";
+import { errorLoggingService } from "./errorLoggingService";
 
 class ApiService {
   private api: AxiosInstance;
@@ -17,10 +17,11 @@ class ApiService {
 
   constructor() {
     this.api = axios.create({
-      baseURL: (process.env.REACT_APP_API_URL || 'http://localhost:8000') + '/api/v1',
+      baseURL:
+        (process.env.REACT_APP_API_URL || "http://localhost:8000") + "/api/v1",
       timeout: 10000,
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
     });
 
@@ -31,17 +32,19 @@ class ApiService {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
-        
+
         // Add request ID for tracking
-        const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        config.headers['X-Request-ID'] = requestId;
+        const requestId = `req_${Date.now()}_${Math.random()
+          .toString(36)
+          .substr(2, 9)}`;
+        config.headers["X-Request-ID"] = requestId;
         (config as any).metadata = { requestId, startTime: Date.now() };
-        
+
         // Add organization context header if available
         if (this.organizationId) {
-          config.headers['X-Organization-ID'] = this.organizationId;
+          config.headers["X-Organization-ID"] = this.organizationId;
         }
-        
+
         return config;
       },
       (error) => {
@@ -61,7 +64,9 @@ class ApiService {
 
   private getAuthToken(): string | null {
     // Get token from Supabase auth or localStorage
-    const supabaseAuth = localStorage.getItem('sb-pucvturagllxmkvmwoqv-auth-token');
+    const supabaseAuth = localStorage.getItem(
+      "sb-pucvturagllxmkvmwoqv-auth-token"
+    );
     if (supabaseAuth) {
       try {
         const parsed = JSON.parse(supabaseAuth);
@@ -77,13 +82,13 @@ class ApiService {
     // Extract request metadata
     const config = error.config as any;
     const requestId = config?.metadata?.requestId;
-    
+
     // Log the API error
     await errorLoggingService.logApiError({
       message: error.message,
       status: error.response?.status || 0,
-      endpoint: error.config?.url || 'unknown',
-      method: error.config?.method?.toUpperCase() || 'UNKNOWN',
+      endpoint: error.config?.url || "unknown",
+      method: error.config?.method?.toUpperCase() || "UNKNOWN",
       timestamp: new Date().toISOString(),
       userId: this.getCurrentUserId(),
       requestId,
@@ -99,12 +104,12 @@ class ApiService {
   private handleAuthError() {
     // Clear auth data and redirect to login
     localStorage.clear();
-    window.location.href = '/login';
+    window.location.href = "/login";
   }
 
   private getCurrentUserId(): string | null {
     try {
-      const authData = localStorage.getItem('auth');
+      const authData = localStorage.getItem("auth");
       if (authData) {
         const parsed = JSON.parse(authData);
         return parsed.user?.id || null;
@@ -115,7 +120,9 @@ class ApiService {
     return null;
   }
 
-  private async handleResponse<T>(promise: Promise<AxiosResponse<T>>): Promise<ApiResponse<T>> {
+  private async handleResponse<T>(
+    promise: Promise<AxiosResponse<T>>
+  ): Promise<ApiResponse<T>> {
     try {
       const response = await promise;
       return {
@@ -124,18 +131,38 @@ class ApiService {
     } catch (error) {
       if (axios.isAxiosError(error)) {
         return {
-          error: error.response?.data?.message || error.message || 'An error occurred',
+          error:
+            error.response?.data?.message ||
+            error.message ||
+            "An error occurred",
         };
       }
       return {
-        error: 'An unexpected error occurred',
+        error: "An unexpected error occurred",
       };
     }
   }
 
+  // Generic HTTP methods
+  async get<T = any>(url: string, params?: any): Promise<ApiResponse<T>> {
+    return this.handleResponse(this.api.get(url, { params }));
+  }
+
+  async post<T = any>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.handleResponse(this.api.post(url, data));
+  }
+
+  async put<T = any>(url: string, data?: any): Promise<ApiResponse<T>> {
+    return this.handleResponse(this.api.put(url, data));
+  }
+
+  async delete<T = any>(url: string): Promise<ApiResponse<T>> {
+    return this.handleResponse(this.api.delete(url));
+  }
+
   // API Key Management
   async getApiKeys(): Promise<ApiResponse<ApiKey[]>> {
-    return this.handleResponse(this.api.get('/api-keys/'));
+    return this.handleResponse(this.api.get("/api-keys/"));
   }
 
   async createApiKey(data: {
@@ -143,13 +170,16 @@ class ApiService {
     key_name: string;
     api_key: string;
   }): Promise<ApiResponse<ApiKey>> {
-    return this.handleResponse(this.api.post('/api-keys/', data));
+    return this.handleResponse(this.api.post("/api-keys/", data));
   }
 
-  async updateApiKey(id: string, data: {
-    key_name?: string;
-    api_key?: string;
-  }): Promise<ApiResponse<ApiKey>> {
+  async updateApiKey(
+    id: string,
+    data: {
+      key_name?: string;
+      api_key?: string;
+    }
+  ): Promise<ApiResponse<ApiKey>> {
     return this.handleResponse(this.api.put(`/api-keys/${id}`, data));
   }
 
@@ -166,12 +196,16 @@ class ApiService {
   }
 
   // Chat Completions
-  async createChatCompletion(data: PlaygroundRequest): Promise<ApiResponse<PlaygroundResponse>> {
-    return this.handleResponse(this.api.post('/chat/completions', data));
+  async createChatCompletion(
+    data: PlaygroundRequest
+  ): Promise<ApiResponse<PlaygroundResponse>> {
+    return this.handleResponse(this.api.post("/chat/completions", data));
   }
 
-  async getModels(provider?: string): Promise<ApiResponse<ProviderModelInfo[]>> {
-    const url = provider ? `/models/${provider}` : '/models';
+  async getModels(
+    provider?: string
+  ): Promise<ApiResponse<ProviderModelInfo[]>> {
+    const url = provider ? `/models/${provider}` : "/models";
     return this.handleResponse(this.api.get(url));
   }
 
@@ -186,14 +220,18 @@ class ApiService {
     provider?: string;
     project_id?: string;
   }): Promise<ApiResponse<UsageMetrics>> {
-    return this.handleResponse(this.api.get('/analytics/usage-metrics', { params }));
+    return this.handleResponse(
+      this.api.get("/analytics/usage-metrics", { params })
+    );
   }
 
   async getUsageSummary(params?: {
     start_date?: string;
     end_date?: string;
   }): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/mock-analytics/usage-summary', { params }));
+    return this.handleResponse(
+      this.api.get("/mock-analytics/usage-summary", { params })
+    );
   }
 
   async getUsageTrends(params?: {
@@ -201,11 +239,13 @@ class ApiService {
     end_date?: string;
     group_by?: string;
   }): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/mock-analytics/usage-trends', { params }));
+    return this.handleResponse(
+      this.api.get("/mock-analytics/usage-trends", { params })
+    );
   }
 
   async getCurrentUsage(): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/analytics/current-usage'));
+    return this.handleResponse(this.api.get("/analytics/current-usage"));
   }
 
   async getApiRequests(params?: {
@@ -213,14 +253,18 @@ class ApiService {
     offset?: number;
     status?: string;
   }): Promise<ApiResponse<RequestLog[]>> {
-    return this.handleResponse(this.api.get('/analytics/api-requests', { params }));
+    return this.handleResponse(
+      this.api.get("/analytics/api-requests", { params })
+    );
   }
 
   async getFailedRequests(params?: {
     limit?: number;
     offset?: number;
   }): Promise<ApiResponse<RequestLog[]>> {
-    return this.handleResponse(this.api.get('/analytics/failed-requests', { params }));
+    return this.handleResponse(
+      this.api.get("/analytics/failed-requests", { params })
+    );
   }
 
   async getCostAnalysis(params?: {
@@ -228,16 +272,18 @@ class ApiService {
     end_date?: string;
     group_by?: string;
   }): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/mock-analytics/cost-analysis', { params }));
+    return this.handleResponse(
+      this.api.get("/mock-analytics/cost-analysis", { params })
+    );
   }
 
   // Cache Management
   async getCacheStats(): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/system/cache/stats'));
+    return this.handleResponse(this.api.get("/system/cache/stats"));
   }
 
   async clearCache(): Promise<ApiResponse<void>> {
-    return this.handleResponse(this.api.delete('/system/cache/clear'));
+    return this.handleResponse(this.api.delete("/system/cache/clear"));
   }
 
   async clearUserCache(userId: string): Promise<ApiResponse<void>> {
@@ -245,26 +291,19 @@ class ApiService {
   }
 
   async getRateLimitStatus(): Promise<ApiResponse<any>> {
-    return this.handleResponse(this.api.get('/system/rate-limit/status'));
+    return this.handleResponse(this.api.get("/system/rate-limit/status"));
   }
 
   // Health Check
   async healthCheck(): Promise<ApiResponse<{ status: string }>> {
-    return this.handleResponse(this.api.get('/health'));
+    return this.handleResponse(this.api.get("/health"));
   }
 
   // Organization Management
   async getUserOrganizations(): Promise<ApiResponse<UserOrganization[]>> {
-    return this.handleResponse(this.api.get('/organizations/user-organizations'));
-  }
-
-  async initiateSSO(params: { redirect_uri: string; organization_id?: string; connection_id?: string }): Promise<ApiResponse<{ authorization_url: string }>> {
-    const queryParams = new URLSearchParams(params as any).toString();
-    return this.handleResponse(this.api.get(`/organizations/sso/login?${queryParams}`));
-  }
-
-  async handleSSOCallback(data: { code: string; state?: string; redirect_uri: string }): Promise<ApiResponse<{ access_token: string; user: any }>> {
-    return this.handleResponse(this.api.post('/organizations/sso/callback', data));
+    return this.handleResponse(
+      this.api.get("/organizations/user-organizations")
+    );
   }
 
   // Organization Context Management

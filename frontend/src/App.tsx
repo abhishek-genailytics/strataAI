@@ -16,7 +16,6 @@ import {
   Register,
   ApiKeys,
   Playground,
-  SSOCallback,
   Providers,
   ModelPricing,
   Access,
@@ -58,9 +57,6 @@ function App() {
                     </PublicRoute>
                   }
                 />
-
-                {/* SSO Callback route - public but handles auth */}
-                <Route path="/auth/callback" element={<SSOCallback />} />
 
                 {/* Protected routes */}
                 <Route

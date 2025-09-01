@@ -17,7 +17,6 @@ export interface Organization {
   name: string;
   display_name?: string;
   domain?: string;
-  scalekit_organization_id?: string;
   is_active: boolean;
   created_at: string;
   updated_at: string;

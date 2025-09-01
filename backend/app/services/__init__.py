@@ -3,8 +3,8 @@ from .api_key_validator import api_key_validator
 from .cost_calculation_service import cost_calculation_service
 from .usage_tracking_service import usage_tracking_service
 from .provider_service import provider_service
-from .scalekit_service import scalekit_service
 from .organization_service import organization_service
+from .user_profile_service import user_profile_service
 
 __all__ = [
     "api_key_service", 
@@ -12,6 +12,6 @@ __all__ = [
     "cost_calculation_service",
     "usage_tracking_service",
     "provider_service",
-    "scalekit_service",
     "organization_service",
+    "user_profile_service",
 ]

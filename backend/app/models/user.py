@@ -1,8 +1,45 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+
+class UserProfileBase(BaseModel):
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    website: Optional[str] = None
+    location: Optional[str] = None
+    timezone: Optional[str] = None
+    preferences: Dict[str, Any] = Field(default_factory=dict)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    is_active: bool = True
+
+
+class UserProfileCreate(UserProfileBase):
+    pass
+
+
+class UserProfileUpdate(UserProfileBase):
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None
+    bio: Optional[str] = None
+    website: Optional[str] = None
+    location: Optional[str] = None
+    timezone: Optional[str] = None
+    preferences: Optional[Dict[str, Any]] = None
+    metadata: Optional[Dict[str, Any]] = None
+    is_active: Optional[bool] = None
+
+
+class UserProfile(UserProfileBase):
+    id: UUID
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class UserBase(BaseModel):
@@ -16,8 +53,7 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(UserBase):
-    email: Optional[str] = None
-    password: Optional[str] = Field(None, min_length=8)
+    password: Optional[str] = Field(None, min_length=8, description="User password")
     is_active: Optional[bool] = None
 
 
@@ -25,29 +61,14 @@ class User(UserBase):
     id: UUID
     created_at: datetime
     updated_at: datetime
+    profile: Optional[UserProfile] = None
 
     class Config:
         from_attributes = True
 
 
-class UserProfileBase(BaseModel):
-    organization_name: Optional[str] = None
-    subscription_tier: str = Field(default="free", pattern="^(free|pro|enterprise)$")
-
-
-class UserProfileCreate(UserProfileBase):
-    pass
-
-
-class UserProfileUpdate(UserProfileBase):
-    organization_name: Optional[str] = None
-    subscription_tier: Optional[str] = Field(None, pattern="^(free|pro|enterprise)$")
-
-
-class UserProfile(UserProfileBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
+class UserWithOrganizations(User):
+    organizations: list = Field(default_factory=list)
 
     class Config:
         from_attributes = True
