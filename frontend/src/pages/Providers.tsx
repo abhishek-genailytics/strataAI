@@ -275,14 +275,13 @@ export const Providers: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
-      <div className="max-w-7xl mx-auto">
+    <>
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          <h1 className="text-3xl font-bold text-slate-900 mb-2">
             AI Providers
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
+          <p className="text-slate-600 text-lg">
             Configure and manage your AI provider connections. Connect to
             multiple providers to access different models and capabilities.
           </p>
@@ -296,10 +295,10 @@ export const Providers: React.FC = () => {
                 <span className="text-2xl">🔗</span>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                <p className="text-sm font-medium text-slate-600">
                   Connected Providers
                 </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-2xl font-bold text-slate-900">
                   {
                     Object.values(providerStatuses).filter(
                       (status) => status === "connected"
@@ -474,7 +473,6 @@ export const Providers: React.FC = () => {
             </div>
           </div>
         </div>
-      </div>
-    </div>
+    </>
   );
 };
