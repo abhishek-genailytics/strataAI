@@ -1,5 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Plus, Search, Copy, Play, MoreHorizontal, Eye, Check, Settings, ExternalLink, AlertCircle } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Copy,
+  Play,
+  MoreHorizontal,
+  Eye,
+  Check,
+  Settings,
+  ExternalLink,
+  AlertCircle,
+  Code,
+} from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
@@ -7,14 +19,17 @@ import { Input } from "../components/ui/Input";
 
 // Helper function to mask email addresses
 const maskEmail = (email: string): string => {
-  if (!email) return '';
-  const [username, domain] = email.split('@');
+  if (!email) return "";
+  const [username, domain] = email.split("@");
   if (!username || !domain) return email;
-  
-  const maskedUsername = username.length > 1 
-    ? `${username[0]}${'*'.repeat(Math.max(0, username.length - 2))}${username.slice(-1)}`
-    : username;
-    
+
+  const maskedUsername =
+    username.length > 1
+      ? `${username[0]}${"*".repeat(
+          Math.max(0, username.length - 2)
+        )}${username.slice(-1)}`
+      : username;
+
   return `${maskedUsername}@${domain}`;
 };
 
@@ -40,176 +55,176 @@ interface Model {
 }
 
 const providers: Provider[] = [
-  { 
-    id: "openai", 
-    name: "OpenAI", 
-    logo: "⚡", 
-    connected: true, 
+  {
+    id: "openai",
+    name: "OpenAI",
+    logo: "⚡",
+    connected: true,
     color: "bg-green-50 border-green-200 text-green-800",
     description: "GPT models for chat and completion",
-    models: 16
+    models: 16,
   },
-  { 
-    id: "anthropic", 
-    name: "Anthropic", 
-    logo: "🧠", 
-    connected: false, 
+  {
+    id: "anthropic",
+    name: "Anthropic",
+    logo: "🧠",
+    connected: false,
     color: "bg-orange-50 border-orange-200 text-orange-800",
     description: "Claude models for reasoning",
-    models: 3
+    models: 3,
   },
-  { 
-    id: "google-vertex", 
-    name: "Google Vertex", 
-    logo: "🔵", 
-    connected: false, 
+  {
+    id: "google-vertex",
+    name: "Google Vertex",
+    logo: "🔵",
+    connected: false,
     color: "bg-blue-50 border-blue-200 text-blue-800",
     description: "Vertex AI models",
-    models: 5
+    models: 5,
   },
-  { 
-    id: "google-gemini", 
-    name: "Google Gemini", 
-    logo: "💎", 
-    connected: false, 
+  {
+    id: "google-gemini",
+    name: "Google Gemini",
+    logo: "💎",
+    connected: false,
     color: "bg-purple-50 border-purple-200 text-purple-800",
     description: "Gemini Pro models",
-    models: 4
+    models: 4,
   },
-  { 
-    id: "azure-openai", 
-    name: "Azure OpenAI", 
-    logo: "☁️", 
-    connected: false, 
+  {
+    id: "azure-openai",
+    name: "Azure OpenAI",
+    logo: "☁️",
+    connected: false,
     color: "bg-blue-50 border-blue-200 text-blue-800",
     description: "Azure-hosted OpenAI models",
-    models: 8
+    models: 8,
   },
-  { 
-    id: "aws-bedrock", 
-    name: "AWS Bedrock", 
-    logo: "🪨", 
-    connected: false, 
+  {
+    id: "aws-bedrock",
+    name: "AWS Bedrock",
+    logo: "🪨",
+    connected: false,
     color: "bg-amber-50 border-amber-200 text-amber-800",
     description: "Amazon Bedrock models",
-    models: 12
+    models: 12,
   },
-  { 
-    id: "cohere", 
-    name: "Cohere", 
-    logo: "🔗", 
-    connected: false, 
+  {
+    id: "cohere",
+    name: "Cohere",
+    logo: "🔗",
+    connected: false,
     color: "bg-teal-50 border-teal-200 text-teal-800",
     description: "Command and embed models",
-    models: 6
+    models: 6,
   },
-  { 
-    id: "groq", 
-    name: "Groq", 
-    logo: "⚡", 
-    connected: false, 
+  {
+    id: "groq",
+    name: "Groq",
+    logo: "⚡",
+    connected: false,
     color: "bg-red-50 border-red-200 text-red-800",
     description: "Ultra-fast inference",
-    models: 8
+    models: 8,
   },
-  { 
-    id: "mistral", 
-    name: "Mistral AI", 
-    logo: "🌪️", 
-    connected: false, 
+  {
+    id: "mistral",
+    name: "Mistral AI",
+    logo: "🌪️",
+    connected: false,
     color: "bg-violet-50 border-violet-200 text-violet-800",
     description: "European AI models",
-    models: 5
+    models: 5,
   },
-  { 
-    id: "ai21", 
-    name: "AI21", 
-    logo: "🦕", 
-    connected: false, 
+  {
+    id: "ai21",
+    name: "AI21",
+    logo: "🦕",
+    connected: false,
     color: "bg-emerald-50 border-emerald-200 text-emerald-800",
     description: "Jurassic models",
-    models: 4
+    models: 4,
   },
-  { 
-    id: "anyscale", 
-    name: "Anyscale", 
-    logo: "📈", 
-    connected: false, 
+  {
+    id: "anyscale",
+    name: "Anyscale",
+    logo: "📈",
+    connected: false,
     color: "bg-cyan-50 border-cyan-200 text-cyan-800",
     description: "Scalable model deployment",
-    models: 7
+    models: 7,
   },
-  { 
-    id: "deepinfra", 
-    name: "Deepinfra", 
-    logo: "🏗️", 
-    connected: false, 
+  {
+    id: "deepinfra",
+    name: "Deepinfra",
+    logo: "🏗️",
+    connected: false,
     color: "bg-slate-50 border-slate-200 text-slate-800",
     description: "Serverless inference",
-    models: 9
+    models: 9,
   },
-  { 
-    id: "nomic", 
-    name: "Nomic", 
-    logo: "🏠", 
-    connected: false, 
+  {
+    id: "nomic",
+    name: "Nomic",
+    logo: "🏠",
+    connected: false,
     color: "bg-gray-50 border-gray-200 text-gray-800",
     description: "Local deployment models",
-    models: 3
+    models: 3,
   },
-  { 
-    id: "ollama", 
-    name: "Ollama", 
-    logo: "🦙", 
-    connected: false, 
+  {
+    id: "ollama",
+    name: "Ollama",
+    logo: "🦙",
+    connected: false,
     color: "bg-yellow-50 border-yellow-200 text-yellow-800",
     description: "Run models locally",
-    models: 15
+    models: 15,
   },
-  { 
-    id: "palm", 
-    name: "Palm", 
-    logo: "🌴", 
-    connected: false, 
+  {
+    id: "palm",
+    name: "Palm",
+    logo: "🌴",
+    connected: false,
     color: "bg-green-50 border-green-200 text-green-800",
     description: "Google PaLM API",
-    models: 4
+    models: 4,
   },
-  { 
-    id: "perplexity", 
-    name: "Perplexity AI", 
-    logo: "🔍", 
-    connected: false, 
+  {
+    id: "perplexity",
+    name: "Perplexity AI",
+    logo: "🔍",
+    connected: false,
     color: "bg-indigo-50 border-indigo-200 text-indigo-800",
     description: "Search-augmented models",
-    models: 6
+    models: 6,
   },
-  { 
-    id: "together", 
-    name: "Together AI", 
-    logo: "🤝", 
-    connected: false, 
+  {
+    id: "together",
+    name: "Together AI",
+    logo: "🤝",
+    connected: false,
     color: "bg-pink-50 border-pink-200 text-pink-800",
     description: "Fast open-source inference",
-    models: 11
+    models: 11,
   },
-  { 
-    id: "openrouter", 
-    name: "OpenRouter", 
-    logo: "🛣️", 
-    connected: false, 
+  {
+    id: "openrouter",
+    name: "OpenRouter",
+    logo: "🛣️",
+    connected: false,
     color: "bg-lime-50 border-lime-200 text-lime-800",
     description: "Model routing service",
-    models: 20
+    models: 20,
   },
-  { 
-    id: "self-hosted", 
-    name: "Self-Hosted", 
-    logo: "🏠", 
-    connected: false, 
+  {
+    id: "self-hosted",
+    name: "Self-Hosted",
+    logo: "🏠",
+    connected: false,
     color: "bg-neutral-50 border-neutral-200 text-neutral-800",
     description: "Your own model endpoints",
-    models: 0
+    models: 0,
   },
 ];
 
@@ -222,7 +237,7 @@ const openaiModels: Model[] = [
     outputCost: 15.0,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-3.5-turbo",
@@ -232,7 +247,7 @@ const openaiModels: Model[] = [
     outputCost: 2.0,
     provider: "openai",
     maxTokens: 4096,
-    features: ["Function Calling"]
+    features: ["Function Calling"],
   },
   {
     id: "gpt-3.5-turbo-0125",
@@ -242,7 +257,7 @@ const openaiModels: Model[] = [
     outputCost: 1.5,
     provider: "openai",
     maxTokens: 16385,
-    features: ["Function Calling"]
+    features: ["Function Calling"],
   },
   {
     id: "gpt-3.5-turbo-1106",
@@ -252,7 +267,7 @@ const openaiModels: Model[] = [
     outputCost: 2.0,
     provider: "openai",
     maxTokens: 16385,
-    features: ["Function Calling"]
+    features: ["Function Calling"],
   },
   {
     id: "gpt-3.5-turbo-16k",
@@ -261,7 +276,7 @@ const openaiModels: Model[] = [
     inputCost: 3.0,
     outputCost: 4.0,
     provider: "openai",
-    maxTokens: 16385
+    maxTokens: 16385,
   },
   {
     id: "gpt-4",
@@ -271,7 +286,7 @@ const openaiModels: Model[] = [
     outputCost: 60.0,
     provider: "openai",
     maxTokens: 8192,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-0613",
@@ -281,7 +296,7 @@ const openaiModels: Model[] = [
     outputCost: 60.0,
     provider: "openai",
     maxTokens: 8192,
-    features: ["Function Calling"]
+    features: ["Function Calling"],
   },
   {
     id: "gpt-4-turbo",
@@ -291,7 +306,7 @@ const openaiModels: Model[] = [
     outputCost: 30.0,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-turbo-2024-04-09",
@@ -301,7 +316,7 @@ const openaiModels: Model[] = [
     outputCost: 30.0,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-1",
@@ -311,7 +326,7 @@ const openaiModels: Model[] = [
     outputCost: 8.0,
     provider: "openai",
     maxTokens: 200000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-1-2025-04-14",
@@ -321,7 +336,7 @@ const openaiModels: Model[] = [
     outputCost: 8.0,
     provider: "openai",
     maxTokens: 200000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-1-mini",
@@ -331,7 +346,7 @@ const openaiModels: Model[] = [
     outputCost: 1.6,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-1-mini-2025-04-14",
@@ -341,7 +356,7 @@ const openaiModels: Model[] = [
     outputCost: 1.6,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4-1-nano",
@@ -351,7 +366,7 @@ const openaiModels: Model[] = [
     outputCost: 0.4,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Function Calling"]
+    features: ["Function Calling"],
   },
   {
     id: "gpt-4-1-nano-2025-04-14",
@@ -361,7 +376,7 @@ const openaiModels: Model[] = [
     outputCost: 0.4,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Function Calling"]
+    features: ["Function Calling"],
   },
   {
     id: "gpt-4o",
@@ -371,7 +386,7 @@ const openaiModels: Model[] = [
     outputCost: 10.0,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
+    features: ["Vision", "Function Calling"],
   },
   {
     id: "gpt-4o-2024-05-13",
@@ -381,14 +396,14 @@ const openaiModels: Model[] = [
     outputCost: 15.0,
     provider: "openai",
     maxTokens: 128000,
-    features: ["Vision", "Function Calling"]
-  }
+    features: ["Vision", "Function Calling"],
+  },
 ];
 
 interface AddAccountFormData {
   name: string;
   apiKey: string;
-  collaborators: Array<{ email: string; role: 'Manager' | 'User' }>;
+  collaborators: Array<{ email: string; role: "Manager" | "User" }>;
   selectedModels: string[];
   showAdvanced: boolean;
 }
@@ -398,38 +413,40 @@ export const ModelPricing: React.FC = () => {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
-  const [providerBeingAdded, setProviderBeingAdded] = useState<string | null>(null);
+  const [providerBeingAdded, setProviderBeingAdded] = useState<string | null>(
+    null
+  );
   const [formData, setFormData] = useState<AddAccountFormData>({
-    name: '',
-    apiKey: '',
+    name: "",
+    apiKey: "",
     collaborators: [],
     selectedModels: [],
-    showAdvanced: false
+    showAdvanced: false,
   });
   const [showApiKey, setShowApiKey] = useState(false);
 
-  const connectedProviders = providers.filter(p => p.connected);
-  const otherProviders = providers.filter(p => !p.connected);
+  const connectedProviders = providers.filter((p) => p.connected);
+  const otherProviders = providers.filter((p) => !p.connected);
 
-  const filteredModels = openaiModels.filter(model =>
+  const filteredModels = openaiModels.filter((model) =>
     model.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const handleProviderSelect = (providerId: string) => {
-    const provider = providers.find(p => p.id === providerId);
+    const provider = providers.find((p) => p.id === providerId);
     if (provider?.connected) {
       setSelectedProvider(providerId);
     } else {
       setProviderBeingAdded(providerId);
       setFormData({
-        name: '',
-        apiKey: '',
+        name: "",
+        apiKey: "",
         collaborators: [
-          { email: maskEmail('abhishek@genailytics.com'), role: 'Manager' },
-          { email: 'everyone', role: 'User' }
+          { email: maskEmail("abhishek@genailytics.com"), role: "Manager" },
+          { email: "everyone", role: "User" },
         ],
         selectedModels: [],
-        showAdvanced: false
+        showAdvanced: false,
       });
       setShowAddAccountModal(true);
     }
@@ -437,7 +454,7 @@ export const ModelPricing: React.FC = () => {
 
   const handleSelectAllModels = (checked: boolean) => {
     if (checked) {
-      setSelectedModels(new Set(filteredModels.map(m => m.id)));
+      setSelectedModels(new Set(filteredModels.map((m) => m.id)));
     } else {
       setSelectedModels(new Set());
     }
@@ -455,11 +472,13 @@ export const ModelPricing: React.FC = () => {
 
   const handleAddAccount = () => {
     // Here you would implement the actual account addition logic
-    console.log('Adding account:', formData);
+    console.log("Adding account:", formData);
     setShowAddAccountModal(false);
     setProviderBeingAdded(null);
     // Update the provider status to connected
-    const providerIndex = providers.findIndex(p => p.id === providerBeingAdded);
+    const providerIndex = providers.findIndex(
+      (p) => p.id === providerBeingAdded
+    );
     if (providerIndex !== -1) {
       providers[providerIndex].connected = true;
     }
@@ -478,8 +497,18 @@ export const ModelPricing: React.FC = () => {
           <div className="flex items-center justify-between mb-8">
             <div className="flex items-center space-x-3">
               <button className="text-slate-500 hover:text-slate-700 transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                  />
                 </svg>
               </button>
               <h1 className="text-2xl font-bold text-slate-900">Models</h1>
@@ -497,7 +526,8 @@ export const ModelPricing: React.FC = () => {
               Start adding your Models here
             </h2>
             <p className="text-xl text-slate-600 leading-relaxed">
-              Configure a new provider account by adding your API keys and start using Models
+              Configure a new provider account by adding your API keys and start
+              using Models
             </p>
           </div>
 
@@ -516,31 +546,31 @@ export const ModelPricing: React.FC = () => {
                     <div className="text-4xl mb-4 group-hover:scale-110 transition-transform duration-300">
                       {provider.logo}
                     </div>
-                    
+
                     {/* Provider Name */}
                     <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors duration-200 mb-2">
                       {provider.name}
                     </h3>
-                    
+
                     {/* Description */}
                     <p className="text-xs text-slate-500 mb-3 line-clamp-2">
                       {provider.description}
                     </p>
-                    
+
                     {/* Model Count */}
                     {provider.models && provider.models > 0 && (
                       <div className="text-xs text-slate-400">
                         {provider.models} models
                       </div>
                     )}
-                    
+
                     {/* Connection Status */}
                     {provider.connected && (
                       <div className="absolute top-2 right-2">
                         <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
                       </div>
                     )}
-                    
+
                     {/* Hover Effect */}
                     <div className="absolute inset-0 bg-gradient-to-t from-blue-600/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   </div>
@@ -560,19 +590,31 @@ export const ModelPricing: React.FC = () => {
                   </h3>
                   <ol className="space-y-3 text-slate-600">
                     <li className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">1</div>
-                      <span>Choose your preferred AI provider from the grid above</span>
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                        1
+                      </div>
+                      <span>
+                        Choose your preferred AI provider from the grid above
+                      </span>
                     </li>
                     <li className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">2</div>
-                      <span>Click to setup and configure your API credentials</span>
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                        2
+                      </div>
+                      <span>
+                        Click to setup and configure your API credentials
+                      </span>
                     </li>
                     <li className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">3</div>
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                        3
+                      </div>
                       <span>Test your connection in the playground</span>
                     </li>
                     <li className="flex items-start space-x-3">
-                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">4</div>
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm font-medium">
+                        4
+                      </div>
                       <span>Start building with powerful AI models</span>
                     </li>
                   </ol>
@@ -584,16 +626,28 @@ export const ModelPricing: React.FC = () => {
                   </h3>
                   <div className="space-y-3 text-slate-600">
                     <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <span className="font-medium text-blue-900">OpenAI + Anthropic:</span> Best for general use cases
+                      <span className="font-medium text-blue-900">
+                        OpenAI + Anthropic:
+                      </span>{" "}
+                      Best for general use cases
                     </div>
                     <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                      <span className="font-medium text-green-900">Google + Mistral:</span> Great for multilingual tasks
+                      <span className="font-medium text-green-900">
+                        Google + Mistral:
+                      </span>{" "}
+                      Great for multilingual tasks
                     </div>
                     <div className="p-3 bg-orange-50 rounded-lg border border-orange-200">
-                      <span className="font-medium text-orange-900">Groq + Together:</span> Ultra-fast inference
+                      <span className="font-medium text-orange-900">
+                        Groq + Together:
+                      </span>{" "}
+                      Ultra-fast inference
                     </div>
                     <div className="p-3 bg-purple-50 rounded-lg border border-purple-200">
-                      <span className="font-medium text-purple-900">Ollama + Self-hosted:</span> Complete privacy
+                      <span className="font-medium text-purple-900">
+                        Ollama + Self-hosted:
+                      </span>{" "}
+                      Complete privacy
                     </div>
                   </div>
                 </div>
@@ -613,8 +667,18 @@ export const ModelPricing: React.FC = () => {
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-3">
             <button className="text-slate-500 hover:text-slate-700 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                />
               </svg>
             </button>
             <h1 className="text-2xl font-bold text-slate-900">Models</h1>
@@ -646,9 +710,17 @@ export const ModelPricing: React.FC = () => {
                     >
                       <span className="text-xl">{provider.logo}</span>
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{provider.name}</div>
+                        <div className="font-medium truncate">
+                          {provider.name}
+                        </div>
                         {provider.models && (
-                          <div className={`text-xs ${selectedProvider === provider.id ? 'text-blue-100' : 'text-slate-500'}`}>
+                          <div
+                            className={`text-xs ${
+                              selectedProvider === provider.id
+                                ? "text-blue-100"
+                                : "text-slate-500"
+                            }`}
+                          >
                             {provider.models} models
                           </div>
                         )}
@@ -702,7 +774,7 @@ export const ModelPricing: React.FC = () => {
 
           {/* Main Content - Models Table */}
           <div className="xl:col-span-4">
-            {selectedProvider === 'openai' && (
+            {selectedProvider === "openai" && (
               <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
                 {/* Account Header */}
                 <div className="border-b border-slate-200 pb-6 mb-6">
@@ -711,8 +783,8 @@ export const ModelPricing: React.FC = () => {
                       <span className="text-2xl mr-3">⚡</span>
                       OpenAI Accounts
                     </h2>
-                    <Button 
-                      onClick={() => handleProviderSelect('openai')}
+                    <Button
+                      onClick={() => handleProviderSelect("openai")}
                       className="bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg border-0"
                     >
                       <Plus className="w-4 h-4 mr-2" />
@@ -732,8 +804,12 @@ export const ModelPricing: React.FC = () => {
                         </div>
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-slate-900">openai</div>
-                        <div className="text-xs text-slate-500">2 collaborators</div>
+                        <div className="text-sm font-medium text-slate-900">
+                          openai
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          2 collaborators
+                        </div>
                       </div>
                     </div>
                     <div className="flex items-center px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">
@@ -744,19 +820,36 @@ export const ModelPricing: React.FC = () => {
 
                   {/* Action Buttons */}
                   <div className="flex flex-wrap gap-3">
-                    <Button variant="outline" size="sm" onClick={() => copyFQN('openai')} className="border-slate-200 hover:border-slate-300">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyFQN("openai")}
+                      className="border-slate-200 hover:border-slate-300"
+                    >
                       <Copy className="w-4 h-4 mr-2" />
                       Copy FQN
                     </Button>
-                    <Button variant="outline" size="sm" className="border-slate-200 hover:border-slate-300">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-200 hover:border-slate-300"
+                    >
                       <Plus className="w-4 h-4 mr-2" />
                       Add Model
                     </Button>
-                    <Button variant="outline" size="sm" className="border-slate-200 hover:border-slate-300">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-slate-200 hover:border-slate-300"
+                    >
                       <Settings className="w-4 h-4 mr-2" />
                       Edit
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-slate-500">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-500"
+                    >
                       <MoreHorizontal className="w-4 h-4" />
                     </Button>
                   </div>
@@ -769,16 +862,25 @@ export const ModelPricing: React.FC = () => {
                       <input
                         type="checkbox"
                         className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500 focus:ring-2"
-                        checked={selectedModels.size > 0 && selectedModels.size === filteredModels.length}
+                        checked={
+                          selectedModels.size > 0 &&
+                          selectedModels.size === filteredModels.length
+                        }
                         ref={(el) => {
                           if (el) {
-                            el.indeterminate = selectedModels.size > 0 && selectedModels.size < filteredModels.length;
+                            el.indeterminate =
+                              selectedModels.size > 0 &&
+                              selectedModels.size < filteredModels.length;
                           }
                         }}
-                        onChange={(e) => handleSelectAllModels(e.target.checked)}
+                        onChange={(e) =>
+                          handleSelectAllModels(e.target.checked)
+                        }
                       />
                       <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
-                        {selectedModels.size > 0 ? `Selected ${selectedModels.size}` : 'Select All'}
+                        {selectedModels.size > 0
+                          ? `Selected ${selectedModels.size}`
+                          : "Select All"}
                       </span>
                     </label>
                     {selectedModels.size > 0 && (
@@ -792,7 +894,7 @@ export const ModelPricing: React.FC = () => {
                       </Button>
                     )}
                   </div>
-                  
+
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
                     <input
@@ -829,10 +931,12 @@ export const ModelPricing: React.FC = () => {
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-100">
                       {filteredModels.map((model, index) => (
-                        <tr 
+                        <tr
                           key={model.id}
                           className={`hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-purple-50/50 transition-all duration-200 ${
-                            selectedModels.has(model.id) ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500' : ''
+                            selectedModels.has(model.id)
+                              ? "bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500"
+                              : ""
                           }`}
                         >
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -844,19 +948,22 @@ export const ModelPricing: React.FC = () => {
                                 onChange={() => toggleModelSelection(model.id)}
                               />
                               <div>
-                                <div className="font-semibold text-slate-900">{model.name}</div>
-                                {model.features && model.features.length > 0 && (
-                                  <div className="flex flex-wrap gap-1 mt-1">
-                                    {model.features.map(feature => (
-                                      <span 
-                                        key={feature}
-                                        className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"
-                                      >
-                                        {feature}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
+                                <div className="font-semibold text-slate-900">
+                                  {model.name}
+                                </div>
+                                {model.features &&
+                                  model.features.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {model.features.map((feature) => (
+                                        <span
+                                          key={feature}
+                                          className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700"
+                                        >
+                                          {feature}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  )}
                               </div>
                             </div>
                           </td>
@@ -867,25 +974,45 @@ export const ModelPricing: React.FC = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <span className="font-bold text-slate-900">${model.inputCost}</span>
-                              <span className="text-slate-500 ml-1 text-sm">🔵</span>
+                              <span className="font-bold text-slate-900">
+                                ${model.inputCost}
+                              </span>
+                              <span className="text-slate-500 ml-1 text-sm">
+                                🔵
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
-                              <span className="font-bold text-slate-900">${model.outputCost}</span>
-                              <span className="text-slate-500 ml-1 text-sm">🔵</span>
+                              <span className="font-bold text-slate-900">
+                                ${model.outputCost}
+                              </span>
+                              <span className="text-slate-500 ml-1 text-sm">
+                                🔵
+                              </span>
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center space-x-2">
-                              <Button variant="ghost" size="sm" className="text-slate-500 hover:text-blue-600">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-slate-500 hover:text-blue-600"
+                              >
                                 <Code className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-slate-500 hover:text-green-600">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-slate-500 hover:text-green-600"
+                              >
                                 <Play className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="sm" className="text-slate-500 hover:text-slate-700">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-slate-500 hover:text-slate-700"
+                              >
                                 <MoreHorizontal className="w-4 h-4" />
                               </Button>
                             </div>
@@ -915,7 +1042,9 @@ export const ModelPricing: React.FC = () => {
             setShowAddAccountModal(false);
             setProviderBeingAdded(null);
           }}
-          title={`Setup ${providers.find(p => p.id === providerBeingAdded)?.name} account and manage models`}
+          title={`Setup ${
+            providers.find((p) => p.id === providerBeingAdded)?.name
+          } account and manage models`}
           size="xl"
         >
           <div className="space-y-6">
@@ -927,7 +1056,9 @@ export const ModelPricing: React.FC = () => {
               <Input
                 placeholder="Enter Name"
                 value={formData.name}
-                onChange={(value) => setFormData(prev => ({ ...prev, name: value }))}
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, name: value }))
+                }
                 className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
               />
             </div>
@@ -936,8 +1067,10 @@ export const ModelPricing: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-sm font-semibold text-slate-700">
-                  Collaborators 
-                  <span className="text-slate-500 font-normal ml-1">(Optional)</span>
+                  Collaborators
+                  <span className="text-slate-500 font-normal ml-1">
+                    (Optional)
+                  </span>
                 </label>
                 <div className="flex items-center space-x-3">
                   <span className="text-xs text-slate-500">
@@ -950,40 +1083,69 @@ export const ModelPricing: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 {formData.collaborators.map((collab, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200"
+                  >
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
                         {collab.email[0]?.toUpperCase()}
                       </div>
-                      <span className="text-sm font-medium text-slate-700">{collab.email}</span>
+                      <span className="text-sm font-medium text-slate-700">
+                        {collab.email}
+                      </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        collab.role === 'Manager' 
-                          ? 'bg-blue-100 text-blue-700' 
-                          : 'bg-slate-100 text-slate-700'
-                      }`}>
+                      <span
+                        className={`text-xs px-2 py-1 rounded-full font-medium ${
+                          collab.role === "Manager"
+                            ? "bg-blue-100 text-blue-700"
+                            : "bg-slate-100 text-slate-700"
+                        }`}
+                      >
                         {collab.role}
                       </span>
-                      <Button variant="ghost" size="sm" className="text-slate-400 hover:text-red-600">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-slate-400 hover:text-red-600"
+                      >
                         ×
                       </Button>
                     </div>
                   </div>
                 ))}
-                
+
                 <div className="flex items-center space-x-3">
-                  <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                  >
                     <Plus className="w-4 h-4 mr-1" />
                     Add Collaborators
                   </Button>
-                  <Button variant="ghost" size="sm" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                  >
                     View Permission Details
-                    <svg className="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    <svg
+                      className="w-3 h-3 ml-1"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M19 9l-7 7-7-7"
+                      />
                     </svg>
                   </Button>
                 </div>
@@ -1000,7 +1162,9 @@ export const ModelPricing: React.FC = () => {
                   type={showApiKey ? "text" : "password"}
                   placeholder="Enter API Key"
                   value={formData.apiKey}
-                  onChange={(value) => setFormData(prev => ({ ...prev, apiKey: value }))}
+                  onChange={(value) =>
+                    setFormData((prev) => ({ ...prev, apiKey: value }))
+                  }
                   className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500 pr-12"
                 />
                 <button
@@ -1034,7 +1198,7 @@ export const ModelPricing: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl bg-white">
                 <div className="divide-y divide-slate-100">
                   {[
@@ -1047,7 +1211,10 @@ export const ModelPricing: React.FC = () => {
                     { name: "gpt-4", type: "Chat" },
                     { name: "gpt-4-turbo", type: "Chat" },
                   ].map((model, index) => (
-                    <label key={index} className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer group transition-colors">
+                    <label
+                      key={index}
+                      className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer group transition-colors"
+                    >
                       <div className="flex items-center space-x-3">
                         <input
                           type="checkbox"
@@ -1055,14 +1222,19 @@ export const ModelPricing: React.FC = () => {
                           checked={formData.selectedModels.includes(model.name)}
                           onChange={(e) => {
                             if (e.target.checked) {
-                              setFormData(prev => ({
+                              setFormData((prev) => ({
                                 ...prev,
-                                selectedModels: [...prev.selectedModels, model.name]
+                                selectedModels: [
+                                  ...prev.selectedModels,
+                                  model.name,
+                                ],
                               }));
                             } else {
-                              setFormData(prev => ({
+                              setFormData((prev) => ({
                                 ...prev,
-                                selectedModels: prev.selectedModels.filter(m => m !== model.name)
+                                selectedModels: prev.selectedModels.filter(
+                                  (m) => m !== model.name
+                                ),
                               }));
                             }
                           }}
@@ -1071,7 +1243,9 @@ export const ModelPricing: React.FC = () => {
                           <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
                             {model.name}
                           </div>
-                          <div className="text-xs text-slate-500">{model.type}</div>
+                          <div className="text-xs text-slate-500">
+                            {model.type}
+                          </div>
                         </div>
                       </div>
                       <div className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
@@ -1089,9 +1263,16 @@ export const ModelPricing: React.FC = () => {
                 type="checkbox"
                 className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
                 checked={formData.showAdvanced}
-                onChange={(e) => setFormData(prev => ({ ...prev, showAdvanced: e.target.checked }))}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    showAdvanced: e.target.checked,
+                  }))
+                }
               />
-              <span className="text-sm font-medium text-slate-700">Show advanced fields</span>
+              <span className="text-sm font-medium text-slate-700">
+                Show advanced fields
+              </span>
             </div>
 
             {/* Action Buttons */}
@@ -1113,7 +1294,8 @@ export const ModelPricing: React.FC = () => {
                 onClick={handleAddAccount}
                 className="bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg border-0"
               >
-                Add {providers.find(p => p.id === providerBeingAdded)?.name} Account
+                Add {providers.find((p) => p.id === providerBeingAdded)?.name}{" "}
+                Account
               </Button>
             </div>
           </div>
