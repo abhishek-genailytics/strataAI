@@ -7,15 +7,16 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="flex h-screen overflow-hidden">
-        <Sidebar />
-
-        <div className="flex flex-col flex-1 overflow-hidden">
-          <main className="flex-1 overflow-y-auto focus:outline-none">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+      <Sidebar />
+      
+      {/* Main content with proper margin for sidebar */}
+      <div className="md:ml-64">
+        <main className="min-h-screen overflow-y-auto focus:outline-none">
+          <div className="p-6 lg:p-8">
             {children}
-          </main>
-        </div>
+          </div>
+        </main>
       </div>
     </div>
   );
