@@ -100,9 +100,9 @@ export const Playground: React.FC = () => {
   ];
 
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <h1 className="text-3xl font-bold text-slate-900">Playground</h1>
 
           <div className="flex items-center space-x-3">
@@ -134,7 +134,7 @@ export const Playground: React.FC = () => {
           {/* Left Sidebar - Configuration */}
           <div className="lg:col-span-1 space-y-6">
             {/* Model Configuration */}
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <Card className="bg-white shadow-lg border border-gray-200">
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900">Model Configuration</h3>
@@ -175,7 +175,7 @@ export const Playground: React.FC = () => {
               { title: "Output Guardrails", count: 0, icon: "🔒" },
               { title: "Structured Output", count: 0, icon: "📋" },
             ].map((section) => (
-              <Card key={section.title} className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <Card key={section.title} className="bg-white shadow-lg border border-gray-200">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-slate-900 flex items-center">
                     <span className="mr-2">{section.icon}</span>
@@ -194,7 +194,7 @@ export const Playground: React.FC = () => {
 
           {/* Main Content - Chat Interface */}
           <div className="lg:col-span-3">
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <Card className="bg-white shadow-lg border border-gray-200">
               {/* Tabs */}
               <div className="flex border-b border-slate-200 -mx-6 -mt-6 px-6 pt-6">
                 {[
@@ -358,6 +358,6 @@ export const Playground: React.FC = () => {
             </Card>
           </div>
         </div>
-    </>
+    </div>
   );
 };

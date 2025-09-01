@@ -491,10 +491,9 @@ export const ModelPricing: React.FC = () => {
   // If no providers are connected, show the provider selection grid
   if (connectedProviders.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
-        <div className="p-6 lg:p-8">
+      <div className="min-h-screen bg-gray-50">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center justify-between mb-8 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
             <div className="flex items-center space-x-3">
               <button className="text-slate-500 hover:text-slate-700 transition-colors">
                 <svg
@@ -654,16 +653,15 @@ export const ModelPricing: React.FC = () => {
               </div>
             </Card>
           </div>
-        </div>
       </div>
     );
   }
 
   // Main connected view
   return (
-    <>
+    <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-8 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
           <h1 className="text-3xl font-bold text-slate-900">Models</h1>
         </div>
 
@@ -671,7 +669,7 @@ export const ModelPricing: React.FC = () => {
           {/* Left Sidebar - Provider Selection */}
           <div className="xl:col-span-1 space-y-6">
             {/* Connected Providers */}
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <Card className="bg-white shadow-lg border border-gray-200">
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -717,7 +715,7 @@ export const ModelPricing: React.FC = () => {
             </Card>
 
             {/* Other Providers */}
-            <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+            <Card className="bg-white shadow-lg border border-gray-200">
               <div className="space-y-4">
                 <h3 className="text-sm font-semibold text-slate-700 uppercase tracking-wide">
                   Other Providers
@@ -757,7 +755,7 @@ export const ModelPricing: React.FC = () => {
           {/* Main Content - Models Table */}
           <div className="xl:col-span-3">
             {selectedProvider === 'openai' && (
-              <Card className="bg-white/80 backdrop-blur-sm border-0 shadow-lg">
+              <Card className="bg-white shadow-lg border border-gray-200">
                 {/* Account Header */}
                 <div className="border-b border-slate-200 pb-6 mb-6">
                   <div className="flex items-center justify-between mb-4">
@@ -1017,272 +1015,271 @@ export const ModelPricing: React.FC = () => {
           </div>
         </div>
 
-        {/* Add Account Modal */}
-        <Modal
-          isOpen={showAddAccountModal}
-          onClose={() => {
-            setShowAddAccountModal(false);
-            setProviderBeingAdded(null);
-          }}
-          title={`Setup ${
-            providers.find((p) => p.id === providerBeingAdded)?.name
-          } account and manage models`}
-          size="xl"
-        >
-          <div className="space-y-6">
-            {/* Name Field */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Name <span className="text-red-500">*</span>
+      {/* Add Account Modal */}
+      <Modal
+        isOpen={showAddAccountModal}
+        onClose={() => {
+          setShowAddAccountModal(false);
+          setProviderBeingAdded(null);
+        }}
+        title={`Setup ${
+          providers.find((p) => p.id === providerBeingAdded)?.name
+        } account and manage models`}
+        size="xl"
+      >
+        <div className="space-y-6">
+          {/* Name Field */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              Name <span className="text-red-500">*</span>
+            </label>
+            <Input
+              placeholder="Enter Name"
+              value={formData.name}
+              onChange={(value) =>
+                setFormData((prev) => ({ ...prev, name: value }))
+              }
+              className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
+            />
+          </div>
+
+          {/* Collaborators */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-semibold text-slate-700">
+                Collaborators
+                <span className="text-slate-500 font-normal ml-1">
+                  (Optional)
+                </span>
               </label>
-              <Input
-                placeholder="Enter Name"
-                value={formData.name}
-                onChange={(value) =>
-                  setFormData((prev) => ({ ...prev, name: value }))
-                }
-                className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* Collaborators */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-semibold text-slate-700">
-                  Collaborators
-                  <span className="text-slate-500 font-normal ml-1">
-                    (Optional)
-                  </span>
-                </label>
-                <div className="flex items-center space-x-3">
-                  <span className="text-xs text-slate-500">
-                    List of users who have access to this provider account
-                  </span>
-                  <div className="relative">
-                    <div className="w-11 h-6 bg-blue-600 rounded-full p-1 cursor-pointer">
-                      <div className="w-4 h-4 bg-white rounded-full transform translate-x-5 transition-transform"></div>
-                    </div>
+              <div className="flex items-center space-x-3">
+                <span className="text-xs text-slate-500">
+                  List of users who have access to this provider account
+                </span>
+                <div className="relative">
+                  <div className="w-11 h-6 bg-blue-600 rounded-full p-1 cursor-pointer">
+                    <div className="w-4 h-4 bg-white rounded-full transform translate-x-5 transition-transform"></div>
                   </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {formData.collaborators.map((collab, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                        {collab.email[0]?.toUpperCase()}
-                      </div>
-                      <span className="text-sm font-medium text-slate-700">
-                        {collab.email}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <span
-                        className={`text-xs px-2 py-1 rounded-full font-medium ${
-                          collab.role === "Manager"
-                            ? "bg-blue-100 text-blue-700"
-                            : "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {collab.role}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-slate-400 hover:text-red-600"
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-
-                <div className="flex items-center space-x-3">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                  >
-                    <Plus className="w-4 h-4 mr-1" />
-                    Add Collaborators
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
-                  >
-                    View Permission Details
-                    <svg
-                      className="w-3 h-3 ml-1"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </Button>
                 </div>
               </div>
             </div>
 
-            {/* API Key */}
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                OpenAI API Key <span className="text-red-500">*</span>
-              </label>
-              <div className="relative">
-                <Input
-                  type={showApiKey ? "text" : "password"}
-                  placeholder="Enter API Key"
-                  value={formData.apiKey}
-                  onChange={(value) =>
-                    setFormData((prev) => ({ ...prev, apiKey: value }))
-                  }
-                  className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500 pr-12"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+            <div className="space-y-3">
+              {formData.collaborators.map((collab, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-200"
                 >
-                  <Eye className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-            {/* Models Selection */}
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-semibold text-slate-700">
-                  Models <span className="text-red-500">*</span>
-                </label>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" className="text-blue-600">
-                    <input type="checkbox" className="mr-2" />
-                    Select All
-                  </Button>
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
-                    <input
-                      type="text"
-                      placeholder="Search"
-                      className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
-                    />
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
+                      {collab.email[0]?.toUpperCase()}
+                    </div>
+                    <span className="text-sm font-medium text-slate-700">
+                      {collab.email}
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span
+                      className={`text-xs px-2 py-1 rounded-full font-medium ${
+                        collab.role === "Manager"
+                          ? "bg-blue-100 text-blue-700"
+                          : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {collab.role}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-slate-400 hover:text-red-600"
+                    >
+                      ×
+                    </Button>
                   </div>
                 </div>
+              ))}
+
+              <div className="flex items-center space-x-3">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Collaborators
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                >
+                  View Permission Details
+                  <svg
+                    className="w-3 h-3 ml-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </Button>
               </div>
-
-              <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl bg-white">
-                <div className="divide-y divide-slate-100">
-                  {[
-                    { name: "chatgpt-4o-latest", type: "Chat" },
-                    { name: "gpt-3.5-turbo-0125", type: "Chat" },
-                    { name: "gpt-3.5-turbo-16k", type: "Chat" },
-                    { name: "gpt-4-0613", type: "Chat" },
-                    { name: "gpt-3.5-turbo", type: "Chat" },
-                    { name: "gpt-3.5-turbo-1106", type: "Chat" },
-                    { name: "gpt-4", type: "Chat" },
-                    { name: "gpt-4-turbo", type: "Chat" },
-                  ].map((model, index) => (
-                    <label
-                      key={index}
-                      className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer group transition-colors"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="checkbox"
-                          className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                          checked={formData.selectedModels.includes(model.name)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setFormData((prev) => ({
-                                ...prev,
-                                selectedModels: [
-                                  ...prev.selectedModels,
-                                  model.name,
-                                ],
-                              }));
-                            } else {
-                              setFormData((prev) => ({
-                                ...prev,
-                                selectedModels: prev.selectedModels.filter(
-                                  (m) => m !== model.name
-                                ),
-                              }));
-                            }
-                          }}
-                        />
-                        <div>
-                          <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
-                            {model.name}
-                          </div>
-                          <div className="text-xs text-slate-500">
-                            {model.type}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
-                        {model.type}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Advanced Fields Toggle */}
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
-                checked={formData.showAdvanced}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    showAdvanced: e.target.checked,
-                  }))
-                }
-              />
-              <span className="text-sm font-medium text-slate-700">
-                Show advanced fields
-              </span>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end space-x-3 pt-6 border-t border-slate-200">
-              <Button
-                variant="outline"
-                onClick={() => setShowAddAccountModal(false)}
-                className="border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="outline"
-                className="border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
-              >
-                Apply using YAML
-              </Button>
-              <Button
-                onClick={handleAddAccount}
-                className="bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg border-0"
-              >
-                Add {providers.find((p) => p.id === providerBeingAdded)?.name}{" "}
-                Account
-              </Button>
             </div>
           </div>
-        </Modal>
-      </div>
+
+          {/* API Key */}
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
+              OpenAI API Key <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <Input
+                type={showApiKey ? "text" : "password"}
+                placeholder="Enter API Key"
+                value={formData.apiKey}
+                onChange={(value) =>
+                  setFormData((prev) => ({ ...prev, apiKey: value }))
+                }
+                className="bg-white border-slate-300 focus:border-blue-500 focus:ring-blue-500 pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowApiKey(!showApiKey)}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Models Selection */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <label className="block text-sm font-semibold text-slate-700">
+                Models <span className="text-red-500">*</span>
+              </label>
+              <div className="flex items-center space-x-2">
+                <Button variant="ghost" size="sm" className="text-blue-600">
+                  <input type="checkbox" className="mr-2" />
+                  Select All
+                </Button>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search"
+                    className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl bg-white">
+              <div className="divide-y divide-slate-100">
+                {[
+                  { name: "chatgpt-4o-latest", type: "Chat" },
+                  { name: "gpt-3.5-turbo-0125", type: "Chat" },
+                  { name: "gpt-3.5-turbo-16k", type: "Chat" },
+                  { name: "gpt-4-0613", type: "Chat" },
+                  { name: "gpt-3.5-turbo", type: "Chat" },
+                  { name: "gpt-3.5-turbo-1106", type: "Chat" },
+                  { name: "gpt-4", type: "Chat" },
+                  { name: "gpt-4-turbo", type: "Chat" },
+                ].map((model, index) => (
+                  <label
+                    key={index}
+                    className="flex items-center justify-between p-4 hover:bg-slate-50 cursor-pointer group transition-colors"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+                        checked={formData.selectedModels.includes(model.name)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              selectedModels: [
+                                ...prev.selectedModels,
+                                model.name,
+                              ],
+                            }));
+                          } else {
+                            setFormData((prev) => ({
+                              ...prev,
+                              selectedModels: prev.selectedModels.filter(
+                                (m) => m !== model.name
+                              ),
+                            }));
+                          }
+                        }}
+                      />
+                      <div>
+                        <div className="font-medium text-slate-900 group-hover:text-blue-600 transition-colors">
+                          {model.name}
+                        </div>
+                        <div className="text-xs text-slate-500">
+                          {model.type}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">
+                      {model.type}
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Advanced Fields Toggle */}
+          <div className="flex items-center space-x-2">
+            <input
+              type="checkbox"
+              className="w-4 h-4 text-blue-600 border-slate-300 rounded focus:ring-blue-500"
+              checked={formData.showAdvanced}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  showAdvanced: e.target.checked,
+                }))
+              }
+            />
+            <span className="text-sm font-medium text-slate-700">
+              Show advanced fields
+            </span>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex items-center justify-end space-x-3 pt-6 border-t border-slate-200">
+            <Button
+              variant="outline"
+              onClick={() => setShowAddAccountModal(false)}
+              className="border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              className="border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-slate-50"
+            >
+              Apply using YAML
+            </Button>
+            <Button
+              onClick={handleAddAccount}
+              className="bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg border-0"
+            >
+              Add {providers.find((p) => p.id === providerBeingAdded)?.name}{" "}
+              Account
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 };

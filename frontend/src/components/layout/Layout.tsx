@@ -7,13 +7,14 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gray-50">
+      {/* Sidebar */}
       <Sidebar />
       
-      {/* Main content with proper margin for sidebar */}
-      <div className="md:ml-64">
-        <main className="min-h-screen overflow-y-auto focus:outline-none">
-          <div className="p-6 lg:p-8">
+      {/* Main content area with proper margin for sidebar */}
+      <div className="pl-0 md:pl-64 transition-all duration-300">
+        <main className="min-h-screen">
+          <div className="p-4 md:p-6 lg:p-8">
             {children}
           </div>
         </main>
