@@ -5,9 +5,6 @@ import {
   Play,
   Grid3X3,
   BarChart3,
-  Server,
-  Shield,
-  Settings,
   Monitor,
   Users,
   ChevronUp,
@@ -47,21 +44,6 @@ const aiGatewaySection: SidebarSection = {
       href: "/monitor",
       icon: <BarChart3 className="w-5 h-5" />,
     },
-    {
-      name: "MCP Servers",
-      href: "/mcp-servers",
-      icon: <Server className="w-5 h-5" />,
-    },
-    {
-      name: "Guardrails",
-      href: "/guardrails",
-      icon: <Shield className="w-5 h-5" />,
-    },
-    {
-      name: "Configs",
-      href: "/configs",
-      icon: <Settings className="w-5 h-5" />,
-    },
   ],
   collapsible: true,
 };
@@ -69,11 +51,6 @@ const aiGatewaySection: SidebarSection = {
 const controlPanelSection: SidebarSection = {
   title: "CONTROL PANEL",
   items: [
-    {
-      name: "Platform",
-      href: "/platform",
-      icon: <Monitor className="w-5 h-5" />,
-    },
     {
       name: "Access",
       href: "/access",
@@ -134,11 +111,13 @@ export const Sidebar: React.FC = () => {
                   : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
               } group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 transform hover:translate-x-1`}
             >
-              <span className={`mr-3 flex-shrink-0 ${
-                isActive(item.href) 
-                  ? "text-white" 
-                  : "text-gray-500 group-hover:text-gray-700"
-              } transition-colors duration-200`}>
+              <span
+                className={`mr-3 flex-shrink-0 ${
+                  isActive(item.href)
+                    ? "text-white"
+                    : "text-gray-500 group-hover:text-gray-700"
+                } transition-colors duration-200`}
+              >
                 {item.icon}
               </span>
               <span className="font-medium">{item.name}</span>
@@ -160,7 +139,7 @@ export const Sidebar: React.FC = () => {
         {/* Header */}
         <div className="flex items-center h-16 px-4 bg-white border-b border-gray-200">
           <div className="flex items-center space-x-3">
-            <button 
+            <button
               type="button"
               onClick={() => window.history.back()}
               className="text-gray-500 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 rounded-lg p-2 hover:bg-gray-100 transition-all duration-200"
@@ -170,7 +149,9 @@ export const Sidebar: React.FC = () => {
             </button>
             <div>
               <h1 className="text-xl font-bold text-gray-900">StrataAI</h1>
-              <span className="text-xs text-blue-600 font-semibold">v0.79.7</span>
+              <span className="text-xs text-blue-600 font-semibold">
+                v0.79.7
+              </span>
             </div>
           </div>
         </div>
@@ -188,12 +169,12 @@ export const Sidebar: React.FC = () => {
           <div className="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-100 transition-colors duration-200 cursor-pointer">
             <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-md">
               <span className="text-white text-sm font-bold">
-                {user?.email?.[0]?.toUpperCase() || 'U'}
+                {user?.email?.[0]?.toUpperCase() || "U"}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-semibold text-gray-900 truncate">
-                {user?.email || 'Unknown user'}
+                {user?.email || "Unknown user"}
               </p>
               <p className="text-xs text-gray-500">Personal Workspace</p>
             </div>
