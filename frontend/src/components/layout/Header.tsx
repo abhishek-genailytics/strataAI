@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-import { Button } from '../ui/Button';
-import { OrganizationSelector, OrganizationContext } from '../organization';
+import React, { useState } from "react";
+import { useAuth } from "../../contexts/AuthContext";
+import { Button } from "../ui/Button";
+import { OrganizationSelector, OrganizationContext } from "../organization";
 
 export const Header: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -34,12 +34,32 @@ export const Header: React.FC = () => {
             >
               <span className="sr-only">Open main menu</span>
               {mobileMenuOpen ? (
-                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                <svg
+                  className="block h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
                 </svg>
               ) : (
-                <svg className="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg
+                  className="block h-6 w-6"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
               )}
             </button>
@@ -59,12 +79,7 @@ export const Header: React.FC = () => {
             >
               Playground
             </a>
-            <a
-              href="/api-keys"
-              className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150"
-            >
-              API Keys
-            </a>
+
             <a
               href="/analytics"
               className="text-gray-500 hover:text-gray-700 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-150"
@@ -79,7 +94,9 @@ export const Header: React.FC = () => {
               <>
                 <OrganizationSelector className="w-40 lg:w-48" />
                 <div className="flex items-center space-x-2">
-                  <span className="hidden sm:block text-sm text-gray-700 truncate max-w-32">{user.email}</span>
+                  <span className="hidden sm:block text-sm text-gray-700 truncate max-w-32">
+                    {user.email}
+                  </span>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -113,13 +130,7 @@ export const Header: React.FC = () => {
             >
               Playground
             </a>
-            <a
-              href="/api-keys"
-              className="text-gray-500 hover:text-gray-700 block px-3 py-2 rounded-md text-base font-medium"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              API Keys
-            </a>
+
             <a
               href="/analytics"
               className="text-gray-500 hover:text-gray-700 block px-3 py-2 rounded-md text-base font-medium"

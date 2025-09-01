@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { ProviderModelInfo } from '../../types';
-import { apiService } from '../../services/api';
+import React, { useState, useEffect } from "react";
+import { ProviderModelInfo } from "../../types";
+import { apiService } from "../../services/api";
 
 interface ModelSelectorProps {
   selectedModel: string;
@@ -11,7 +11,7 @@ interface ModelSelectorProps {
 const ModelSelector: React.FC<ModelSelectorProps> = ({
   selectedModel,
   onModelChange,
-  disabled = false
+  disabled = false,
 }) => {
   const [models, setModels] = useState<ProviderModelInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -23,29 +23,16 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
       setError(null);
 
       try {
-        // Fetch available API keys to determine which providers are configured
-        const apiKeysResponse = await apiService.getApiKeys();
-        if (apiKeysResponse.error) {
-          throw new Error(apiKeysResponse.error);
-        }
-
-        const activeApiKeys = apiKeysResponse.data?.filter(key => key.is_active) || [];
-
-        // Fetch all available models
+        // Since we're using PAT in Access section, we'll show all available models
+        // Users can configure their access tokens in the Access page
         const modelsResponse = await apiService.getModels();
         if (modelsResponse.error) {
           throw new Error(modelsResponse.error);
         }
 
-        // Filter models to only show those for providers with active API keys
-        const availableProviders = activeApiKeys.map(key => key.provider);
-        const filteredModels = modelsResponse.data?.filter(model => 
-          availableProviders.includes(model.provider as 'openai' | 'anthropic' | 'google')
-        ) || [];
-
-        setModels(filteredModels);
+        setModels(modelsResponse.data || []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load models');
+        setError(err instanceof Error ? err.message : "Failed to load models");
       } finally {
         setLoading(false);
       }
@@ -56,33 +43,35 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   const getProviderIcon = (provider: string) => {
     switch (provider.toLowerCase()) {
-      case 'openai':
-        return '🤖';
-      case 'anthropic':
-        return '🧠';
-      case 'google':
-        return '🔍';
+      case "openai":
+        return "🤖";
+      case "anthropic":
+        return "🧠";
+      case "google":
+        return "🔍";
       default:
-        return '⚡';
+        return "⚡";
     }
   };
 
   const getProviderColor = (provider: string) => {
     switch (provider.toLowerCase()) {
-      case 'openai':
-        return 'text-green-600';
-      case 'anthropic':
-        return 'text-orange-600';
-      case 'google':
-        return 'text-blue-600';
+      case "openai":
+        return "text-green-600";
+      case "anthropic":
+        return "text-orange-600";
+      case "google":
+        return "text-blue-600";
       default:
-        return 'text-gray-600';
+        return "text-gray-600";
     }
   };
 
   const handleModelChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedValue = event.target.value;
-    const model = models.find(m => `${m.provider}:${m.model}` === selectedValue);
+    const model = models.find(
+      (m) => `${m.provider}:${m.model}` === selectedValue
+    );
     if (model) {
       onModelChange(model.model, model.provider);
     }
@@ -122,7 +111,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         </label>
         <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
           <p className="text-sm text-yellow-600">
-            No models available. Please configure API keys for at least one provider.
+            No models available. Please configure access tokens in the Access
+            section.
           </p>
         </div>
       </div>
@@ -135,7 +125,13 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
         Model Selection
       </label>
       <select
-        value={selectedModel ? models.find(m => m.model === selectedModel)?.provider + ':' + selectedModel : ''}
+        value={
+          selectedModel
+            ? models.find((m) => m.model === selectedModel)?.provider +
+              ":" +
+              selectedModel
+            : ""
+        }
         onChange={handleModelChange}
         disabled={disabled}
         className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
@@ -146,22 +142,28 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
             key={`${model.provider}:${model.model}`}
             value={`${model.provider}:${model.model}`}
           >
-            {getProviderIcon(model.provider)} {model.display_name} ({model.provider})
+            {getProviderIcon(model.provider)} {model.display_name} (
+            {model.provider})
           </option>
         ))}
       </select>
-      
+
       {selectedModel && (
         <div className="mt-2 p-3 bg-gray-50 rounded-md">
           {(() => {
-            const model = models.find(m => m.model === selectedModel);
+            const model = models.find((m) => m.model === selectedModel);
             if (!model) return null;
-            
+
             return (
               <div className="space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
-                  <span className={`font-medium ${getProviderColor(model.provider)}`}>
-                    {getProviderIcon(model.provider)} {model.provider.toUpperCase()}
+                  <span
+                    className={`font-medium ${getProviderColor(
+                      model.provider
+                    )}`}
+                  >
+                    {getProviderIcon(model.provider)}{" "}
+                    {model.provider.toUpperCase()}
                   </span>
                   <span className="text-gray-600">•</span>
                   <span className="font-medium">{model.display_name}</span>
@@ -170,7 +172,8 @@ const ModelSelector: React.FC<ModelSelectorProps> = ({
                   Max tokens: {model.max_tokens.toLocaleString()}
                 </div>
                 <div className="text-gray-600">
-                  Cost: ${model.cost_per_1k_input_tokens}/1K input • ${model.cost_per_1k_output_tokens}/1K output
+                  Cost: ${model.cost_per_1k_input_tokens}/1K input • $
+                  {model.cost_per_1k_output_tokens}/1K output
                 </div>
                 {model.supports_streaming && (
                   <div className="text-green-600 text-xs">

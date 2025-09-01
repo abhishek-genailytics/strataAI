@@ -9,7 +9,6 @@ import {
   Users,
   ChevronUp,
   ChevronDown,
-  Key,
   ArrowLeft,
 } from "lucide-react";
 
@@ -55,11 +54,6 @@ const controlPanelSection: SidebarSection = {
       name: "Access",
       href: "/access",
       icon: <Users className="w-5 h-5" />,
-    },
-    {
-      name: "API Keys",
-      href: "/api-keys",
-      icon: <Key className="w-5 h-5" />,
     },
   ],
 };

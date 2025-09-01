@@ -1,6 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse, AxiosError } from "axios";
 import {
-  ApiKey,
   RequestLog,
   UsageMetrics,
   ApiResponse,
@@ -158,41 +157,6 @@ class ApiService {
 
   async delete<T = any>(url: string): Promise<ApiResponse<T>> {
     return this.handleResponse(this.api.delete(url));
-  }
-
-  // API Key Management
-  async getApiKeys(): Promise<ApiResponse<ApiKey[]>> {
-    return this.handleResponse(this.api.get("/api-keys/"));
-  }
-
-  async createApiKey(data: {
-    provider: string;
-    key_name: string;
-    api_key: string;
-  }): Promise<ApiResponse<ApiKey>> {
-    return this.handleResponse(this.api.post("/api-keys/", data));
-  }
-
-  async updateApiKey(
-    id: string,
-    data: {
-      key_name?: string;
-      api_key?: string;
-    }
-  ): Promise<ApiResponse<ApiKey>> {
-    return this.handleResponse(this.api.put(`/api-keys/${id}`, data));
-  }
-
-  async deleteApiKey(id: string): Promise<ApiResponse<void>> {
-    return this.handleResponse(this.api.delete(`/api-keys/${id}`));
-  }
-
-  async validateApiKey(id: string): Promise<ApiResponse<{ valid: boolean }>> {
-    return this.handleResponse(this.api.post(`/api-keys/${id}/validate`));
-  }
-
-  async revealApiKey(id: string): Promise<ApiResponse<{ api_key: string }>> {
-    return this.handleResponse(this.api.get(`/api-keys/${id}/reveal`));
   }
 
   // Chat Completions

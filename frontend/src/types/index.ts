@@ -111,17 +111,6 @@ export interface AIModelWithPricing extends AIModel {
   pricing: ModelPricing[];
 }
 
-export interface ApiKey {
-  id: string;
-  user_id: string;
-  provider: "openai" | "anthropic" | "google";
-  key_name: string;
-  masked_key: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface ApiResponse<T = any> {
   data?: T;
   error?: string;

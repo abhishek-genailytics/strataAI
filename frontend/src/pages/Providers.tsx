@@ -2,8 +2,6 @@ import React, { useState, useEffect } from "react";
 import { MagicCard } from "../components/ui/magic-card";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
-import { apiService } from "../services/api";
-import { ApiKey } from "../types";
 
 interface Provider {
   id: string;
@@ -202,39 +200,21 @@ export const Providers: React.FC = () => {
   const [providerStatuses, setProviderStatuses] = useState<
     Record<string, Provider["status"]>
   >({});
-  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchApiKeys();
+    // Initialize provider statuses - all providers start as disconnected
+    const statuses: Record<string, Provider["status"]> = {};
+    providers.forEach((provider) => {
+      statuses[provider.id] = "disconnected";
+    });
+    setProviderStatuses(statuses);
+    setLoading(false);
   }, []);
 
-  const fetchApiKeys = async () => {
-    try {
-      setLoading(true);
-      const response = await apiService.getApiKeys();
-      const keys = response.data || [];
-      setApiKeys(keys);
-
-      // Update provider statuses based on API keys
-      const statuses: Record<string, Provider["status"]> = {};
-      providers.forEach((provider) => {
-        const hasKey = keys.some(
-          (key: ApiKey) => key.provider === provider.id && key.is_active
-        );
-        statuses[provider.id] = hasKey ? "connected" : "disconnected";
-      });
-      setProviderStatuses(statuses);
-    } catch (error) {
-      console.error("Failed to fetch API keys:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleProviderSetup = (providerId: string) => {
-    // Navigate to API key setup for this provider
-    window.location.href = `/api-keys?provider=${providerId}`;
+    // Navigate to Access page for this provider
+    window.location.href = `/access?provider=${providerId}`;
   };
 
   const getStatusColor = (status: Provider["status"]) => {
@@ -276,203 +256,201 @@ export const Providers: React.FC = () => {
 
   return (
     <>
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">
-            AI Providers
-          </h1>
-          <p className="text-slate-600 text-lg">
-            Configure and manage your AI provider connections. Connect to
-            multiple providers to access different models and capabilities.
-          </p>
-        </div>
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-slate-900 mb-2">AI Providers</h1>
+        <p className="text-slate-600 text-lg">
+          Configure and manage your AI provider connections. Connect to multiple
+          providers to access different models and capabilities.
+        </p>
+      </div>
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
-                <span className="text-2xl">🔗</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-slate-600">
-                  Connected Providers
-                </p>
-                <p className="text-2xl font-bold text-slate-900">
-                  {
-                    Object.values(providerStatuses).filter(
-                      (status) => status === "connected"
-                    ).length
-                  }
-                </p>
-              </div>
+      {/* Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <span className="text-2xl">🔗</span>
             </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-                <span className="text-2xl">🤖</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  Available Models
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {providers.reduce(
-                    (acc, provider) => acc + (provider.models?.length || 0),
-                    0
-                  )}
-                </p>
-              </div>
-            </div>
-          </Card>
-
-          <Card className="p-6">
-            <div className="flex items-center">
-              <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
-                <span className="text-2xl">🔑</span>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  API Keys
-                </p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {apiKeys.filter((key) => key.is_active).length}
-                </p>
-              </div>
-            </div>
-          </Card>
-        </div>
-
-        {/* Provider Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {providers.map((provider) => {
-            const status = providerStatuses[provider.id] || provider.status;
-
-            return (
-              <MagicCard
-                key={provider.id}
-                className="p-6 cursor-pointer transition-all duration-200 hover:shadow-lg"
-                gradientColor="#3b82f6"
-                gradientOpacity={0.1}
-                onClick={() => handleProviderSetup(provider.id)}
-              >
-                <div className="flex flex-col h-full">
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center">
-                      <span className="text-3xl mr-3">{provider.icon}</span>
-                      <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
-                          {provider.name}
-                        </h3>
-                        <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
-                            status
-                          )}`}
-                        >
-                          {getStatusText(status)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
-                    {provider.description}
-                  </p>
-
-                  {/* Models */}
-                  {provider.models && (
-                    <div className="mb-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                        Popular Models:
-                      </p>
-                      <div className="flex flex-wrap gap-1">
-                        {provider.models.slice(0, 3).map((model) => (
-                          <span
-                            key={model}
-                            className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                          >
-                            {model}
-                          </span>
-                        ))}
-                        {provider.models.length > 3 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                            +{provider.models.length - 3} more
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Pricing */}
-                  {provider.pricing && (
-                    <div className="mb-4">
-                      <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                        Pricing:
-                      </p>
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        {provider.pricing}
-                      </p>
-                    </div>
-                  )}
-
-                  {/* Action Button */}
-                  <Button
-                    variant={status === "connected" ? "secondary" : "primary"}
-                    size="sm"
-                    className="w-full mt-auto"
-                  >
-                    {status === "connected" ? "Manage" : "Setup"}
-                  </Button>
-                </div>
-              </MagicCard>
-            );
-          })}
-        </div>
-
-        {/* Quick Setup Section */}
-        <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg p-8 border border-gray-200 dark:border-gray-700">
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Quick Setup Guide
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                Getting Started
-              </h3>
-              <ol className="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
-                <li>Choose a provider from the grid above</li>
-                <li>Click "Setup" to configure your API key</li>
-                <li>Test your connection in the playground</li>
-                <li>Start building with multiple AI models</li>
-              </ol>
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                Popular Combinations
-              </h3>
-              <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-                <li>
-                  • <strong>OpenAI + Anthropic:</strong> Best for general use
-                  cases
-                </li>
-                <li>
-                  • <strong>Google + Mistral:</strong> Great for multilingual
-                  tasks
-                </li>
-                <li>
-                  • <strong>Groq + Together:</strong> Ultra-fast inference
-                </li>
-                <li>
-                  • <strong>Ollama + Self-hosted:</strong> Complete privacy
-                </li>
-              </ul>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-slate-600">
+                Connected Providers
+              </p>
+              <p className="text-2xl font-bold text-slate-900">
+                {
+                  Object.values(providerStatuses).filter(
+                    (status) => status === "connected"
+                  ).length
+                }
+              </p>
             </div>
           </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+              <span className="text-2xl">🤖</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Available Models
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                {providers.reduce(
+                  (acc, provider) => acc + (provider.models?.length || 0),
+                  0
+                )}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <span className="text-2xl">🔑</span>
+            </div>
+            <div className="ml-4">
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Access Tokens
+              </p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                1
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Provider Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {providers.map((provider) => {
+          const status = providerStatuses[provider.id] || provider.status;
+
+          return (
+            <MagicCard
+              key={provider.id}
+              className="p-6 cursor-pointer transition-all duration-200 hover:shadow-lg"
+              gradientColor="#3b82f6"
+              gradientOpacity={0.1}
+              onClick={() => handleProviderSetup(provider.id)}
+            >
+              <div className="flex flex-col h-full">
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center">
+                    <span className="text-3xl mr-3">{provider.icon}</span>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
+                        {provider.name}
+                      </h3>
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
+                          status
+                        )}`}
+                      >
+                        {getStatusText(status)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
+                  {provider.description}
+                </p>
+
+                {/* Models */}
+                {provider.models && (
+                  <div className="mb-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
+                      Popular Models:
+                    </p>
+                    <div className="flex flex-wrap gap-1">
+                      {provider.models.slice(0, 3).map((model) => (
+                        <span
+                          key={model}
+                          className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
+                        >
+                          {model}
+                        </span>
+                      ))}
+                      {provider.models.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                          +{provider.models.length - 3} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Pricing */}
+                {provider.pricing && (
+                  <div className="mb-4">
+                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                      Pricing:
+                    </p>
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      {provider.pricing}
+                    </p>
+                  </div>
+                )}
+
+                {/* Action Button */}
+                <Button
+                  variant={status === "connected" ? "secondary" : "primary"}
+                  size="sm"
+                  className="w-full mt-auto"
+                >
+                  {status === "connected" ? "Manage" : "Setup"}
+                </Button>
+              </div>
+            </MagicCard>
+          );
+        })}
+      </div>
+
+      {/* Quick Setup Section */}
+      <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg p-8 border border-gray-200 dark:border-gray-700">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+          Quick Setup Guide
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              Getting Started
+            </h3>
+            <ol className="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
+              <li>Choose a provider from the grid above</li>
+              <li>Click "Setup" to configure your API key</li>
+              <li>Test your connection in the playground</li>
+              <li>Start building with multiple AI models</li>
+            </ol>
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+              Popular Combinations
+            </h3>
+            <ul className="space-y-2 text-gray-600 dark:text-gray-400">
+              <li>
+                • <strong>OpenAI + Anthropic:</strong> Best for general use
+                cases
+              </li>
+              <li>
+                • <strong>Google + Mistral:</strong> Great for multilingual
+                tasks
+              </li>
+              <li>
+                • <strong>Groq + Together:</strong> Ultra-fast inference
+              </li>
+              <li>
+                • <strong>Ollama + Self-hosted:</strong> Complete privacy
+              </li>
+            </ul>
+          </div>
         </div>
+      </div>
     </>
   );
 };

@@ -14,7 +14,6 @@ import { Layout } from "./components/layout/Layout";
 import {
   Login,
   Register,
-  ApiKeys,
   Playground,
   Providers,
   ModelPricing,
@@ -109,17 +108,6 @@ function App() {
                     <ProtectedRoute>
                       <Layout>
                         <Access />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/api-keys"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <ApiKeys />
                       </Layout>
                     </ProtectedRoute>
                   }

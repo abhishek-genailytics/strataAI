@@ -3,7 +3,7 @@
 export { Dashboard } from "./Dashboard";
 export { Login } from "./Login";
 export { Register } from "./Register";
-export { ApiKeys } from "./ApiKeys";
+
 export { Playground } from "./Playground";
 export { Providers } from "./Providers";
 export { ModelPricing } from "./ModelPricing";
