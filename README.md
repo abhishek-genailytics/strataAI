@@ -58,12 +58,14 @@ strataAI/
 ### Environment Setup
 
 1. **Clone the repository**
+
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/abhishek-genailytics/strataAI.git
    cd strataAI
    ```
 
 2. **Copy environment file**
+
    ```bash
    cp .env.example .env
    ```
@@ -95,6 +97,7 @@ docker-compose down
 #### Option 2: Manual Setup
 
 **Backend Setup:**
+
 ```bash
 cd backend
 python -m venv venv
@@ -104,6 +107,7 @@ uvicorn app.main:app --reload --port 8000
 ```
 
 **Frontend Setup:**
+
 ```bash
 cd frontend
 npm install
@@ -111,6 +115,7 @@ npm start
 ```
 
 **Redis Setup:**
+
 ```bash
 # Using Docker
 docker run -d -p 6379:6379 redis:7-alpine

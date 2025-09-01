@@ -3,7 +3,7 @@
 Test JWT token validation with actual browser token
 """
 import sys
-sys.path.append('/Users/abhishek/Documents/GitHub/genailytics-consulting/strataAI/backend')
+sys.path.append('/Users/abhishek/Documents/GitHub/abhishek-genailytics/strataAI/backend')
 
 from jose import jwt, JWTError
 from app.core.config import settings
