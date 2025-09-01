@@ -6,15 +6,20 @@ export const Card: React.FC<CardProps> = ({
   title,
   className = '',
   padding = true,
+  onClick,
 }) => {
-  const baseClasses = 'bg-white overflow-hidden shadow rounded-lg';
-  const paddingClasses = padding ? 'px-4 py-5 sm:p-6' : '';
+  const baseClasses = 'bg-white overflow-hidden shadow-lg rounded-xl border border-slate-200 transition-all duration-200';
+  const hoverClasses = onClick ? 'cursor-pointer hover:shadow-xl hover:border-slate-300 transform hover:-translate-y-0.5' : '';
+  const paddingClasses = padding ? 'px-6 py-6' : '';
   
   return (
-    <div className={`${baseClasses} ${className}`}>
+    <div 
+      className={`${baseClasses} ${hoverClasses} ${className}`}
+      onClick={onClick}
+    >
       {title && (
-        <div className="px-4 py-5 sm:px-6 border-b border-gray-200">
-          <h3 className="text-lg leading-6 font-medium text-gray-900">
+        <div className="px-6 py-4 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+          <h3 className="text-lg leading-6 font-bold text-slate-900">
             {title}
           </h3>
         </div>

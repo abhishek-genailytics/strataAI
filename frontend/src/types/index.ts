@@ -188,6 +188,7 @@ export interface CardProps {
   title?: string;
   className?: string;
   padding?: boolean;
+  onClick?: () => void;
 }
 
 // Playground types
