@@ -9,3 +9,4 @@ export { SSOCallback } from "./SSOCallback";
 export { Providers } from "./Providers";
 export { ModelPricing } from "./ModelPricing";
 export { default as Monitor } from "./Monitor";
+export { Access } from "./Access";

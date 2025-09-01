@@ -19,6 +19,7 @@ import {
   SSOCallback,
   Providers,
   ModelPricing,
+  Access,
 } from "./pages";
 import Monitor from "./pages/Monitor";
 import { ForgotPassword, UserProfile } from "./components";
@@ -111,14 +112,7 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Layout>
-                        <div className="p-6">
-                          <h1 className="text-2xl font-bold text-gray-900 mb-6">
-                            Access
-                          </h1>
-                          <p className="text-gray-600">
-                            Access page coming soon...
-                          </p>
-                        </div>
+                        <Access />
                       </Layout>
                     </ProtectedRoute>
                   }
