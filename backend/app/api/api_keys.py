@@ -22,24 +22,38 @@ async def create_api_key(
     organization: Optional[Organization] = Depends(get_organization_context),
     validate: bool = True
 ):
-    """Create a new API key with validation and encryption."""
+    """Create a new API key with validation and encryption for an organization + provider."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"create_api_key called with organization: {organization}")
+    logger.info(f"Current user: {current_user.user_id}")
+
+    if not organization:
+        logger.error("No organization context found for API key creation")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required for API key creation"
+        )
+    
+    logger.info(f"Creating API key for organization {organization.id}")
+    logger.info(f"Organization: {organization}")
+    logger.info(f"API key data: {api_key_in}")
+    
     try:
         api_key, validation_result = await api_key_service.validate_and_create(
             obj_in=api_key_in, 
-            user_id=current_user.id, 
-            organization_id=organization.id if organization else None,
+            organization_id=organization.id,
             validate_key=validate
         )
         
         # Return display version with masked key
-        display_keys = await api_key_service.get_user_keys_with_providers(
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+        display_keys = await api_key_service.get_organization_keys(
+            organization_id=organization.id
         )
         
         # Find the newly created key
         for display_key in display_keys:
-            if display_key.id == api_key.id:
+            if display_key.id == api_key["id"]:
                 return display_key
         
         raise HTTPException(
@@ -65,11 +79,16 @@ async def list_api_keys(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """List user's API keys with masked values in organization context."""
+    """List organization's API keys with masked values."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
     try:
-        display_keys = await api_key_service.get_user_keys_with_providers(
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+        display_keys = await api_key_service.get_organization_keys(
+            organization_id=organization.id
         )
         return display_keys
     except Exception as e:
@@ -87,10 +106,15 @@ async def get_api_key(
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Get a specific API key by ID in organization context."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
     try:
-        display_keys = await api_key_service.get_user_keys_with_providers(
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+        display_keys = await api_key_service.get_organization_keys(
+            organization_id=organization.id
         )
         
         for display_key in display_keys:
@@ -119,12 +143,17 @@ async def update_api_key(
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Update an API key in organization context."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
     try:
-        # Check if key exists and belongs to user in organization context
+        # Check if key exists and belongs to organization
         api_key = await api_key_service.get_with_provider(
             api_key_id=api_key_id, 
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+            organization_id=organization.id
         )
         if not api_key:
             raise HTTPException(
@@ -133,17 +162,15 @@ async def update_api_key(
             )
         
         # Update the key
-        updated_key = await api_key_service.update(
+        updated_key = await api_key_service.update_api_key(
             api_key_id=api_key_id,
-            obj_in=api_key_in,
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+            update_data=api_key_in,
+            organization_id=organization.id
         )
         
         # Return display version
-        display_keys = await api_key_service.get_user_keys_with_providers(
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+        display_keys = await api_key_service.get_organization_keys(
+            organization_id=organization.id
         )
         
         for display_key in display_keys:
@@ -172,11 +199,16 @@ async def delete_api_key(
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Delete (deactivate) an API key in organization context."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
     try:
         api_key = await api_key_service.deactivate(
             api_key_id=api_key_id, 
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+            organization_id=organization.id
         )
         if not api_key:
             raise HTTPException(
@@ -201,12 +233,17 @@ async def validate_api_key(
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Validate an existing API key against its provider in organization context."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
     try:
         # Get the decrypted key
         decrypted_key = await api_key_service.get_decrypted_key(
             api_key_id=api_key_id, 
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+            organization_id=organization.id
         )
         if not decrypted_key:
             raise HTTPException(
@@ -217,16 +254,29 @@ async def validate_api_key(
         # Get provider info
         api_key = await api_key_service.get_with_provider(
             api_key_id=api_key_id, 
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+            organization_id=organization.id
         )
+        
+        # Get provider name from provider_id
+        from supabase import Client
+        from ..core.database import get_supabase_client
+        supabase: Client = get_supabase_client()
+        provider_response = supabase.table("ai_providers").select("name").eq("id", api_key["provider_id"]).execute()
+        
+        if not provider_response.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Provider not found"
+            )
+        
+        provider_name = provider_response.data[0]["name"]
         
         # Import here to avoid circular imports
         from ..services.api_key_validator import api_key_validator
         
         # Validate the key
         validation_result = await api_key_validator.validate_api_key(
-            decrypted_key, api_key.provider.name
+            decrypted_key, provider_name
         )
         
         return validation_result
@@ -248,11 +298,16 @@ async def reveal_api_key(
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Reveal the actual API key value (use with caution) in organization context."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
     try:
         decrypted_key = await api_key_service.get_decrypted_key(
             api_key_id=api_key_id, 
-            user_id=current_user.id,
-            organization_id=organization.id if organization else None
+            organization_id=organization.id
         )
         if not decrypted_key:
             raise HTTPException(

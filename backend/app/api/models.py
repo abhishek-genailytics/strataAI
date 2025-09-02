@@ -29,29 +29,86 @@ async def list_models_with_pricing(
 ):
     """List all models with their pricing information, optionally filtered by organization's connected providers."""
     try:
-        async with get_db() as db:
-            # Get all models with pricing
-            models_with_pricing = await ai_model_service.get_models_with_pricing(db, provider_id)
+        from ..utils.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        
+        # Query models from Supabase
+        query = supabase.table("ai_models").select("""
+            *,
+            ai_providers!inner(
+                id,
+                name,
+                display_name,
+                logo_url,
+                description
+            ),
+            model_pricing(*)
+        """)
+        
+        # Filter by provider if specified
+        if provider_id:
+            query = query.eq("provider_id", str(provider_id))
+        
+        # Filter by model type if specified
+        if model_type:
+            query = query.eq("model_type", model_type)
+        
+        # Only active models
+        query = query.eq("is_active", True)
+        
+        response = query.execute()
+        
+        # Convert to the expected format
+        models_with_pricing = []
+        for model_data in response.data or []:
+            model_dict = {
+                "id": model_data["id"],
+                "provider_id": model_data["provider_id"],
+                "model_name": model_data["model_name"],
+                "display_name": model_data["display_name"],
+                "description": model_data.get("description"),
+                "model_type": model_data["model_type"],
+                "max_tokens": model_data.get("max_tokens"),
+                "max_input_tokens": model_data.get("max_input_tokens"),
+                "supports_streaming": model_data.get("supports_streaming", False),
+                "supports_function_calling": model_data.get("supports_function_calling", False),
+                "supports_vision": model_data.get("supports_vision", False),
+                "supports_audio": model_data.get("supports_audio", False),
+                "capabilities": model_data.get("capabilities", {}),
+                "pricing": []
+            }
             
-            # Filter by model type if specified
-            if model_type:
-                models_with_pricing = [model for model in models_with_pricing if model["model_type"] == model_type]
+            # Add pricing information
+            if model_data.get("model_pricing"):
+                for pricing in model_data["model_pricing"]:
+                    if pricing.get("is_active", True):
+                        model_dict["pricing"].append({
+                            "id": pricing["id"],
+                            "pricing_type": pricing["pricing_type"],
+                            "price_per_unit": float(pricing["price_per_unit"]),
+                            "unit": pricing["unit"],
+                            "currency": pricing["currency"],
+                            "region": pricing.get("region", "us-east-1")
+                        })
             
-            # If connected_only is True, filter by organization's connected providers
-            if connected_only and organization:
-                # Get API keys for the organization
-                api_keys = await api_key_service.get_organization_keys(organization.id)
-                
-                # Get unique provider IDs from API keys
-                connected_provider_ids = list(set([key["provider_id"] for key in api_keys]))
-                
-                # Filter models to only show those from connected providers
-                models_with_pricing = [
-                    model for model in models_with_pricing 
-                    if model["provider_id"] in connected_provider_ids
-                ]
+            models_with_pricing.append(model_dict)
+        
+        # If connected_only is True, filter by organization's connected providers
+        if connected_only and organization:
+            # Get API keys for the organization
+            api_keys_response = supabase.table("api_keys").select("provider_id").eq("organization_id", str(organization.id)).eq("is_active", True).execute()
             
-            return models_with_pricing
+            # Get unique provider IDs from API keys
+            connected_provider_ids = list(set([key["provider_id"] for key in api_keys_response.data or []]))
+            
+            # Filter models to only show those from connected providers
+            models_with_pricing = [
+                model for model in models_with_pricing 
+                if model["provider_id"] in connected_provider_ids
+            ]
+        
+        return models_with_pricing
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -126,30 +183,77 @@ async def get_organization_connected_models(
         )
     
     try:
-        async with get_db() as db:
-            # Get API keys for the organization
-            api_keys = await api_key_service.get_organization_keys(organization.id)
+        from ..utils.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        
+        # Get API keys for the organization
+        api_keys_response = supabase.table("api_keys").select("provider_id").eq("organization_id", str(organization.id)).eq("is_active", True).execute()
+        
+        # Get unique provider IDs from API keys
+        connected_provider_ids = list(set([key["provider_id"] for key in api_keys_response.data or []]))
+        
+        if not connected_provider_ids:
+            return []
+        
+        # Query models from connected providers
+        query = supabase.table("ai_models").select("""
+            *,
+            ai_providers!inner(
+                id,
+                name,
+                display_name,
+                logo_url,
+                description
+            ),
+            model_pricing(*)
+        """).in_("provider_id", connected_provider_ids)
+        
+        # Filter by model type if specified
+        if model_type:
+            query = query.eq("model_type", model_type)
+        
+        # Only active models
+        query = query.eq("is_active", True)
+        
+        response = query.execute()
+        
+        # Convert to the expected format
+        connected_models = []
+        for model_data in response.data or []:
+            model_dict = {
+                "id": model_data["id"],
+                "provider_id": model_data["provider_id"],
+                "model_name": model_data["model_name"],
+                "display_name": model_data["display_name"],
+                "description": model_data.get("description"),
+                "model_type": model_data["model_type"],
+                "max_tokens": model_data.get("max_tokens"),
+                "max_input_tokens": model_data.get("max_input_tokens"),
+                "supports_streaming": model_data.get("supports_streaming", False),
+                "supports_function_calling": model_data.get("supports_function_calling", False),
+                "supports_vision": model_data.get("supports_vision", False),
+                "supports_audio": model_data.get("supports_audio", False),
+                "capabilities": model_data.get("capabilities", {}),
+                "pricing": []
+            }
             
-            # Get unique provider IDs from API keys
-            connected_provider_ids = list(set([key["provider_id"] for key in api_keys]))
+            # Add pricing information
+            if model_data.get("model_pricing"):
+                for pricing in model_data["model_pricing"]:
+                    if pricing.get("is_active", True):
+                        model_dict["pricing"].append({
+                            "id": pricing["id"],
+                            "pricing_type": pricing["pricing_type"],
+                            "price_per_unit": float(pricing["price_per_unit"]),
+                            "unit": pricing["unit"],
+                            "currency": pricing["currency"],
+                            "region": pricing.get("region", "us-east-1")
+                        })
             
-            if not connected_provider_ids:
-                return []
-            
-            # Get models for connected providers
-            models_with_pricing = await ai_model_service.get_models_with_pricing(db, None)
-            
-            # Filter to only connected providers
-            connected_models = [
-                model for model in models_with_pricing 
-                if model["provider_id"] in connected_provider_ids
-            ]
-            
-            # Filter by model type if specified
-            if model_type:
-                connected_models = [model for model in connected_models if model["model_type"] == model_type]
-            
-            return connected_models
+            connected_models.append(model_dict)
+        
+        return connected_models
     except Exception as e:
         raise HTTPException(
             status_code=500,

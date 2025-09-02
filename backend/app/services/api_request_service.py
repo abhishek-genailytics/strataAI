@@ -20,7 +20,7 @@ class APIRequestService(BaseService[APIRequest, APIRequestCreate, None]):
         user_id: UUID,
         start_date: date,
         end_date: date,
-        project_id: Optional[UUID] = None,
+        organization_id: Optional[UUID] = None,
         provider_id: Optional[UUID] = None
     ) -> List[APIRequest]:
         """Get API requests within a date range."""
@@ -32,8 +32,8 @@ class APIRequestService(BaseService[APIRequest, APIRequestCreate, None]):
             )
         )
         
-        if project_id:
-            query = query.where(self.model.project_id == project_id)
+        if organization_id:
+            query = query.where(self.model.organization_id == organization_id)
         if provider_id:
             query = query.where(self.model.provider_id == provider_id)
             

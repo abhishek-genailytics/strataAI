@@ -17,6 +17,67 @@ from ..services.api_key_service import api_key_service
 router = APIRouter()
 
 
+@router.get("/debug/organization-context")
+async def debug_organization_context(
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
+):
+    """Debug endpoint to check organization context."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Debug endpoint called")
+    logger.info(f"Current user: {current_user.user_id}")
+    logger.info(f"User organizations: {current_user.organizations}")
+    logger.info(f"Organization context: {organization}")
+    
+    return {
+        "user_id": str(current_user.user_id),
+        "user_organizations": current_user.organizations,
+        "organization_context": organization.dict() if organization else None,
+        "has_organization": organization is not None
+    }
+
+
+@router.get("/debug/auth-test")
+async def debug_auth_test():
+    """Debug endpoint to test authentication without requiring it."""
+    import logging
+    from app.core.config import settings
+    logger = logging.getLogger(__name__)
+    logger.info("Auth test endpoint called")
+    
+    return {
+        "message": "Backend is working",
+        "timestamp": "2025-09-02T12:30:00Z",
+        "jwt_secret_configured": bool(settings.SUPABASE_JWT_SECRET),
+        "jwt_secret_length": len(settings.SUPABASE_JWT_SECRET) if settings.SUPABASE_JWT_SECRET else 0
+    }
+
+
+@router.get("/debug/test-token")
+async def debug_test_token(token: str):
+    """Debug endpoint to test token validation."""
+    import logging
+    from app.utils.auth import get_user_from_token
+    logger = logging.getLogger(__name__)
+    logger.info(f"Testing token: {token[:20]}...")
+    
+    try:
+        user_data = get_user_from_token(token)
+        return {
+            "success": True,
+            "user_data": user_data,
+            "message": "Token validation successful"
+        }
+    except Exception as e:
+        logger.error(f"Token validation failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "message": "Token validation failed"
+        }
+
+
 # Provider endpoints
 @router.get("/", response_model=List[AIProvider])
 async def list_providers(
@@ -68,15 +129,25 @@ async def get_organization_configured_providers(
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Get providers that have API keys configured for the current organization."""
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"get_organization_configured_providers called with organization: {organization}")
+    logger.info(f"Current user: {current_user.user_id}")
+    
     if not organization:
+        logger.error("No organization context found")
         raise HTTPException(
             status_code=400,
             detail="Organization context required"
         )
     
     try:
+        from ..utils.supabase_client import get_supabase_client
+        
+        supabase = get_supabase_client()
+        
         # Get API keys for the organization
-        api_keys = await api_key_service.get_organization_keys(organization.id)
+        api_keys = await api_key_service.get_organization_keys_raw(organization.id)
         
         # Get unique provider IDs from API keys
         provider_ids = list(set([key["provider_id"] for key in api_keys]))
@@ -84,10 +155,24 @@ async def get_organization_configured_providers(
         # Get provider details
         configured_providers = []
         for provider_id in provider_ids:
-            provider = await get_provider(provider_id, current_user)
-            if provider:
+            # Get provider details from Supabase
+            provider_response = supabase.table("ai_providers").select("*").eq("id", provider_id).execute()
+            if provider_response.data:
+                provider_data = provider_response.data[0]
+                provider_dict = {
+                    "id": provider_data["id"],
+                    "name": provider_data["name"],
+                    "display_name": provider_data["display_name"],
+                    "base_url": provider_data["base_url"],
+                    "is_active": provider_data["is_active"],
+                    "created_at": provider_data["created_at"],
+                    "updated_at": provider_data["updated_at"],
+                    "logo_url": provider_data.get("logo_url"),
+                    "website_url": provider_data.get("website_url"),
+                    "description": provider_data.get("description")
+                }
                 configured_providers.append({
-                    "provider": provider,
+                    "provider": provider_dict,
                     "api_key_count": len([k for k in api_keys if k["provider_id"] == provider_id])
                 })
         

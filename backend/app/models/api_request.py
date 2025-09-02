@@ -20,17 +20,17 @@ class APIRequestBase(BaseModel):
 
 class APIRequestCreate(APIRequestBase):
     user_id: UUID
-    project_id: UUID
     api_key_id: UUID
     provider_id: UUID
+    organization_id: UUID
 
 
 class APIRequest(APIRequestBase):
     id: UUID
     user_id: UUID
-    project_id: UUID
     api_key_id: UUID
     provider_id: UUID
+    organization_id: UUID
     total_tokens: int
     created_at: datetime
 
@@ -40,4 +40,3 @@ class APIRequest(APIRequestBase):
 
 class APIRequestWithDetails(APIRequest):
     provider_name: str
-    project_name: str

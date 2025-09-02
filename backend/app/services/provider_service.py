@@ -75,8 +75,7 @@ class ProviderService:
         self, 
         db: AsyncSession, 
         provider: str, 
-        user_id: UUID, 
-        project_id: UUID
+        organization_id: UUID
     ) -> str:
         """Get API key for the specified provider."""
         # Get provider info from database
@@ -89,17 +88,19 @@ class ProviderService:
         if not provider_obj:
             raise ValueError(f"Provider {provider} not found")
         
-        # Get API keys for this provider
-        api_keys = await api_key_service.get_by_project_and_provider(
-            db, user_id=user_id, project_id=project_id, provider_id=provider_obj.id
+        # Get API key for this organization + provider combination
+        api_key = await api_key_service.get_by_provider(
+            organization_id=organization_id, 
+            provider_id=provider_obj.id
         )
         
-        if not api_keys:
+        if not api_key:
             raise ValueError(f"No API key found for provider {provider}")
         
         # Get decrypted API key
         api_key_value = await api_key_service.get_decrypted_key(
-            db, api_key_id=api_keys[0].id, user_id=user_id
+            api_key_id=api_key["id"], 
+            organization_id=organization_id
         )
         
         if not api_key_value:
@@ -222,8 +223,7 @@ class ProviderService:
             api_key = await self._get_api_key(
                 db=db,
                 provider=provider,
-                user_id=user_id,
-                project_id=request.project_id
+                organization_id=request.organization_id
             )
             
             # Make provider-specific request

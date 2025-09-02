@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Modal } from "../components/ui/Modal";
@@ -38,15 +38,9 @@ export const Providers: React.FC = () => {
   const [apiKeyForm, setApiKeyForm] = useState({
     name: "",
     apiKey: "",
-    projectId: "",
   });
 
-  useEffect(() => {
-    loadProviders();
-    loadConfiguredProviders();
-  }, [currentOrganization]);
-
-  const loadProviders = async () => {
+  const loadProviders = useCallback(async () => {
     try {
       if (currentOrganization?.id) {
         apiService.setOrganizationContext(currentOrganization.id);
@@ -62,9 +56,9 @@ export const Providers: React.FC = () => {
       showToast("error", "Failed to load providers");
       setProviders([]);
     }
-  };
+  }, [currentOrganization, showToast]);
 
-  const loadConfiguredProviders = async () => {
+  const loadConfiguredProviders = useCallback(async () => {
     try {
       if (currentOrganization?.id) {
         apiService.setOrganizationContext(currentOrganization.id);
@@ -83,14 +77,18 @@ export const Providers: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentOrganization]);
+
+  useEffect(() => {
+    loadProviders();
+    loadConfiguredProviders();
+  }, [loadProviders, loadConfiguredProviders]);
 
   const handleProviderSetup = (provider: Provider) => {
     setSelectedProvider(provider);
     setApiKeyForm({
       name: `${provider.display_name} API Key`,
       apiKey: "",
-      projectId: "",
     });
     setShowApiKeyModal(true);
   };
@@ -109,7 +107,6 @@ export const Providers: React.FC = () => {
       const response = await apiService.post("/api-keys/", {
         name: apiKeyForm.name,
         provider_id: selectedProvider.id,
-        project_id: apiKeyForm.projectId || null,
         api_key_value: apiKeyForm.apiKey,
       });
 
@@ -367,20 +364,6 @@ export const Providers: React.FC = () => {
               value={apiKeyForm.apiKey}
               onChange={(value: string) =>
                 setApiKeyForm((prev) => ({ ...prev, apiKey: value }))
-              }
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Project ID (Optional)
-            </label>
-            <Input
-              type="text"
-              placeholder="Enter project ID if applicable"
-              value={apiKeyForm.projectId}
-              onChange={(value: string) =>
-                setApiKeyForm((prev) => ({ ...prev, projectId: value }))
               }
             />
           </div>

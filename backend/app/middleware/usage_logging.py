@@ -44,7 +44,7 @@ class UsageLoggingMiddleware(BaseHTTPMiddleware):
         
         # Get user context from request state (set by auth middleware)
         user_id = getattr(request.state, 'user_id', None)
-        project_id = getattr(request.state, 'project_id', None)
+        organization_id = getattr(request.state, 'organization_id', None)
         api_key_id = getattr(request.state, 'api_key_id', None)
         
         # Process the request
@@ -63,10 +63,10 @@ class UsageLoggingMiddleware(BaseHTTPMiddleware):
                 response_body = None
         
         # Log the request if we have user context
-        if user_id and project_id and api_key_id:
+        if user_id and organization_id and api_key_id:
             await self._log_request(
                 user_id=user_id,
-                project_id=project_id,
+                organization_id=organization_id,
                 api_key_id=api_key_id,
                 request_body=request_body,
                 response_body=response_body,
@@ -79,7 +79,7 @@ class UsageLoggingMiddleware(BaseHTTPMiddleware):
     async def _log_request(
         self,
         user_id: UUID,
-        project_id: UUID,
+        organization_id: UUID,
         api_key_id: UUID,
         request_body: Optional[dict],
         response_body: Optional[dict],
@@ -126,7 +126,7 @@ class UsageLoggingMiddleware(BaseHTTPMiddleware):
                 # Create API request log
                 api_request_data = APIRequestCreate(
                     user_id=user_id,
-                    project_id=project_id,
+                    organization_id=organization_id,
                     api_key_id=api_key_id,
                     provider_id=provider_id,
                     model_name=model_name,
@@ -148,7 +148,7 @@ class UsageLoggingMiddleware(BaseHTTPMiddleware):
                 await usage_tracking_service.update_usage_metrics(
                     db=db,
                     user_id=user_id,
-                    project_id=project_id,
+                    organization_id=organization_id,
                     provider_id=provider_id,
                     input_tokens=input_tokens,
                     output_tokens=output_tokens,

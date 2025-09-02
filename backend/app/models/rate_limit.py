@@ -15,8 +15,8 @@ class RateLimitBase(BaseModel):
 
 class RateLimitCreate(RateLimitBase):
     user_id: UUID
-    project_id: UUID
     provider_id: UUID
+    organization_id: UUID
 
 
 class RateLimitUpdate(BaseModel):
@@ -29,8 +29,8 @@ class RateLimitUpdate(BaseModel):
 class RateLimit(RateLimitBase):
     id: UUID
     user_id: UUID
-    project_id: UUID
     provider_id: UUID
+    organization_id: UUID
     created_at: datetime
     updated_at: datetime
 
@@ -40,4 +40,3 @@ class RateLimit(RateLimitBase):
 
 class RateLimitWithDetails(RateLimit):
     provider_name: str
-    project_name: str

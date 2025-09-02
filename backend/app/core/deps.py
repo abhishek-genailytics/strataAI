@@ -77,12 +77,15 @@ async def get_current_user(
         HTTPException: If token is invalid or user not found
     """
     token = credentials.credentials
+    logger.info(f"Received token: {token[:20]}...")
     
     try:
         # Validate token with Supabase
         user_data = get_user_from_token(token)
+        logger.info(f"User data from token: {user_data}")
         
         if not user_data:
+            logger.error("No user data returned from token validation")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid authentication token"
@@ -91,20 +94,43 @@ async def get_current_user(
         user_uuid = UUID(user_data["id"])
         email = user_data["email"]
         
-        # Load user profile with organizations
+        # Load user profile with organizations using direct queries
         try:
-            response = supabase.rpc(
-                "get_user_profile_with_organizations",
-                {"user_uuid": str(user_uuid)}
-            ).execute()
+            # Get user profile
+            profile_response = supabase.table("user_profiles").select("*").eq("id", str(user_uuid)).execute()
+            
+            # Get user organizations
+            orgs_response = supabase.table("user_organizations").select(
+                "organization_id, role, joined_at, organizations(name, display_name)"
+            ).eq("user_id", str(user_uuid)).eq("is_active", True).execute()
             
             organizations = []
             is_active = True
             
-            if response.data:
-                user_profile = response.data[0]
-                organizations = user_profile.get('organizations', [])
+            if profile_response.data:
+                user_profile = profile_response.data[0]
                 is_active = user_profile.get('is_active', True)
+                logger.info(f"Loaded user profile: {user_profile}")
+            else:
+                logger.warning(f"No user profile data found for user {user_uuid}")
+            
+            if orgs_response.data:
+                logger.info(f"Raw organizations response: {orgs_response.data}")
+                for org_data in orgs_response.data:
+                    org_info = org_data.get('organizations', {})
+                    logger.info(f"Processing org_data: {org_data}, org_info: {org_info}")
+                    if org_info:
+                        organizations.append({
+                            'id': org_data['organization_id'],
+                            'name': org_info.get('name', ''),
+                            'display_name': org_info.get('display_name', ''),
+                            'role': org_data.get('role', 'member'),
+                            'joined_at': org_data.get('joined_at')
+                        })
+                logger.info(f"Loaded {len(organizations)} organizations: {organizations}")
+            else:
+                logger.warning(f"No organizations found for user {user_uuid}")
+                logger.warning(f"Organizations response: {orgs_response}")
             
             return CurrentUser(user_uuid, email, organizations, is_active)
             
@@ -164,31 +190,42 @@ async def get_organization_context(
     current_user: CurrentUser = Depends(get_current_user)
 ) -> Optional[Organization]:
     """Get organization context from request headers or query params."""
+    logger.info(f"Getting organization context for user {current_user.user_id}")
+    logger.info(f"User organizations: {current_user.organizations}")
+    logger.info(f"Request headers: {dict(request.headers)}")
+    logger.info(f"Request query params: {dict(request.query_params)}")
+    
+    # Always try to return the first organization if user has any
+    if current_user.organizations:
+        first_org = current_user.organizations[0]
+        logger.info(f"Using first organization: {first_org}")
+        # Create Organization object from the first organization data
+        org_data = {
+            'id': UUID(first_org.get('id')),
+            'name': first_org.get('name', ''),
+            'display_name': first_org.get('display_name'),
+            'domain': None,
+            'external_id': None,
+            'metadata': {},
+            'settings': {},
+            'is_active': True,
+            'created_at': first_org.get('joined_at'),  # Use joined_at as created_at
+            'updated_at': first_org.get('joined_at')   # Use joined_at as updated_at
+        }
+        logger.info(f"Returning organization: {org_data}")
+        return Organization(**org_data)
+    
     # Try to get organization ID from X-Organization-ID header
     org_id_str = request.headers.get("X-Organization-ID")
+    logger.info(f"Organization ID from header: {org_id_str}")
     
     # If not in headers, try query parameter
     if not org_id_str:
         org_id_str = request.query_params.get("organization_id")
+        logger.info(f"Organization ID from query: {org_id_str}")
     
     if not org_id_str:
-        # Return first organization if user has any
-        if current_user.organizations:
-            first_org = current_user.organizations[0]
-            # Create Organization object from the first organization data
-            org_data = {
-                'id': UUID(first_org.get('id')),
-                'name': first_org.get('name', ''),
-                'display_name': first_org.get('display_name'),
-                'domain': None,
-                'external_id': None,
-                'metadata': {},
-                'settings': {},
-                'is_active': True,
-                'created_at': first_org.get('joined_at'),  # Use joined_at as created_at
-                'updated_at': first_org.get('joined_at')   # Use joined_at as updated_at
-            }
-            return Organization(**org_data)
+        logger.warning("No organization ID provided and user has no organizations")
         return None
     
     try:

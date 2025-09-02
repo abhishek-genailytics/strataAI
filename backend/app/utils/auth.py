@@ -38,7 +38,7 @@ def verify_jwt_token(token: str) -> Dict[str, Any]:
 
 def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
     """
-    Extract user information from JWT token using Supabase client.
+    Extract user information from JWT token using direct JWT validation.
     
     Args:
         token: JWT token string
@@ -46,22 +46,50 @@ def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
     Returns:
         User information dict or None if invalid
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
     try:
         # Remove 'Bearer ' prefix if present
         if token.startswith('Bearer '):
             token = token[7:]
         
-        # Use Supabase client to get user from token
+        logger.info(f"Validating token: {token[:20]}...")
+        
+        # First try direct JWT validation
+        try:
+            payload = verify_jwt_token(token)
+            logger.info(f"JWT payload: {payload}")
+            
+            if payload and payload.get('sub'):
+                user_data = {
+                    "id": payload['sub'],
+                    "email": payload.get('email', ''),
+                    "role": "authenticated"
+                }
+                logger.info(f"User data from JWT: {user_data}")
+                return user_data
+        except Exception as jwt_error:
+            logger.warning(f"Direct JWT validation failed: {jwt_error}")
+        
+        # Fallback to Supabase client
+        logger.info("Falling back to Supabase client validation")
         response = supabase.auth.get_user(token)
+        logger.info(f"Supabase auth response: {response}")
         
         if response.user:
-            return {
+            user_data = {
                 "id": response.user.id,
                 "email": response.user.email,
                 "role": "authenticated"
             }
-        return None
-    except Exception:
+            logger.info(f"User data from Supabase: {user_data}")
+            return user_data
+        else:
+            logger.warning("No user found in Supabase auth response")
+            return None
+    except Exception as e:
+        logger.error(f"Error validating token: {e}")
         return None
 
 async def get_user_by_id(user_id: str) -> Optional[Dict[str, Any]]:

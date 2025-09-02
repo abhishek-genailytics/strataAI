@@ -30,6 +30,11 @@ class ApiService {
         const token = this.getAuthToken();
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log(
+            `API Request: Adding auth token: ${token.substring(0, 20)}...`
+          );
+        } else {
+          console.log("API Request: No auth token available");
         }
 
         // Add request ID for tracking
@@ -42,6 +47,11 @@ class ApiService {
         // Add organization context header if available
         if (this.organizationId) {
           config.headers["X-Organization-ID"] = this.organizationId;
+          console.log(
+            `API Request: Adding organization header: ${this.organizationId}`
+          );
+        } else {
+          console.log("API Request: No organization ID available");
         }
 
         return config;
@@ -66,11 +76,17 @@ class ApiService {
     const supabaseAuth = localStorage.getItem(
       "sb-pucvturagllxmkvmwoqv-auth-token"
     );
+    console.log(
+      "Getting auth token from localStorage:",
+      supabaseAuth ? "Found" : "Not found"
+    );
     if (supabaseAuth) {
       try {
         const parsed = JSON.parse(supabaseAuth);
+        console.log("Parsed auth data:", parsed);
         return parsed.access_token;
-      } catch {
+      } catch (error) {
+        console.error("Error parsing auth token:", error);
         return null;
       }
     }
@@ -272,6 +288,9 @@ class ApiService {
 
   // Organization Context Management
   setOrganizationContext(organizationId: string): void {
+    console.log(
+      `API Service: Setting organization context to: ${organizationId}`
+    );
     this.organizationId = organizationId;
   }
 

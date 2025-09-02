@@ -13,7 +13,6 @@ class APIKeyBase(BaseModel):
 
 class APIKeyCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
-    project_id: UUID
     provider_id: UUID
     api_key_value: str = Field(..., min_length=10, description="The actual API key value")
     
@@ -32,8 +31,7 @@ class APIKeyUpdate(BaseModel):
 
 class APIKey(APIKeyBase):
     id: UUID
-    user_id: UUID
-    project_id: UUID
+    organization_id: UUID
     provider_id: UUID
     encrypted_key_value: str
     last_used_at: Optional[datetime] = None

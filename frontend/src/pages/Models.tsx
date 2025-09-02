@@ -4,6 +4,7 @@ import { MagicCard } from "../components/ui/magic-card";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
+import { ProviderConnectionModal } from "../components/provider/ProviderConnectionModal";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
 import { apiService } from "../services/api";
@@ -40,6 +41,10 @@ interface Provider {
   display_name: string;
   description: string;
   logo_url: string;
+  base_url: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
 export const Models: React.FC = () => {
@@ -50,13 +55,18 @@ export const Models: React.FC = () => {
   const [connectedProviders, setConnectedProviders] = useState<Provider[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedProvider, setSelectedProvider] = useState<string>("all");
+  const [selectedProviderFilter, setSelectedProviderFilter] =
+    useState<string>("all");
   const [selectedModelType, setSelectedModelType] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [showConnectedOnly, setShowConnectedOnly] = useState(false);
   const [showPricing, setShowPricing] = useState(true);
   const [activeTab, setActiveTab] = useState<"providers" | "pricing">(
     "providers"
+  );
+  const [showConnectionModal, setShowConnectionModal] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
+    null
   );
 
   const loadData = useCallback(async () => {
@@ -152,7 +162,8 @@ export const Models: React.FC = () => {
       model.description?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesProvider =
-      selectedProvider === "all" || model.provider_id === selectedProvider;
+      selectedProviderFilter === "all" ||
+      model.provider_id === selectedProviderFilter;
     const matchesType =
       selectedModelType === "all" || model.model_type === selectedModelType;
 
@@ -203,6 +214,21 @@ export const Models: React.FC = () => {
       default:
         return "bg-gray-100 text-gray-800";
     }
+  };
+
+  const handleProviderConnect = (provider: Provider) => {
+    setSelectedProvider(provider);
+    setShowConnectionModal(true);
+  };
+
+  const handleConnectionSuccess = () => {
+    // Reload data to show updated connected providers
+    loadData();
+  };
+
+  const handleCloseModal = () => {
+    setShowConnectionModal(false);
+    setSelectedProvider(null);
   };
 
   const formatPrice = (pricing: Pricing[]) => {
@@ -346,7 +372,7 @@ export const Models: React.FC = () => {
                   <Card
                     key={provider.id}
                     className="p-6 cursor-pointer transition-all duration-200 hover:shadow-lg h-full flex flex-col min-h-[280px]"
-                    onClick={() => (window.location.href = "/providers")}
+                    onClick={() => handleProviderConnect(provider)}
                   >
                     <div className="flex flex-col h-full">
                       {/* Header */}
@@ -520,9 +546,9 @@ export const Models: React.FC = () => {
                   </div>
 
                   <select
-                    value={selectedProvider}
+                    value={selectedProviderFilter}
                     onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      setSelectedProvider(e.target.value)
+                      setSelectedProviderFilter(e.target.value)
                     }
                     className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
@@ -637,7 +663,7 @@ export const Models: React.FC = () => {
                       <Card
                         key={provider.id}
                         className="group relative overflow-hidden border-0 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:-translate-y-1 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm"
-                        onClick={() => (window.location.href = "/providers")}
+                        onClick={() => handleProviderConnect(provider)}
                       >
                         <div className="p-6 text-center">
                           {/* Provider Logo */}
@@ -1050,6 +1076,14 @@ export const Models: React.FC = () => {
           </>
         )}
       </div>
+
+      {/* Provider Connection Modal */}
+      <ProviderConnectionModal
+        isOpen={showConnectionModal}
+        onClose={handleCloseModal}
+        provider={selectedProvider}
+        onSuccess={handleConnectionSuccess}
+      />
     </div>
   );
 };

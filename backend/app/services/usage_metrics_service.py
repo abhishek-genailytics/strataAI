@@ -18,7 +18,7 @@ class UsageMetricsService(BaseService[UsageMetrics, UsageMetricsCreate, UsageMet
         db: AsyncSession, 
         *, 
         user_id: UUID,
-        project_id: UUID,
+        organization_id: UUID,
         provider_id: UUID,
         date: date
     ) -> Optional[UsageMetrics]:
@@ -27,7 +27,7 @@ class UsageMetricsService(BaseService[UsageMetrics, UsageMetricsCreate, UsageMet
             select(self.model).where(
                 and_(
                     self.model.user_id == user_id,
-                    self.model.project_id == project_id,
+                    self.model.organization_id == organization_id,
                     self.model.provider_id == provider_id,
                     self.model.date == date
                 )
@@ -42,7 +42,7 @@ class UsageMetricsService(BaseService[UsageMetrics, UsageMetricsCreate, UsageMet
         user_id: UUID,
         start_date: date,
         end_date: date,
-        project_id: Optional[UUID] = None,
+        organization_id: Optional[UUID] = None,
         provider_id: Optional[UUID] = None
     ) -> List[UsageMetrics]:
         """Get usage metrics within a date range."""
@@ -54,8 +54,8 @@ class UsageMetricsService(BaseService[UsageMetrics, UsageMetricsCreate, UsageMet
             )
         )
         
-        if project_id:
-            query = query.where(self.model.project_id == project_id)
+        if organization_id:
+            query = query.where(self.model.organization_id == organization_id)
         if provider_id:
             query = query.where(self.model.provider_id == provider_id)
             
@@ -70,7 +70,7 @@ class UsageMetricsService(BaseService[UsageMetrics, UsageMetricsCreate, UsageMet
         start_date: date,
         end_date: date
     ) -> dict:
-        """Get aggregated metrics across all projects and providers."""
+        """Get aggregated metrics across all organizations and providers."""
         result = await db.execute(
             select(
                 func.sum(self.model.total_requests).label('total_requests'),

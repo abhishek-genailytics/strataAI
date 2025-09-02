@@ -17,7 +17,7 @@ class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessage] = Field(..., description="List of messages in the conversation")
     model: str = Field(..., description="The model to use for completion")
     provider: Optional[str] = Field(None, description="Specific provider to use (auto-detected if not provided)")
-    project_id: UUID = Field(..., description="Project ID for API key lookup")
+    organization_id: UUID = Field(..., description="Organization ID for API key lookup")
     
     # Optional parameters
     temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")

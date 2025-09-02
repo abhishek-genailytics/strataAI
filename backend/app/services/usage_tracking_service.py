@@ -17,7 +17,7 @@ class UsageTrackingService:
         self,
         db: AsyncSession,
         user_id: UUID,
-        project_id: UUID,
+        organization_id: UUID,
         provider_id: UUID,
         input_tokens: int,
         output_tokens: int,
@@ -34,7 +34,7 @@ class UsageTrackingService:
         existing_metrics = await usage_metrics_service.get_by_date(
             db,
             user_id=user_id,
-            project_id=project_id,
+            organization_id=organization_id,
             provider_id=provider_id,
             date=request_date
         )
@@ -87,7 +87,7 @@ class UsageTrackingService:
             # Create new metrics entry
             create_data = UsageMetricsCreate(
                 user_id=user_id,
-                project_id=project_id,
+                organization_id=organization_id,
                 provider_id=provider_id,
                 date=request_date,
                 total_requests=1,
@@ -105,18 +105,18 @@ class UsageTrackingService:
         self,
         db: AsyncSession,
         user_id: UUID,
-        project_id: Optional[UUID] = None,
+        organization_id: Optional[UUID] = None,
         provider_id: Optional[UUID] = None
     ) -> dict:
         """Get current usage summary for today."""
         today = date.today()
         
-        if project_id and provider_id:
+        if organization_id and provider_id:
             # Get specific metrics
             metrics = await usage_metrics_service.get_by_date(
                 db,
                 user_id=user_id,
-                project_id=project_id,
+                organization_id=organization_id,
                 provider_id=provider_id,
                 date=today
             )
@@ -150,7 +150,7 @@ class UsageTrackingService:
         db: AsyncSession,
         user_id: UUID,
         days: int = 7,
-        project_id: Optional[UUID] = None,
+        organization_id: Optional[UUID] = None,
         provider_id: Optional[UUID] = None
     ) -> list:
         """Get usage trends over the specified number of days."""
@@ -164,7 +164,7 @@ class UsageTrackingService:
             user_id=user_id,
             start_date=start_date,
             end_date=end_date,
-            project_id=project_id,
+            organization_id=organization_id,
             provider_id=provider_id
         )
         

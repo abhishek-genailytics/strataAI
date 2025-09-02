@@ -31,7 +31,7 @@ from .error_response import (
     InternalErrorResponse,
     COMMON_ERROR_RESPONSES,
 )
-from .project import Project, ProjectCreate, ProjectUpdate
+
 from .rate_limit import RateLimit, RateLimitCreate, RateLimitUpdate, RateLimitWithDetails
 from .usage_metrics import UsageMetrics, UsageMetricsCreate, UsageMetricsUpdate, UsageMetricsWithDetails
 from .user import User, UserCreate, UserUpdate, UserProfile, UserProfileCreate, UserProfileUpdate
@@ -41,10 +41,7 @@ __all__ = [
     "UserProfile",
     "UserProfileCreate", 
     "UserProfileUpdate",
-    # Project models
-    "Project",
-    "ProjectCreate",
-    "ProjectUpdate",
+
     # AI Provider models
     "AIProvider",
     "AIProviderCreate",

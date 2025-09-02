@@ -18,8 +18,8 @@ class UsageMetricsBase(BaseModel):
 
 class UsageMetricsCreate(UsageMetricsBase):
     user_id: UUID
-    project_id: UUID
     provider_id: UUID
+    organization_id: UUID
 
 
 class UsageMetricsUpdate(BaseModel):
@@ -34,8 +34,8 @@ class UsageMetricsUpdate(BaseModel):
 class UsageMetrics(UsageMetricsBase):
     id: UUID
     user_id: UUID
-    project_id: UUID
     provider_id: UUID
+    organization_id: UUID
     created_at: datetime
     updated_at: datetime
 
@@ -45,4 +45,3 @@ class UsageMetrics(UsageMetricsBase):
 
 class UsageMetricsWithDetails(UsageMetrics):
     provider_name: str
-    project_name: str
