@@ -12,15 +12,54 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 class CurrentUser:
-    def __init__(self, user_id: UUID, email: str, organizations: list = None):
+    def __init__(self, user_id: UUID, email: str, organizations: list = None, is_active: bool = True):
         self.user_id = user_id
         self.email = email
         self.organizations = organizations or []
+        self._is_active = is_active
     
     @property
     def id(self) -> UUID:
         """Alias for user_id to maintain compatibility."""
         return self.user_id
+    
+    @property
+    def is_active(self) -> bool:
+        """Check if user is active."""
+        return self._is_active
+    
+    def get_organization_by_id(self, org_id: UUID) -> Optional[Dict[str, Any]]:
+        """
+        Get organization by ID from user's organizations.
+        
+        Args:
+            org_id: Organization UUID
+            
+        Returns:
+            Organization dict with role information or None if not found
+        """
+        for org in self.organizations:
+            if org.get('id') == str(org_id):
+                return org
+        return None
+    
+    def has_role_in_organization(self, org_id: UUID, required_roles: List[str]) -> bool:
+        """
+        Check if user has any of the required roles in the organization.
+        
+        Args:
+            org_id: Organization UUID
+            required_roles: List of required roles
+            
+        Returns:
+            True if user has any of the required roles, False otherwise
+        """
+        org = self.get_organization_by_id(org_id)
+        if not org:
+            return False
+        
+        user_role = org.get('role', '').lower()
+        return user_role in [role.lower() for role in required_roles]
 
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security)
@@ -52,10 +91,27 @@ async def get_current_user(
         user_uuid = UUID(user_data["id"])
         email = user_data["email"]
         
-        # Don't load organizations during authentication to avoid circular imports
-        # Organizations will be loaded separately when needed
-        
-        return CurrentUser(user_uuid, email, [])
+        # Load user profile with organizations
+        try:
+            response = supabase.rpc(
+                "get_user_profile_with_organizations",
+                {"user_uuid": str(user_uuid)}
+            ).execute()
+            
+            organizations = []
+            is_active = True
+            
+            if response.data:
+                user_profile = response.data[0]
+                organizations = user_profile.get('organizations', [])
+                is_active = user_profile.get('is_active', True)
+            
+            return CurrentUser(user_uuid, email, organizations, is_active)
+            
+        except Exception as org_error:
+            logger.warning(f"Could not load organizations for user {user_uuid}: {org_error}")
+            # Return user without organizations if loading fails
+            return CurrentUser(user_uuid, email, [], True)
         
     except ValueError as e:
         logger.error(f"Invalid UUID format: {e}")
@@ -118,14 +174,42 @@ async def get_organization_context(
     if not org_id_str:
         # Return first organization if user has any
         if current_user.organizations:
-            return current_user.organizations[0]
+            first_org = current_user.organizations[0]
+            # Create Organization object from the first organization data
+            org_data = {
+                'id': UUID(first_org.get('id')),
+                'name': first_org.get('name', ''),
+                'display_name': first_org.get('display_name'),
+                'domain': None,
+                'external_id': None,
+                'metadata': {},
+                'settings': {},
+                'is_active': True,
+                'created_at': first_org.get('joined_at'),  # Use joined_at as created_at
+                'updated_at': first_org.get('joined_at')   # Use joined_at as updated_at
+            }
+            return Organization(**org_data)
         return None
     
     try:
         org_id = UUID(org_id_str)
         org_with_role = current_user.get_organization_by_id(org_id)
         if org_with_role:
-            return Organization(**org_with_role.dict())
+            # Create Organization object from the organization data
+            # The org_with_role contains: id, name, display_name, role, joined_at
+            org_data = {
+                'id': org_id,
+                'name': org_with_role.get('name', ''),
+                'display_name': org_with_role.get('display_name'),
+                'domain': None,
+                'external_id': None,
+                'metadata': {},
+                'settings': {},
+                'is_active': True,
+                'created_at': org_with_role.get('joined_at'),  # Use joined_at as created_at
+                'updated_at': org_with_role.get('joined_at')   # Use joined_at as updated_at
+            }
+            return Organization(**org_data)
         return None
     except ValueError:
         return None

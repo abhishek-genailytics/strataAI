@@ -16,7 +16,7 @@ import {
   Register,
   Playground,
   Providers,
-  ModelPricing,
+  Models,
   Access,
 } from "./pages";
 import Monitor from "./pages/Monitor";
@@ -74,7 +74,7 @@ function App() {
                   element={
                     <ProtectedRoute>
                       <Layout>
-                        <ModelPricing />
+                        <Models />
                       </Layout>
                     </ProtectedRoute>
                   }

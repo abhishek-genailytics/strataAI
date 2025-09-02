@@ -101,10 +101,40 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         
         http_status = status_map.get(exc.error_type, status.HTTP_500_INTERNAL_SERVER_ERROR)
         
-        return JSONResponse(
-            status_code=http_status,
-            content=error_response.dict(),
-        )
+        # Ensure the response content is JSON serializable
+        try:
+            content = error_response.dict()
+            # Convert datetime objects to ISO format strings
+            def serialize_datetime(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return obj
+            
+            # Recursively serialize datetime objects
+            def serialize_content(data):
+                if isinstance(data, dict):
+                    return {k: serialize_content(v) for k, v in data.items()}
+                elif isinstance(data, list):
+                    return [serialize_content(item) for item in data]
+                else:
+                    return serialize_datetime(data)
+            
+            content = serialize_content(content)
+            return JSONResponse(
+                status_code=http_status,
+                content=content,
+            )
+        except (TypeError, ValueError) as e:
+            # Fallback to a simple error response if serialization fails
+            logger.error(f"Error serializing error response: {e}")
+            return JSONResponse(
+                status_code=http_status,
+                content={
+                    "message": error_response.message,
+                    "request_id": request_id,
+                    "error_code": error_response.error_code,
+                },
+            )
     
     async def _handle_validation_error(
         self, 
@@ -140,10 +170,40 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             request_id=request_id,
         )
         
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content=error_response.dict(),
-        )
+        # Ensure the response content is JSON serializable
+        try:
+            content = error_response.dict()
+            # Convert datetime objects to ISO format strings
+            def serialize_datetime(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return obj
+            
+            # Recursively serialize datetime objects
+            def serialize_content(data):
+                if isinstance(data, dict):
+                    return {k: serialize_content(v) for k, v in data.items()}
+                elif isinstance(data, list):
+                    return [serialize_content(item) for item in data]
+                else:
+                    return serialize_datetime(data)
+            
+            content = serialize_content(content)
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content=content,
+            )
+        except (TypeError, ValueError) as e:
+            # Fallback to a simple error response if serialization fails
+            logger.error(f"Error serializing error response: {e}")
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "message": "Validation failed",
+                    "request_id": request_id,
+                    "error_code": "VALIDATION_FAILED",
+                },
+            )
     
     async def _handle_unexpected_error(
         self, 
@@ -183,6 +243,22 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         # Ensure the response content is JSON serializable
         try:
             content = error_response.dict()
+            # Convert datetime objects to ISO format strings
+            def serialize_datetime(obj):
+                if isinstance(obj, datetime):
+                    return obj.isoformat()
+                return obj
+            
+            # Recursively serialize datetime objects
+            def serialize_content(data):
+                if isinstance(data, dict):
+                    return {k: serialize_content(v) for k, v in data.items()}
+                elif isinstance(data, list):
+                    return [serialize_content(item) for item in data]
+                else:
+                    return serialize_datetime(data)
+            
+            content = serialize_content(content)
             return JSONResponse(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 content=content,
