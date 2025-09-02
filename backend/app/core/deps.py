@@ -3,7 +3,6 @@ from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.utils.supabase_client import supabase
 from app.utils.auth import get_user_from_token, get_user_by_id
-from app.services.organization_service import organization_service
 from app.models.organization import Organization
 from uuid import UUID
 import logging
@@ -53,10 +52,10 @@ async def get_current_user(
         user_uuid = UUID(user_data["id"])
         email = user_data["email"]
         
-        # Get user's organizations
-        organizations = await organization_service.get_user_organizations(user_uuid)
+        # Don't load organizations during authentication to avoid circular imports
+        # Organizations will be loaded separately when needed
         
-        return CurrentUser(user_uuid, email, organizations)
+        return CurrentUser(user_uuid, email, [])
         
     except ValueError as e:
         logger.error(f"Invalid UUID format: {e}")

@@ -6,6 +6,9 @@ from app.models.user import User
 from app.models.organization import Organization, OrganizationCreate
 from app.services.organization_service import OrganizationService
 from app.utils.supabase_client import get_supabase_client
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -78,17 +81,20 @@ async def get_user_organizations(
     
     organizations = []
     for user_org in user_orgs:
-        org = await org_service.get_organization(user_org.organization_id)
-        if org:
+        try:
+            # Use the data directly from the RPC response instead of making another DB call
             organizations.append(OrganizationResponse(
-                id=str(org.id),
-                name=org.name,
-                display_name=org.display_name,
-                domain=org.domain,
-                is_active=org.is_active,
-                created_at=org.created_at.isoformat(),
-                updated_at=org.updated_at.isoformat()
+                id=user_org["organization_id"],
+                name=user_org["organization_name"],
+                display_name=user_org.get("organization_display_name"),  # This might be available from RPC
+                domain=None,  # RPC doesn't return domain, set to None
+                is_active=True,  # Assume active if user has access
+                created_at="2025-01-01T00:00:00Z",  # Default timestamp
+                updated_at="2025-01-01T00:00:00Z"   # Default timestamp
             ))
+        except (ValueError, KeyError) as e:
+            logger.error(f"Invalid organization data in user_org: {user_org}, error: {e}")
+            continue
     
     return organizations
 

@@ -102,6 +102,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem("strataai-current-org");
         setOrganizations([]);
         setCurrentOrganization(null);
+        apiService.clearOrganizationContext();
       } else if (event === "SIGNED_IN" && session?.user) {
         // Load user organizations after sign in
         loadUserOrganizations();
@@ -283,26 +284,57 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const loadUserOrganizations = async () => {
     try {
       const response = await apiService.getUserOrganizations();
+
       if (response.data) {
-        setOrganizations(response.data);
+        // Convert OrganizationResponse[] to UserOrganization[]
+        const userOrganizations: UserOrganization[] = response.data.map(
+          (org: any) => ({
+            id: `user-org-${org.id}`, // Generate a unique ID for the user-organization relationship
+            user_id: user?.id || "", // Use current user ID
+            organization_id: org.id,
+            role: "member" as const, // Default role since backend doesn't return role info
+            is_active: org.is_active,
+            created_at: org.created_at,
+            updated_at: org.updated_at,
+            organization: {
+              id: org.id,
+              name: org.name,
+              display_name: org.display_name,
+              domain: org.domain,
+              is_active: org.is_active,
+              created_at: org.created_at,
+              updated_at: org.updated_at,
+            },
+          })
+        );
+
+        setOrganizations(userOrganizations);
 
         // Restore current organization from localStorage or set first one
         const savedOrgId = localStorage.getItem("strataai-current-org");
+
         if (savedOrgId) {
-          const savedOrg = response.data.find(
+          const savedOrg = userOrganizations.find(
             (uo: UserOrganization) => uo.organization.id === savedOrgId
           );
           if (savedOrg) {
             setCurrentOrganization(savedOrg.organization);
-          } else if (response.data.length > 0) {
-            setCurrentOrganization(response.data[0].organization);
+            apiService.setOrganizationContext(savedOrg.organization.id);
+          } else if (userOrganizations.length > 0) {
+            setCurrentOrganization(userOrganizations[0].organization);
+            apiService.setOrganizationContext(
+              userOrganizations[0].organization.id
+            );
           }
-        } else if (response.data.length > 0) {
-          setCurrentOrganization(response.data[0].organization);
+        } else if (userOrganizations.length > 0) {
+          setCurrentOrganization(userOrganizations[0].organization);
+          apiService.setOrganizationContext(
+            userOrganizations[0].organization.id
+          );
         }
       }
     } catch (err) {
-      console.error("Error loading organizations:", err);
+      console.error("AuthContext: Error loading organizations:", err);
       // Don't set error for organizations as it's not critical for basic auth
     }
   };
@@ -312,8 +344,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setCurrentOrganization(organization);
     if (organization) {
       localStorage.setItem("strataai-current-org", organization.id);
+      apiService.setOrganizationContext(organization.id);
     } else {
       localStorage.removeItem("strataai-current-org");
+      apiService.clearOrganizationContext();
     }
   };
 

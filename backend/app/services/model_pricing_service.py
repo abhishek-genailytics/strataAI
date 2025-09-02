@@ -12,6 +12,9 @@ from .base import BaseService
 class ModelPricingService(BaseService):
     """Service for managing model pricing."""
 
+    def __init__(self):
+        super().__init__(ModelPricing)
+
     async def create(self, db: AsyncSession, pricing_data: ModelPricingCreate) -> ModelPricing:
         """Create new model pricing."""
         pricing = ModelPricing(**pricing_data.dict())

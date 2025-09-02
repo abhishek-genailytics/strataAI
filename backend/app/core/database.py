@@ -1,9 +1,13 @@
 import os
 from typing import AsyncGenerator
+from dotenv import load_dotenv
 
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from supabase import create_client, Client
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Database URL from environment variables
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://user:password@localhost/strataai")

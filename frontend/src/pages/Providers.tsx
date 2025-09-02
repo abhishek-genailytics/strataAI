@@ -1,241 +1,161 @@
 import React, { useState, useEffect } from "react";
-import { MagicCard } from "../components/ui/magic-card";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { Modal } from "../components/ui/Modal";
+import { Input } from "../components/ui/Input";
+import { useAuth } from "../contexts/AuthContext";
+import { useToast } from "../contexts/ToastContext";
+import { apiService } from "../services/api";
 
 interface Provider {
   id: string;
   name: string;
+  display_name: string;
   description: string;
-  icon: string;
-  status: "connected" | "disconnected" | "setup";
-  models?: string[];
-  pricing?: string;
+  logo_url: string;
+  website_url: string;
+  base_url: string;
+  is_active: boolean;
 }
 
-const providers: Provider[] = [
-  {
-    id: "openai",
-    name: "OpenAI",
-    description: "GPT-4, GPT-3.5 Turbo, and more advanced language models",
-    icon: "🤖",
-    status: "disconnected",
-    models: ["gpt-4", "gpt-3.5-turbo", "gpt-4-turbo"],
-    pricing: "From $0.01/1K tokens",
-  },
-  {
-    id: "anthropic",
-    name: "Anthropic",
-    description: "Claude 3 family of models for advanced reasoning",
-    icon: "🧠",
-    status: "disconnected",
-    models: ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
-    pricing: "From $0.25/1K tokens",
-  },
-  {
-    id: "google",
-    name: "Google Vertex AI",
-    description: "Gemini Pro and other Google AI models",
-    icon: "🔍",
-    status: "disconnected",
-    models: ["gemini-pro", "gemini-pro-vision"],
-    pricing: "From $0.125/1K tokens",
-  },
-  {
-    id: "google-gemini",
-    name: "Google Gemini",
-    description: "Direct access to Gemini models via Google AI",
-    icon: "💎",
-    status: "disconnected",
-    models: ["gemini-1.5-pro", "gemini-1.5-flash"],
-    pricing: "From $0.075/1K tokens",
-  },
-  {
-    id: "azure-openai",
-    name: "Azure OpenAI",
-    description: "OpenAI models hosted on Microsoft Azure",
-    icon: "☁️",
-    status: "disconnected",
-    models: ["gpt-4", "gpt-35-turbo"],
-    pricing: "Enterprise pricing",
-  },
-  {
-    id: "azure-foundry",
-    name: "Azure AI Foundry",
-    description: "Microsoft's AI model marketplace and platform",
-    icon: "🏗️",
-    status: "disconnected",
-    models: ["phi-3", "llama-2"],
-    pricing: "Variable pricing",
-  },
-  {
-    id: "aws-bedrock",
-    name: "AWS Bedrock",
-    description: "Amazon's managed AI service with multiple providers",
-    icon: "🪨",
-    status: "disconnected",
-    models: ["claude-3", "titan", "jurassic-2"],
-    pricing: "Pay-per-use",
-  },
-  {
-    id: "cohere",
-    name: "Cohere",
-    description: "Command and Embed models for enterprise applications",
-    icon: "🔗",
-    status: "disconnected",
-    models: ["command-r", "command-r-plus", "embed-v3"],
-    pricing: "From $0.15/1K tokens",
-  },
-  {
-    id: "databricks",
-    name: "Databricks",
-    description: "DBRX and other models for data-driven applications",
-    icon: "🧱",
-    status: "disconnected",
-    models: ["dbrx-instruct", "dolly-v2"],
-    pricing: "Enterprise pricing",
-  },
-  {
-    id: "groq",
-    name: "Groq",
-    description: "Ultra-fast inference for Llama, Mixtral, and Gemma",
-    icon: "⚡",
-    status: "disconnected",
-    models: ["llama-3-70b", "mixtral-8x7b", "gemma-7b"],
-    pricing: "From $0.27/1K tokens",
-  },
-  {
-    id: "mistral",
-    name: "Mistral AI",
-    description: "Mistral 7B, Mixtral, and other European AI models",
-    icon: "🌪️",
-    status: "disconnected",
-    models: ["mistral-large", "mixtral-8x7b", "mistral-7b"],
-    pricing: "From $0.25/1K tokens",
-  },
-  {
-    id: "ai21",
-    name: "AI21 Labs",
-    description: "Jurassic-2 models for text generation and analysis",
-    icon: "🦕",
-    status: "disconnected",
-    models: ["j2-ultra", "j2-mid", "j2-light"],
-    pricing: "From $0.125/1K tokens",
-  },
-  {
-    id: "anyscale",
-    name: "Anyscale",
-    description: "Scalable deployment of open-source models",
-    icon: "📈",
-    status: "disconnected",
-    models: ["llama-2-70b", "codellama-34b"],
-    pricing: "From $0.15/1K tokens",
-  },
-  {
-    id: "deepinfra",
-    name: "DeepInfra",
-    description: "Serverless inference for popular open-source models",
-    icon: "🏗️",
-    status: "disconnected",
-    models: ["llama-2-70b", "falcon-40b"],
-    pricing: "From $0.27/1K tokens",
-  },
-  {
-    id: "nomic",
-    name: "Nomic AI",
-    description: "GPT4All and embedding models for local deployment",
-    icon: "🏠",
-    status: "disconnected",
-    models: ["gpt4all-j", "nomic-embed-text"],
-    pricing: "Open source",
-  },
-  {
-    id: "ollama",
-    name: "Ollama",
-    description: "Run large language models locally on your machine",
-    icon: "🦙",
-    status: "disconnected",
-    models: ["llama2", "codellama", "mistral"],
-    pricing: "Free (local)",
-  },
-  {
-    id: "palm",
-    name: "PaLM API",
-    description: "Google's Pathways Language Model API",
-    icon: "🌴",
-    status: "disconnected",
-    models: ["text-bison", "chat-bison"],
-    pricing: "From $0.125/1K tokens",
-  },
-  {
-    id: "perplexity",
-    name: "Perplexity AI",
-    description: "Search-augmented language models for accurate responses",
-    icon: "🔍",
-    status: "disconnected",
-    models: ["pplx-7b-online", "pplx-70b-online"],
-    pricing: "From $0.20/1K tokens",
-  },
-  {
-    id: "together",
-    name: "Together AI",
-    description: "Fast inference for open-source models at scale",
-    icon: "🤝",
-    status: "disconnected",
-    models: ["llama-2-70b", "falcon-40b", "redpajama-7b"],
-    pricing: "From $0.20/1K tokens",
-  },
-  {
-    id: "self-hosted",
-    name: "Self-Hosted",
-    description: "Connect your own model endpoints and deployments",
-    icon: "🏠",
-    status: "disconnected",
-    models: ["Custom endpoints"],
-    pricing: "Your infrastructure",
-  },
-];
+interface ConfiguredProvider {
+  provider: Provider;
+  api_key_count: number;
+}
 
 export const Providers: React.FC = () => {
-  const [providerStatuses, setProviderStatuses] = useState<
-    Record<string, Provider["status"]>
-  >({});
+  const { currentOrganization } = useAuth();
+  const { showToast } = useToast();
+  const [providers, setProviders] = useState<Provider[]>([]);
+  const [configuredProviders, setConfiguredProviders] = useState<
+    ConfiguredProvider[]
+  >([]);
   const [loading, setLoading] = useState(true);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<Provider | null>(
+    null
+  );
+  const [apiKeyForm, setApiKeyForm] = useState({
+    name: "",
+    apiKey: "",
+    projectId: "",
+  });
 
   useEffect(() => {
-    // Initialize provider statuses - all providers start as disconnected
-    const statuses: Record<string, Provider["status"]> = {};
-    providers.forEach((provider) => {
-      statuses[provider.id] = "disconnected";
-    });
-    setProviderStatuses(statuses);
-    setLoading(false);
-  }, []);
+    loadProviders();
+    loadConfiguredProviders();
+  }, [currentOrganization]);
 
-  const handleProviderSetup = (providerId: string) => {
-    // Navigate to Access page for this provider
-    window.location.href = `/access?provider=${providerId}`;
-  };
+  const loadProviders = async () => {
+    try {
+      if (currentOrganization?.id) {
+        apiService.setOrganizationContext(currentOrganization.id);
+      }
 
-  const getStatusColor = (status: Provider["status"]) => {
-    switch (status) {
-      case "connected":
-        return "text-green-600 bg-green-50 border-green-200";
-      case "setup":
-        return "text-yellow-600 bg-yellow-50 border-yellow-200";
-      default:
-        return "text-gray-600 bg-gray-50 border-gray-200";
+      const response = await apiService.get("/providers/");
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      setProviders(response.data || []);
+    } catch (error) {
+      console.error("Failed to load providers:", error);
+      showToast("error", "Failed to load providers");
+      setProviders([]);
     }
   };
 
-  const getStatusText = (status: Provider["status"]) => {
+  const loadConfiguredProviders = async () => {
+    try {
+      if (currentOrganization?.id) {
+        apiService.setOrganizationContext(currentOrganization.id);
+      }
+
+      const response = await apiService.get(
+        "/providers/organization/configured"
+      );
+      if (response.error) {
+        throw new Error(response.error);
+      }
+      setConfiguredProviders(response.data || []);
+    } catch (error) {
+      console.error("Failed to load configured providers:", error);
+      setConfiguredProviders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleProviderSetup = (provider: Provider) => {
+    setSelectedProvider(provider);
+    setApiKeyForm({
+      name: `${provider.display_name} API Key`,
+      apiKey: "",
+      projectId: "",
+    });
+    setShowApiKeyModal(true);
+  };
+
+  const handleApiKeySubmit = async () => {
+    if (!selectedProvider || !apiKeyForm.name || !apiKeyForm.apiKey) {
+      showToast("error", "Please fill in all required fields");
+      return;
+    }
+
+    try {
+      if (currentOrganization?.id) {
+        apiService.setOrganizationContext(currentOrganization.id);
+      }
+
+      const response = await apiService.post("/api-keys/", {
+        name: apiKeyForm.name,
+        provider_id: selectedProvider.id,
+        project_id: apiKeyForm.projectId || null,
+        api_key_value: apiKeyForm.apiKey,
+      });
+
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      showToast("success", "API key added successfully");
+      setShowApiKeyModal(false);
+      loadConfiguredProviders(); // Refresh the list
+    } catch (error) {
+      console.error("Failed to add API key:", error);
+      showToast("error", "Failed to add API key");
+    }
+  };
+
+  const getProviderStatus = (providerId: string) => {
+    const configured = configuredProviders.find(
+      (cp) => cp.provider.id === providerId
+    );
+    return configured ? "connected" : "disconnected";
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "connected":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300";
+      case "disconnected":
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
+      case "setup":
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300";
+    }
+  };
+
+  const getStatusText = (status: string) => {
     switch (status) {
       case "connected":
         return "Connected";
+      case "disconnected":
+        return "Disconnected";
       case "setup":
         return "Setup Required";
       default:
-        return "Not Connected";
+        return "Unknown";
     }
   };
 
@@ -256,201 +176,228 @@ export const Providers: React.FC = () => {
 
   return (
     <>
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">AI Providers</h1>
-        <p className="text-slate-600 text-lg">
-          Configure and manage your AI provider connections. Connect to multiple
-          providers to access different models and capabilities.
-        </p>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <span className="text-2xl">🔗</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-slate-600">
-                Connected Providers
-              </p>
-              <p className="text-2xl font-bold text-slate-900">
-                {
-                  Object.values(providerStatuses).filter(
-                    (status) => status === "connected"
-                  ).length
-                }
-              </p>
-            </div>
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+        <div className="max-w-7xl mx-auto">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
+              AI Providers
+            </h1>
+            <p className="text-slate-600 dark:text-slate-400 text-lg">
+              Configure and manage your AI provider connections. Connect to
+              multiple providers to access different models and capabilities.
+            </p>
           </div>
-        </Card>
 
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
-              <span className="text-2xl">🤖</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Available Models
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {providers.reduce(
-                  (acc, provider) => acc + (provider.models?.length || 0),
-                  0
-                )}
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <div className="flex items-center">
-            <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <span className="text-2xl">🔑</span>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                Access Tokens
-              </p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                1
-              </p>
-            </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* Provider Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {providers.map((provider) => {
-          const status = providerStatuses[provider.id] || provider.status;
-
-          return (
-            <MagicCard
-              key={provider.id}
-              className="p-6 cursor-pointer transition-all duration-200 hover:shadow-lg"
-              gradientColor="#3b82f6"
-              gradientOpacity={0.1}
-              onClick={() => handleProviderSetup(provider.id)}
-            >
-              <div className="flex flex-col h-full">
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center">
-                    <span className="text-3xl mr-3">{provider.icon}</span>
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
-                        {provider.name}
-                      </h3>
-                      <span
-                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(
-                          status
-                        )}`}
-                      >
-                        {getStatusText(status)}
-                      </span>
-                    </div>
-                  </div>
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-3 bg-green-100 dark:bg-green-900 rounded-lg">
+                  <span className="text-2xl">🔗</span>
                 </div>
-
-                {/* Description */}
-                <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
-                  {provider.description}
-                </p>
-
-                {/* Models */}
-                {provider.models && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">
-                      Popular Models:
-                    </p>
-                    <div className="flex flex-wrap gap-1">
-                      {provider.models.slice(0, 3).map((model) => (
-                        <span
-                          key={model}
-                          className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300"
-                        >
-                          {model}
-                        </span>
-                      ))}
-                      {provider.models.length > 3 && (
-                        <span className="inline-flex items-center px-2 py-1 rounded text-xs bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                          +{provider.models.length - 3} more
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pricing */}
-                {provider.pricing && (
-                  <div className="mb-4">
-                    <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
-                      Pricing:
-                    </p>
-                    <p className="text-sm text-gray-700 dark:text-gray-300">
-                      {provider.pricing}
-                    </p>
-                  </div>
-                )}
-
-                {/* Action Button */}
-                <Button
-                  variant={status === "connected" ? "secondary" : "primary"}
-                  size="sm"
-                  className="w-full mt-auto"
-                >
-                  {status === "connected" ? "Manage" : "Setup"}
-                </Button>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Connected Providers
+                  </p>
+                  <p className="text-2xl font-bold text-slate-900 dark:text-white">
+                    {configuredProviders.length}
+                  </p>
+                </div>
               </div>
-            </MagicCard>
-          );
-        })}
-      </div>
+            </Card>
 
-      {/* Quick Setup Section */}
-      <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg p-8 border border-gray-200 dark:border-gray-700">
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-          Quick Setup Guide
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900 rounded-lg">
+                  <span className="text-2xl">🤖</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    Total Providers
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {providers.length}
+                  </p>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex items-center">
+                <div className="p-3 bg-purple-100 dark:bg-purple-900 rounded-lg">
+                  <span className="text-2xl">🔑</span>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    API Keys
+                  </p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    {configuredProviders.reduce(
+                      (acc, cp) => acc + cp.api_key_count,
+                      0
+                    )}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          </div>
+
+          {/* Provider Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {providers.map((provider) => {
+              const status = getProviderStatus(provider.id);
+
+              return (
+                <Card
+                  key={provider.id}
+                  className="p-6 cursor-pointer transition-all duration-200 hover:shadow-lg"
+                  onClick={() => handleProviderSetup(provider)}
+                >
+                  <div className="flex flex-col h-full">
+                    {/* Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center">
+                        {provider.logo_url ? (
+                          <img
+                            src={provider.logo_url}
+                            alt={provider.display_name}
+                            className="w-12 h-12 rounded-lg mr-3 object-cover"
+                          />
+                        ) : (
+                          <span className="text-3xl mr-3">🤖</span>
+                        )}
+                        <div>
+                          <h3 className="font-semibold text-gray-900 dark:text-white text-lg">
+                            {provider.display_name}
+                          </h3>
+                          <span
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                              status
+                            )}`}
+                          >
+                            {getStatusText(status)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Description */}
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mb-4 flex-grow">
+                      {provider.description || "No description available"}
+                    </p>
+
+                    {/* Action Button */}
+                    <Button
+                      variant={status === "connected" ? "secondary" : "primary"}
+                      size="sm"
+                      className="w-full mt-auto"
+                    >
+                      {status === "connected" ? "Manage" : "Setup"}
+                    </Button>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+
+          {/* Setup Instructions */}
+          <div className="mt-12 bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
               Getting Started
             </h3>
-            <ol className="list-decimal list-inside space-y-2 text-gray-600 dark:text-gray-400">
-              <li>Choose a provider from the grid above</li>
-              <li>Click "Setup" to configure your API key</li>
-              <li>Test your connection in the playground</li>
-              <li>Start building with multiple AI models</li>
-            </ol>
-          </div>
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-              Popular Combinations
-            </h3>
-            <ul className="space-y-2 text-gray-600 dark:text-gray-400">
-              <li>
-                • <strong>OpenAI + Anthropic:</strong> Best for general use
-                cases
-              </li>
-              <li>
-                • <strong>Google + Mistral:</strong> Great for multilingual
-                tasks
-              </li>
-              <li>
-                • <strong>Groq + Together:</strong> Ultra-fast inference
-              </li>
-              <li>
-                • <strong>Ollama + Self-hosted:</strong> Complete privacy
-              </li>
-            </ul>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                  Setup Process
+                </h4>
+                <ol className="list-decimal list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  <li>Choose a provider from the grid above</li>
+                  <li>Click "Setup" to configure your API key</li>
+                  <li>Enter your API key and optional project name</li>
+                  <li>Test your connection in the playground</li>
+                  <li>Start building with multiple AI models</li>
+                </ol>
+              </div>
+              <div>
+                <h4 className="font-medium text-gray-900 dark:text-white mb-2">
+                  Benefits
+                </h4>
+                <ul className="list-disc list-inside space-y-1 text-sm text-gray-600 dark:text-gray-400">
+                  <li>Access to multiple AI models and providers</li>
+                  <li>Unified interface for all your AI needs</li>
+                  <li>Cost optimization across different providers</li>
+                  <li>Easy switching between models</li>
+                  <li>Centralized API key management</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* API Key Setup Modal */}
+      <Modal
+        isOpen={showApiKeyModal}
+        onClose={() => setShowApiKeyModal(false)}
+        title={`Setup ${selectedProvider?.display_name} API Key`}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              API Key Name
+            </label>
+            <Input
+              type="text"
+              placeholder="Enter a name for this API key"
+              value={apiKeyForm.name}
+              onChange={(value: string) =>
+                setApiKeyForm((prev) => ({ ...prev, name: value }))
+              }
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              API Key <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="password"
+              placeholder="Enter your API key"
+              value={apiKeyForm.apiKey}
+              onChange={(value: string) =>
+                setApiKeyForm((prev) => ({ ...prev, apiKey: value }))
+              }
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Project ID (Optional)
+            </label>
+            <Input
+              type="text"
+              placeholder="Enter project ID if applicable"
+              value={apiKeyForm.projectId}
+              onChange={(value: string) =>
+                setApiKeyForm((prev) => ({ ...prev, projectId: value }))
+              }
+            />
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="secondary"
+              onClick={() => setShowApiKeyModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button variant="primary" onClick={handleApiKeySubmit}>
+              Add API Key
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 };

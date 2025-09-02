@@ -11,6 +11,9 @@ from .base import BaseService
 class AIModelService(BaseService):
     """Service for managing AI models."""
 
+    def __init__(self):
+        super().__init__(AIModel)
+
     async def create(self, db: AsyncSession, model_data: AIModelCreate) -> AIModel:
         """Create a new AI model."""
         model = AIModel(**model_data.dict())

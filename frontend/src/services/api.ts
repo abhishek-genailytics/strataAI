@@ -267,9 +267,7 @@ class ApiService {
 
   // Organization Management
   async getUserOrganizations(): Promise<ApiResponse<UserOrganization[]>> {
-    return this.handleResponse(
-      this.api.get("/organizations/user-organizations")
-    );
+    return this.handleResponse(this.api.get("/organizations/"));
   }
 
   // Organization Context Management

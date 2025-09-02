@@ -150,14 +150,17 @@ class OrganizationService:
             List of user organizations
         """
         try:
+            # Use RPC function to avoid RLS policy recursion issues
             response = supabase.rpc("get_user_organizations", {"user_uuid": str(user_id)}).execute()
             
             # Convert the response to the expected format
             organizations = []
             for item in response.data or []:
+                # The RPC function returns a dictionary structure
                 organizations.append({
                     "organization_id": item.get("organization_id"),
                     "organization_name": item.get("organization_name"),
+                    "organization_display_name": item.get("organization_display_name"),
                     "role": item.get("user_role")
                 })
             
@@ -165,6 +168,7 @@ class OrganizationService:
             
         except Exception as e:
             logger.error(f"Error getting user organizations for {user_id}: {e}")
+            # Fallback to empty list if RPC fails
             return []
     
     async def add_user_to_organization(self, user_org_data: UserOrganizationCreate) -> bool:

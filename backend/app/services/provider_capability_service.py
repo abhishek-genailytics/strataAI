@@ -11,6 +11,9 @@ from .base import BaseService
 class ProviderCapabilityService(BaseService):
     """Service for managing provider capabilities."""
 
+    def __init__(self):
+        super().__init__(ProviderCapability)
+
     async def create(self, db: AsyncSession, capability_data: ProviderCapabilityCreate) -> ProviderCapability:
         """Create new provider capability."""
         capability = ProviderCapability(**capability_data.dict())
