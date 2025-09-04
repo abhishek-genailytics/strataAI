@@ -141,11 +141,10 @@ export const ProviderConnectionModal: React.FC<
 
     try {
       // Create API key
-      const apiKeyResponse = await apiService.post("/api-keys/", {
+      const apiKeyResponse = await apiService.post("/api-keys/?validate=false", {
         name: form.name,
         provider_id: provider.id,
         api_key_value: form.apiKey,
-        validate: true,
       });
 
       if (apiKeyResponse.error) {

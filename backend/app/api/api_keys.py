@@ -20,7 +20,7 @@ async def create_api_key(
     api_key_in: APIKeyCreate,
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
-    validate: bool = True
+    validate: bool = False
 ):
     """Create a new API key with validation and encryption for an organization + provider."""
     import logging
@@ -40,6 +40,9 @@ async def create_api_key(
     logger.info(f"API key data: {api_key_in}")
     
     try:
+        logger.info(f"Request data validation - api_key_in: {api_key_in}")
+        logger.info(f"Request data dict: {api_key_in.dict()}")
+        
         api_key, validation_result = await api_key_service.validate_and_create(
             obj_in=api_key_in, 
             organization_id=organization.id,
@@ -62,12 +65,18 @@ async def create_api_key(
         )
         
     except ValueError as e:
+        logger.error(f"ValueError in API key creation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+    except HTTPException:
+        # Re-raise HTTPExceptions as-is
+        raise
     except Exception as e:
         error_str = str(e)
+        logger.error(f"Exception in API key creation: {error_str}")
+        logger.error(f"Exception type: {type(e)}")
         # Check for unique constraint violation (duplicate API key)
         if "duplicate key value violates unique constraint" in error_str and "api_keys_org_provider_unique" in error_str:
             raise HTTPException(
