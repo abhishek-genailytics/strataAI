@@ -67,10 +67,24 @@ async def create_api_key(
             detail=str(e)
         )
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to create API key: {str(e)}"
-        )
+        error_str = str(e)
+        # Check for unique constraint violation (duplicate API key)
+        if "duplicate key value violates unique constraint" in error_str and "api_keys_org_provider_unique" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An API key for this provider already exists in your organization. Please update the existing key instead."
+            )
+        # Check for other constraint violations
+        elif "violates" in error_str and "constraint" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid data provided. Please check your input and try again."
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to create API key: {error_str}"
+            )
 
 
 @router.get("/", response_model=List[APIKeyDisplay])

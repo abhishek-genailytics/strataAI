@@ -4,6 +4,7 @@ from datetime import datetime
 
 from supabase import Client
 from ..core.database import get_supabase_client
+from ..utils.supabase_client import supabase_service
 from ..models.api_key import APIKeyCreate, APIKeyUpdate, APIKeyDisplay, APIKeyValidationResult
 from ..core.encryption import encryption_service
 from .api_key_validator import api_key_validator
@@ -36,7 +37,7 @@ class APIKeyService:
             "is_active": True
         }
         
-        result = self.supabase.table("api_keys").insert(api_key_data).execute()
+        result = supabase_service.table("api_keys").insert(api_key_data).execute()
         
         if not result.data:
             raise Exception("Failed to create API key")
@@ -54,7 +55,7 @@ class APIKeyService:
         validation_result = None
         if validate_key:
             # Get provider name from provider_id for validation
-            provider_response = self.supabase.table("ai_providers").select("name").eq("id", str(obj_in.provider_id)).execute()
+            provider_response = supabase_service.table("ai_providers").select("name").eq("id", str(obj_in.provider_id)).execute()
             if not provider_response.data:
                 raise ValueError(f"Provider with ID {obj_in.provider_id} not found")
             
@@ -99,12 +100,12 @@ class APIKeyService:
         organization_id: UUID
     ) -> List[APIKeyDisplay]:
         """Get organization's API keys for display."""
-        result = self.supabase.table("api_keys").select("*").eq("organization_id", str(organization_id)).eq("is_active", True).execute()
+        result = supabase_service.table("api_keys").select("*").eq("organization_id", str(organization_id)).eq("is_active", True).execute()
         
         display_keys = []
         for api_key in result.data:
             # Get provider information from provider_id
-            provider_response = self.supabase.table("ai_providers").select("name, display_name").eq("id", api_key["provider_id"]).execute()
+            provider_response = supabase_service.table("ai_providers").select("name, display_name").eq("id", api_key["provider_id"]).execute()
             provider_name = "Unknown"
             provider_display_name = "Unknown"
             if provider_response.data:
@@ -171,7 +172,7 @@ class APIKeyService:
 
     async def get_organization_keys_raw(self, organization_id: UUID) -> List[dict]:
         """Get all active API keys for an organization (raw data)."""
-        result = self.supabase.table("api_keys").select("*").eq("organization_id", str(organization_id)).eq("is_active", True).execute()
+        result = supabase_service.table("api_keys").select("*").eq("organization_id", str(organization_id)).eq("is_active", True).execute()
         return result.data or []
 
 

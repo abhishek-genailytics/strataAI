@@ -12,8 +12,8 @@ class APIKeyValidator:
     
     # API key format patterns for different providers
     KEY_PATTERNS = {
-        "openai": r"^sk-[a-zA-Z0-9]{48,}$",
-        "anthropic": r"^sk-ant-api03-[a-zA-Z0-9_-]{95}$",
+        "openai": r"^sk-[a-zA-Z0-9_-]{10,}$",  # Very flexible: at least 10 chars after sk-
+        "anthropic": r"^sk-ant-[a-zA-Z0-9_-]{10,}$",  # Flexible: sk-ant- followed by at least 10 chars
         "google": r"^AIza[0-9A-Za-z_-]{35}$",
     }
     
@@ -28,8 +28,13 @@ class APIKeyValidator:
         """Validate an API key for a specific provider."""
         provider_name = provider_name.lower()
         
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Starting validation for {provider_name} API key: {api_key[:10]}...")
+        
         # First check format
         if not self._validate_key_format(api_key, provider_name):
+            logger.error(f"Format validation failed for {provider_name} API key")
             return APIKeyValidationResult(
                 is_valid=False,
                 provider_name=provider_name,
@@ -59,7 +64,15 @@ class APIKeyValidator:
             # If no pattern defined, assume format is valid
             return True
         
-        return bool(re.match(pattern, api_key))
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Validating {provider_name} API key format: {api_key[:10]}...")
+        logger.info(f"Using pattern: {pattern}")
+        
+        is_valid = bool(re.match(pattern, api_key))
+        logger.info(f"Format validation result: {is_valid}")
+        
+        return is_valid
     
     async def _validate_with_provider(self, api_key: str, provider_name: str) -> tuple[bool, Optional[Dict], Optional[str]]:
         """Validate API key by making a test request to the provider."""

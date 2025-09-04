@@ -144,7 +144,6 @@ export const ProviderConnectionModal: React.FC<
       const apiKeyResponse = await apiService.post("/api-keys/", {
         name: form.name,
         provider_id: provider.id,
-        project_id: currentOrganization?.id, // Using organization ID as project ID for now
         api_key_value: form.apiKey,
         validate: true,
       });

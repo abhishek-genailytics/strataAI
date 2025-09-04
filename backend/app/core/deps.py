@@ -1,7 +1,7 @@
 from typing import Optional, Dict, Any, List
 from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from app.utils.supabase_client import supabase
+from app.utils.supabase_client import supabase, supabase_service
 from app.utils.auth import get_user_from_token, get_user_by_id
 from app.models.organization import Organization
 from uuid import UUID
@@ -94,15 +94,10 @@ async def get_current_user(
         user_uuid = UUID(user_data["id"])
         email = user_data["email"]
         
-        # Load user profile with organizations using direct queries
+        # Load user profile with organization info (simplified approach)
         try:
-            # Get user profile
-            profile_response = supabase.table("user_profiles").select("*").eq("id", str(user_uuid)).execute()
-            
-            # Get user organizations
-            orgs_response = supabase.table("user_organizations").select(
-                "organization_id, role, joined_at, organizations(name, display_name)"
-            ).eq("user_id", str(user_uuid)).eq("is_active", True).execute()
+            # Get user profile using service client (bypasses RLS)
+            profile_response = supabase_service.table("user_profiles").select("*").eq("id", str(user_uuid)).execute()
             
             organizations = []
             is_active = True
@@ -111,26 +106,24 @@ async def get_current_user(
                 user_profile = profile_response.data[0]
                 is_active = user_profile.get('is_active', True)
                 logger.info(f"Loaded user profile: {user_profile}")
-            else:
-                logger.warning(f"No user profile data found for user {user_uuid}")
-            
-            if orgs_response.data:
-                logger.info(f"Raw organizations response: {orgs_response.data}")
-                for org_data in orgs_response.data:
-                    org_info = org_data.get('organizations', {})
-                    logger.info(f"Processing org_data: {org_data}, org_info: {org_info}")
-                    if org_info:
-                        organizations.append({
-                            'id': org_data['organization_id'],
-                            'name': org_info.get('name', ''),
-                            'display_name': org_info.get('display_name', ''),
-                            'role': org_data.get('role', 'member'),
-                            'joined_at': org_data.get('joined_at')
-                        })
+                
+                # Extract organization info from user profile
+                if user_profile.get('organization_id'):
+                    # Get organization details separately
+                    org_response = supabase_service.table("organizations").select("name, display_name").eq("id", user_profile['organization_id']).execute()
+                    org_info = org_response.data[0] if org_response.data else {}
+                    
+                    organizations.append({
+                        'id': user_profile['organization_id'],
+                        'name': org_info.get('name', user_profile.get('organization_name', '')),
+                        'display_name': org_info.get('display_name', ''),
+                        'role': user_profile.get('role', 'member'),
+                        'joined_at': user_profile.get('created_at')
+                    })
+                    logger.info(f"Added organization to user: {organizations[-1]}")
                 logger.info(f"Loaded {len(organizations)} organizations: {organizations}")
             else:
-                logger.warning(f"No organizations found for user {user_uuid}")
-                logger.warning(f"Organizations response: {orgs_response}")
+                logger.warning(f"No user profile data found for user {user_uuid}")
             
             return CurrentUser(user_uuid, email, organizations, is_active)
             

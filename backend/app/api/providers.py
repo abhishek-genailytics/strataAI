@@ -148,9 +148,12 @@ async def get_organization_configured_providers(
         
         # Get API keys for the organization
         api_keys = await api_key_service.get_organization_keys_raw(organization.id)
+        logger.info(f"Retrieved {len(api_keys)} API keys for organization {organization.id}")
+        logger.info(f"API keys data: {api_keys}")
         
         # Get unique provider IDs from API keys
         provider_ids = list(set([key["provider_id"] for key in api_keys]))
+        logger.info(f"Provider IDs from API keys: {provider_ids}")
         
         # Get provider details
         configured_providers = []
