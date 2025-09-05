@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from app.api.auth import router as auth_router
 from app.api.api_keys import router as api_keys_router
 from app.api.chat import router as chat_router
+from app.api.unified_api import router as unified_api_router
 from app.api.usage_analytics import router as usage_analytics_router
 from app.api.organizations import router as organizations_router
 from app.api.providers import router as providers_router
@@ -19,7 +20,10 @@ api_router.include_router(auth_router)
 # Include API key management routes
 api_router.include_router(api_keys_router)
 
-# Include chat completion routes
+# Include unified API routes (OpenAI-compatible gateway) - MUST be before other chat routes
+api_router.include_router(unified_api_router)
+
+# Include chat completion routes (legacy)
 api_router.include_router(chat_router)
 
 # Include usage analytics routes

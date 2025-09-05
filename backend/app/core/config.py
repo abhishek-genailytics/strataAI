@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "StrataAI"
     
     # CORS Configuration
-    ALLOWED_HOSTS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    ALLOWED_HOSTS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000", "null"]
     
     # Supabase Configuration
     SUPABASE_URL: str = os.getenv("SUPABASE_URL", "")

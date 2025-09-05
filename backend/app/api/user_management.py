@@ -9,7 +9,7 @@ from app.core.deps import get_current_user, CurrentUser
 from app.models.user import User
 from app.models.organization import Organization
 from app.services.organization_service import OrganizationService
-from app.utils.supabase_client import get_supabase_client
+from app.utils.supabase_client import get_supabase_client, get_supabase_service_client
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +106,7 @@ async def invite_user(
     # Create invitation in database
     invitation_data = {
         "organization_id": org_id,
-        "invited_by_user_id": current_user.user_id,
+        "invited_by_user_id": str(current_user.user_id),
         "email": invitation.email,
         "role": invitation.role,
         "invitation_token": invitation_token,
@@ -204,7 +204,7 @@ async def create_personal_access_token(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """Create a new personal access token"""
-    supabase = get_supabase_client()
+    supabase_service = get_supabase_service_client()
     
     # Get user's organization
     org_service = OrganizationService()
@@ -220,7 +220,7 @@ async def create_personal_access_token(
     
     # Create token in database
     token_data = {
-        "user_id": current_user.user_id,
+        "user_id": str(current_user.user_id),
         "organization_id": org_id,
         "name": token_request.name,
         "token_hash": token_hash,
@@ -229,7 +229,7 @@ async def create_personal_access_token(
         "expires_at": token_request.expires_at.isoformat() if token_request.expires_at else None
     }
     
-    result = supabase.table("personal_access_tokens").insert(token_data).execute()
+    result = supabase_service.table("personal_access_tokens").insert(token_data).execute()
     
     if not result.data:
         raise HTTPException(
@@ -270,7 +270,7 @@ async def get_personal_access_tokens(
     except Exception as e:
         print(f"DEBUG: RPC failed: {e}, trying direct query...")
         # Fallback to direct table query
-        result = supabase.table("personal_access_tokens").select("*").eq("user_id", current_user.user_id).execute()
+        result = supabase.table("personal_access_tokens").select("*").eq("user_id", str(current_user.user_id)).execute()
     
     # Debug: Log the result
     print(f"PAT query result: {result.data}")
@@ -320,7 +320,7 @@ async def delete_personal_access_token(
     supabase = get_supabase_client()
     
     # Check if token belongs to user
-    result = supabase.table("personal_access_tokens").select("id").eq("id", token_id).eq("user_id", current_user.user_id).execute()
+    result = supabase.table("personal_access_tokens").select("id").eq("id", token_id).eq("user_id", str(current_user.user_id)).execute()
     
     if not result.data:
         raise HTTPException(

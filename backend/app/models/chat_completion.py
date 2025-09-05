@@ -29,6 +29,21 @@ class ChatCompletionRequest(BaseModel):
     stream: Optional[bool] = Field(False, description="Whether to stream the response")
 
 
+class UnifiedChatCompletionRequest(BaseModel):
+    """Request model for unified API chat completion (organization_id comes from PAT auth)."""
+    messages: List[ChatMessage] = Field(..., description="List of messages in the conversation")
+    model: str = Field(..., description="The model to use for completion (format: provider/model-name)")
+    
+    # Optional parameters
+    temperature: Optional[float] = Field(0.7, ge=0.0, le=2.0, description="Sampling temperature")
+    max_tokens: Optional[int] = Field(None, gt=0, description="Maximum tokens to generate")
+    top_p: Optional[float] = Field(1.0, ge=0.0, le=1.0, description="Nucleus sampling parameter")
+    frequency_penalty: Optional[float] = Field(0.0, ge=-2.0, le=2.0, description="Frequency penalty")
+    presence_penalty: Optional[float] = Field(0.0, ge=-2.0, le=2.0, description="Presence penalty")
+    stop: Optional[Union[str, List[str]]] = Field(None, description="Stop sequences")
+    stream: Optional[bool] = Field(False, description="Whether to stream the response")
+
+
 class ChatCompletionUsage(BaseModel):
     """Usage statistics for a chat completion."""
     prompt_tokens: int
