@@ -5,7 +5,7 @@ from app.core.auth import require_pat
 from app.core.deps import resolve_organization, validate_model
 from app.models.auth import CurrentCaller
 from app.models.catalog import ResolvedModel
-from app.core.exceptions import NotFoundError
+from app.services.adapter_factory import get_adapter
 
 router = APIRouter(tags=["Unified API"])
 
@@ -30,6 +30,13 @@ async def chat_completions(
     # We now have access to the resolved organization_id for downstream use
     # (provider-key lookup, accounting, etc.) - will be used in Task 11
     
-    # Not implemented yet: adapters (Task 7/8)
-    # Keep a typed 404 for now (clearer than 501)
-    raise NotFoundError("Adapter not implemented for this model")
+    # Use adapter factory to get the appropriate adapter
+    adapter = get_adapter(resolved_model.provider_name)
+    
+    # Provider API key will be added in Task 11 (provider key lookup)
+    return await adapter.chat_completion(
+        organization_id=organization_id,
+        request=req,
+        model_name=resolved_model.model_name,
+        api_key=None,
+    )

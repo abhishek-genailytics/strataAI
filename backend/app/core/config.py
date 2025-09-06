@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     ENABLE_REDIS: bool = False
     ENABLE_RATE_LIMITING: bool = False
     
+    # LLM Adapter configuration
+    FORCE_ECHO_ADAPTER: bool = False
+    
     # Legacy fields (kept for compatibility with existing code)
     SUPABASE_JWT_SECRET: str = ""
     REDIS_URL: str = "redis://localhost:6379"

@@ -323,7 +323,7 @@ async def validate_model(model_id: str) -> ResolvedModel:
     1. Model follows 'provider/model' format
     2. Provider exists and is active in ai_providers
     3. Model exists under that provider and is active in ai_models
-    4. Model type is 'chat' (MVP constraint)
+    4. Model type is 'chat' or 'multimodal' (MVP constraint)
     
     Args:
         model_id: Model identifier in 'provider/model' format
@@ -336,8 +336,12 @@ async def validate_model(model_id: str) -> ResolvedModel:
         NotFoundError: If provider or model not found
         PermissionError_: If provider or model is disabled
     """
-    # 1) Parse and normalize provider/model
-    provider_slug, native_model = parse_model_id(model_id)
+    try:
+        # 1) Parse and normalize provider/model
+        provider_slug, native_model = parse_model_id(model_id)
+    except ValueError as e:
+        # Convert ValueError to proper OpenAI-compatible error
+        raise InvalidRequestError(str(e), param="model")
     
     # 2) Validate provider exists and is active
     provider = get_provider_by_name(provider_slug)

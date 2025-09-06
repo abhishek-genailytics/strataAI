@@ -43,7 +43,7 @@ def get_model_by_provider_and_name(provider_id: str, model_name: str) -> Resolve
     if not row.get("is_active", True):
         raise PermissionError_("Model disabled", code="model_disabled")
     
-    if row.get("model_type") != "chat":  # MVP only chat.completions
+    if row.get("model_type") not in ["chat", "multimodal"]:  # MVP supports chat and multimodal for chat.completions
         raise InvalidRequestError("Model type not supported for this endpoint", code="model_type_mismatch", param="model")
     
     # provider_name will be set by the caller
