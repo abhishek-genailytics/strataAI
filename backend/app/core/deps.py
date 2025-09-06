@@ -8,6 +8,9 @@ from app.models.auth import CurrentCaller
 from app.core.auth import require_pat
 from app.core.supabase import get_supabase_service
 from app.core.exceptions import InvalidRequestError, PermissionError_
+from app.utils.model_id import parse_model_id
+from app.services.model_catalog import get_provider_by_name, get_model_by_provider_and_name
+from app.models.catalog import ResolvedModel
 from uuid import UUID
 import logging
 
@@ -310,3 +313,37 @@ async def resolve_organization(
     request.state.organization_id = requested_org
     logger.info(f"Organization resolved: {requested_org} (from X-Organization-ID header)")
     return requested_org
+
+
+async def validate_model(model_id: str) -> ResolvedModel:
+    """
+    Validate model against catalog and return resolved model information.
+    
+    Validates that:
+    1. Model follows 'provider/model' format
+    2. Provider exists and is active in ai_providers
+    3. Model exists under that provider and is active in ai_models
+    4. Model type is 'chat' (MVP constraint)
+    
+    Args:
+        model_id: Model identifier in 'provider/model' format
+        
+    Returns:
+        ResolvedModel with provider and model information
+        
+    Raises:
+        InvalidRequestError: If model format is invalid
+        NotFoundError: If provider or model not found
+        PermissionError_: If provider or model is disabled
+    """
+    # 1) Parse and normalize provider/model
+    provider_slug, native_model = parse_model_id(model_id)
+    
+    # 2) Validate provider exists and is active
+    provider = get_provider_by_name(provider_slug)
+    
+    # 3) Validate model exists under provider and is active
+    model = get_model_by_provider_and_name(str(provider.id), native_model)
+    model.provider_name = provider.name
+    
+    return model
