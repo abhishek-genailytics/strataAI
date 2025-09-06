@@ -37,3 +37,7 @@ def get_supabase_service_client():
     
     supabase_mod = _get_supabase_module()
     return supabase_mod['create_client'](settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
+
+def get_supabase_service():
+    """Alias for get_supabase_service_client for consistency with auth module"""
+    return get_supabase_service_client()

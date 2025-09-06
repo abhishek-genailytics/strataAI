@@ -77,6 +77,14 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             status_code = e.status_code
             # Starlette's detail may be str or dict
             detail = e.detail if isinstance(e.detail, str) else json.dumps(e.detail)
+            
+            # Map HTTPBearer 403 to 401 for OpenAI compatibility
+            if status_code == 403 and "Not authenticated" in str(detail) and is_public_openai_path(request.url.path):
+                status_code = 401
+                payload = openai_error_body("Missing Authorization header", type_="authentication_error", code="missing_authorization")
+                _log_exc(request, status_code, payload)
+                return JSONResponse(status_code=status_code, content=payload)
+            
             if is_public_openai_path(request.url.path):
                 payload = openai_error_body(detail or "Error", type_=infer_type_from_status(status_code))
                 _log_exc(request, status_code, payload)
