@@ -1,8 +1,10 @@
 from typing import Optional, Dict, Any
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
-from app.core.config import settings
+from app.core.config import get_settings
 from app.utils.supabase_client import supabase
+
+settings = get_settings()
 
 class AuthError(Exception):
     """Custom authentication error."""

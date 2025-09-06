@@ -1,9 +1,13 @@
 from typing import Optional, Dict, Any, List
-from fastapi import Depends, HTTPException, status, Request
+from fastapi import Depends, HTTPException, status, Request, Header
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from app.utils.supabase_client import supabase, supabase_service
 from app.utils.auth import get_user_from_token, get_user_by_id
 from app.models.organization import Organization
+from app.models.auth import CurrentCaller
+from app.core.auth import require_pat
+from app.core.supabase import get_supabase_service
+from app.core.exceptions import InvalidRequestError, PermissionError_
 from uuid import UUID
 import logging
 
@@ -208,41 +212,8 @@ async def get_organization_context(
         logger.info(f"Returning organization: {org_data}")
         return Organization(**org_data)
     
-    # Try to get organization ID from X-Organization-ID header
-    org_id_str = request.headers.get("X-Organization-ID")
-    logger.info(f"Organization ID from header: {org_id_str}")
-    
-    # If not in headers, try query parameter
-    if not org_id_str:
-        org_id_str = request.query_params.get("organization_id")
-        logger.info(f"Organization ID from query: {org_id_str}")
-    
-    if not org_id_str:
-        logger.warning("No organization ID provided and user has no organizations")
-        return None
-    
-    try:
-        org_id = UUID(org_id_str)
-        org_with_role = current_user.get_organization_by_id(org_id)
-        if org_with_role:
-            # Create Organization object from the organization data
-            # The org_with_role contains: id, name, display_name, role, joined_at
-            org_data = {
-                'id': org_id,
-                'name': org_with_role.get('name', ''),
-                'display_name': org_with_role.get('display_name'),
-                'domain': None,
-                'external_id': None,
-                'metadata': {},
-                'settings': {},
-                'is_active': True,
-                'created_at': org_with_role.get('joined_at'),  # Use joined_at as created_at
-                'updated_at': org_with_role.get('joined_at')   # Use joined_at as updated_at
-            }
-            return Organization(**org_data)
-        return None
-    except ValueError:
-        return None
+    logger.warning("No organization ID provided and user has no organizations")
+    return None
 
 
 def require_organization_role(required_roles: List[str]):
@@ -271,3 +242,71 @@ def require_organization_role(required_roles: List[str]):
 # Common role requirements
 require_admin_role = require_organization_role(["admin", "owner"])
 require_member_role = require_organization_role(["member", "admin", "owner"])
+
+
+async def resolve_organization(
+    request: Request,
+    caller: CurrentCaller = Depends(require_pat),
+    x_org_id: Optional[str] = Header(None, alias="X-Organization-ID"),
+) -> UUID:
+    """
+    Resolve organization ID from X-Organization-ID header or PAT default.
+    
+    Validates that:
+    1. Header is valid UUID (if provided)
+    2. Organization exists and is active
+    3. User has active membership in the organization
+    
+    Args:
+        request: FastAPI request object
+        caller: Current authenticated caller from PAT
+        x_org_id: Optional organization ID from X-Organization-ID header
+        
+    Returns:
+        UUID of the resolved organization
+        
+    Raises:
+        InvalidRequestError: If X-Organization-ID is not a valid UUID
+        PermissionError_: If user doesn't have access to the organization
+    """
+    sb = get_supabase_service()
+
+    # 1) No header → fallback to PAT org
+    if not x_org_id:
+        request.state.organization_id = caller.organization_id
+        logger.info(f"Organization resolved: {caller.organization_id} (from PAT default)")
+        return caller.organization_id
+
+    # 2) Validate UUID
+    try:
+        requested_org = UUID(x_org_id)
+    except ValueError:
+        raise InvalidRequestError("X-Organization-ID must be a valid UUID", param="X-Organization-ID")
+
+    # 3) Check org exists and is_active (403 if not - don't leak existence)
+    org_resp = sb.table("organizations")\
+        .select("id,is_active")\
+        .eq("id", str(requested_org))\
+        .limit(1)\
+        .execute()
+    
+    if not org_resp.data or not org_resp.data[0].get("is_active", True):
+        # Don't reveal whether it exists or not
+        raise PermissionError_("You do not have access to this organization")
+
+    # 4) Check user has active membership (403 if not)
+    membership_resp = sb.table("user_organizations")\
+        .select("id,is_active,role,is_admin")\
+        .eq("user_id", str(caller.user_id))\
+        .eq("organization_id", str(requested_org))\
+        .eq("is_active", True)\
+        .limit(1)\
+        .execute()
+    
+    if not membership_resp.data:
+        raise PermissionError_("You do not have access to this organization")
+
+    # 5) Store in request state and return
+    request.state.organization_id = requested_org
+    logger.info(f"Organization resolved: {requested_org} (from X-Organization-ID header)")
+    return requested_org
