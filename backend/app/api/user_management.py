@@ -253,12 +253,7 @@ async def get_personal_access_tokens(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """Get all personal access tokens for the current user"""
-    print("DEBUG: PAT endpoint called!")
     supabase = get_supabase_client()
-    
-    # Debug: Log the user ID being used
-    print(f"Getting PATs for user ID: {current_user.user_id}")
-    logger.info(f"Getting PATs for user ID: {current_user.user_id}")
     
     # Use RPC function to bypass RLS
     try:
@@ -266,15 +261,10 @@ async def get_personal_access_tokens(
             "get_user_personal_access_tokens",
             {"user_uuid": str(current_user.user_id)}
         ).execute()
-        print(f"DEBUG: RPC result: {result.data}")
     except Exception as e:
-        print(f"DEBUG: RPC failed: {e}, trying direct query...")
+        logger.debug(f"RPC failed: {e}, trying direct query...")
         # Fallback to direct table query
         result = supabase.table("personal_access_tokens").select("*").eq("user_id", str(current_user.user_id)).execute()
-    
-    # Debug: Log the result
-    print(f"PAT query result: {result.data}")
-    logger.info(f"PAT query result: {result.data}")
     
     tokens = []
     for token in result.data:
@@ -317,19 +307,25 @@ async def delete_personal_access_token(
     current_user: CurrentUser = Depends(get_current_user)
 ):
     """Delete a personal access token"""
-    supabase = get_supabase_client()
+    supabase_service = get_supabase_service_client()
     
-    # Check if token belongs to user
-    result = supabase.table("personal_access_tokens").select("id").eq("id", token_id).eq("user_id", str(current_user.user_id)).execute()
+    # Check if token belongs to user (using service client to bypass RLS)
+    check_result = supabase_service.table("personal_access_tokens").select("id").eq("id", token_id).eq("user_id", str(current_user.user_id)).execute()
     
-    if not result.data:
+    if not check_result.data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Token not found"
         )
     
-    # Delete token
-    supabase.table("personal_access_tokens").delete().eq("id", token_id).execute()
+    # Delete token (using service client to bypass RLS)
+    delete_result = supabase_service.table("personal_access_tokens").delete().eq("id", token_id).eq("user_id", str(current_user.user_id)).execute()
+    
+    if not delete_result.data:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to delete token"
+        )
     
     return {"message": "Token deleted successfully"}
 

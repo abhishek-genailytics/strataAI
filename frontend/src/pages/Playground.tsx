@@ -1,52 +1,139 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { 
-  Play, 
-  Plus, 
-  Code, 
-  Save, 
+  Send, 
   Settings, 
-  Zap, 
   MessageSquare,
-  Globe,
-  Terminal,
-  RotateCcw,
-  Copy,
-  Download
+  User,
+  Bot,
+  Menu,
+  X
 } from "lucide-react";
 import { Button } from "../components/ui/Button";
-import { Card } from "../components/ui/Card";
+import { ModelConfigCard } from "../components/playground/ModelConfigCard";
+import { apiService } from "../services/api";
 
 interface Message {
   id: string;
   role: "user" | "assistant" | "system";
   content: string;
   timestamp: Date;
+  isLoading?: boolean;
 }
 
 export const Playground: React.FC = () => {
-  const [activeTab, setActiveTab] = useState("chat");
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "system",
-      content: "You are a helpful assistant.",
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [userInput, setUserInput] = useState("");
   const [systemPrompt, setSystemPrompt] = useState("You are a helpful assistant.");
-  const [showAdvancedFields, setShowAdvancedFields] = useState(false);
-  const [inputMode, setInputMode] = useState<"user" | "web-search" | "code-execution">("user");
   const [isGenerating, setIsGenerating] = useState(false);
-  const [temperature, setTemperature] = useState(0.7);
-  const [maxTokens, setMaxTokens] = useState(2500);
-  const [streamingMode, setStreamingMode] = useState(true);
-  const [storeLogs, setStoreLogs] = useState(true);
+  const [selectedModel, setSelectedModel] = useState("");
+  const [modelConfig, setModelConfig] = useState({
+    temperature: 0.7,
+    maxTokens: 2500,
+    streaming: true,
+  });
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [previousProvider, setPreviousProvider] = useState<string | null>(null);
+  const [chatSessions, setChatSessions] = useState<any[]>([]);
+  const [hasMoreSessions, setHasMoreSessions] = useState(true);
+  const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSendMessage = () => {
-    if (!userInput.trim()) return;
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
 
-    setIsGenerating(true);
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  // Load chat sessions on component mount
+  useEffect(() => {
+    loadChatSessions();
+  }, []);
+
+  // Detect provider changes and create new session if needed
+  useEffect(() => {
+    if (selectedModel) {
+      const currentProvider = selectedModel.split('/')[0];
+      if (previousProvider && previousProvider !== currentProvider) {
+        // Provider changed, create new session
+        handleProviderChange(currentProvider);
+      }
+      setPreviousProvider(currentProvider);
+    }
+  }, [selectedModel]);
+
+  const loadChatSessions = async (reset: boolean = true) => {
+    try {
+      const offset = reset ? 0 : chatSessions.length;
+      const response = await apiService.getChatSessions(20, offset); // Increase limit to see more sessions
+      console.log('Chat sessions loaded:', response.data?.length || 0);
+      if (response.data) {
+        if (reset) {
+          setChatSessions(response.data);
+        } else {
+          setChatSessions(prev => [...prev, ...(response.data || [])]);
+        }
+        setHasMoreSessions(response.data.length === 20);
+      }
+    } catch (error) {
+      console.error('Error loading chat sessions:', error);
+    }
+  };
+
+  const loadMoreSessions = async () => {
+    if (loadingMoreSessions || !hasMoreSessions) return;
+    setLoadingMoreSessions(true);
+    await loadChatSessions(false);
+    setLoadingMoreSessions(false);
+  };
+
+  const handleProviderChange = async (newProvider: string) => {
+    // Clear current messages and start fresh session
+    setMessages([]);
+    setCurrentSessionId(null);
+    console.log(`Provider changed to ${newProvider}, starting new session`);
+  };
+
+  const loadSessionMessages = async (sessionId: string) => {
+    try {
+      const response = await apiService.getSessionMessages(sessionId);
+      if (response.data) {
+        const sessionMessages: Message[] = response.data.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role as "user" | "assistant" | "system",
+          content: msg.content,
+          timestamp: new Date(msg.created_at)
+        }));
+        setMessages(sessionMessages);
+        setCurrentSessionId(sessionId);
+      }
+    } catch (error) {
+      console.error('Error loading session messages:', error);
+    }
+  };
+
+  const handleSessionSelect = async (sessionId: string) => {
+    await loadSessionMessages(sessionId);
+  };
+
+  const adjustTextareaHeight = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    }
+  };
+
+  useEffect(() => {
+    adjustTextareaHeight();
+  }, [userInput]);
+
+  const handleSendMessage = async () => {
+    if (!userInput.trim() || !selectedModel || isGenerating) return;
+
     const newUserMessage: Message = {
       id: Date.now().toString(),
       role: "user",
@@ -54,310 +141,295 @@ export const Playground: React.FC = () => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, newUserMessage]);
-    setUserInput("");
+    const loadingMessage: Message = {
+      id: (Date.now() + 1).toString(),
+      role: "assistant",
+      content: "",
+      timestamp: new Date(),
+      isLoading: true,
+    };
 
-    // Simulate AI response with streaming effect
-    setTimeout(() => {
+    setMessages((prev) => [...prev, newUserMessage, loadingMessage]);
+    setUserInput("");
+    setIsGenerating(true);
+
+    try {
+      // Prepare messages for API
+      const apiMessages = messages
+        .filter(msg => !msg.isLoading)
+        .concat([newUserMessage])
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+      // Add system message if it's different from default
+      if (systemPrompt && systemPrompt !== "You are a helpful assistant.") {
+        apiMessages.unshift({
+          role: "system",
+          content: systemPrompt
+        });
+      }
+
+      const requestData = {
+        model: selectedModel,
+        messages: apiMessages,
+        temperature: modelConfig.temperature,
+        max_tokens: modelConfig.maxTokens,
+        stream: modelConfig.streaming,
+        session_id: currentSessionId
+      };
+
+      const response = await apiService.playgroundChatCompletion(requestData);
+      
+      if (response.error) {
+        throw new Error(response.error);
+      }
+
+      // Update current session ID from response
+      if (response.data?.session_id) {
+        setCurrentSessionId(response.data.session_id);
+      }
+
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: "This is a simulated response from the AI model. In a real implementation, this would be the actual response from the selected model with proper streaming support.",
+        content: response.data?.choices[0]?.message?.content || "No response generated",
         timestamp: new Date(),
       };
-      setMessages((prev) => [...prev, aiResponse]);
+
+      // Replace loading message with actual response
+      setMessages((prev) => prev.slice(0, -1).concat([aiResponse]));
+      
+      // Reload chat sessions to get updated list
+      await loadChatSessions();
+    } catch (error) {
+      console.error("Error generating response:", error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: "assistant",
+        content: `Error: ${error instanceof Error ? error.message : "Failed to generate response"}`,
+        timestamp: new Date(),
+      };
+      setMessages((prev) => prev.slice(0, -1).concat([errorMessage]));
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
-  const promptExamples = [
-    {
-      title: "Data Extraction with JSON Outputs",
-      description: "Turn unstructured text into bespoke JSON tables with auto-generated keys",
-      icon: "📊",
-    },
-    {
-      title: "JSON creation", 
-      description: "This prompt creates synthetic data for a product in a JSON format",
-      icon: "🔧",
-    },
-    {
-      title: "Non-English Content Generation",
-      description: "Generate product announcement tweets in 10 most commonly spoken languages",
-      icon: "🌍",
-    },
-    {
-      title: "Removing PII",
-      description: "Automatically detect and remove PII from text documents",
-      icon: "🔒",
-    },
-  ];
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
 
-  const inputModes = [
-    { key: "user", label: "User", icon: MessageSquare, color: "blue" },
-    { key: "web-search", label: "Web Search", icon: Globe, color: "green" },
-    { key: "code-execution", label: "Code Execution", icon: Terminal, color: "purple" },
-  ];
+  const MessageBubble = ({ message }: { message: Message }) => {
+    const isUser = message.role === 'user';
+    
+    return (
+      <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}>
+        <div className={`flex max-w-[80%] ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
+          <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+            isUser ? 'bg-blue-500 ml-3' : 'bg-gray-200 mr-3'
+          }`}>
+            {isUser ? (
+              <User className="w-4 h-4 text-white" />
+            ) : (
+              <Bot className="w-4 h-4 text-gray-600" />
+            )}
+          </div>
+          <div className={`rounded-2xl px-4 py-2 ${
+            isUser 
+              ? 'bg-blue-500 text-white' 
+              : 'bg-gray-100 text-gray-900'
+          }`}>
+            {message.isLoading ? (
+              <div className="flex items-center space-x-1">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.1s' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }}></div>
+              </div>
+            ) : (
+              <div className="whitespace-pre-wrap">{message.content}</div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
-        <h1 className="text-3xl font-bold text-slate-900">Playground</h1>
+    <div className="w-full flex bg-white" style={{ height: '100vh', overflow: 'hidden' }}>
+      {/* Sidebar */}
+      {showSidebar && (
+        <div className="w-80 border-r border-gray-200 bg-gray-50 flex flex-col">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <h2 className="text-lg font-semibold text-gray-900">Configuration</h2>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSidebar(false)}
+              className="text-gray-500"
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
 
-        <div className="flex items-center space-x-3">
-          <span className="text-sm text-slate-600 px-3 py-1 bg-white/60 rounded-full border border-slate-200">
-            Your Prompt
-          </span>
-          <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-white/60">
-            Recent
-          </Button>
-          <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-white/60">
-            <Code className="w-4 h-4 mr-1" />
-            Code
-          </Button>
-          <Button variant="ghost" size="sm" className="text-slate-600 hover:bg-white/60">
-            <RotateCcw className="w-4 h-4 mr-1" />
-            Clear
-          </Button>
-          <Button variant="outline" size="sm" className="border-slate-300 text-slate-700 hover:border-slate-400 bg-white/60">
-            Reset Playground
-          </Button>
-          <Button className="bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg border-0">
-            <Save className="w-4 h-4 mr-2" />
-            Save Prompt
-          </Button>
-        </div>
-      </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* Model Configuration */}
+            <div className="mb-6">
+              <ModelConfigCard
+                selectedModel={selectedModel}
+                onModelChange={setSelectedModel}
+                modelConfig={modelConfig}
+                onConfigChange={setModelConfig}
+                currentSessionId={currentSessionId}
+                onSessionSelect={handleSessionSelect}
+              />
+            </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-        {/* Left Sidebar - Configuration */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Model Configuration */}
-          <Card className="bg-white shadow-lg border border-gray-200">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900">Model Configuration</h3>
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs text-slate-500">⚡</span>
-                  <span className="text-xs text-slate-500">⚙️</span>
-                </div>
-              </div>
-              
-              <div className="p-3 bg-gradient-to-r from-slate-50 to-blue-50 rounded-lg border border-slate-200">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="font-semibold text-slate-900 text-sm">openai/chatgpt-4o-latest</span>
-                  <span className="text-lg">💎</span>
-                </div>
-                <div className="text-xs text-slate-600 space-y-1">
-                  <div className="flex flex-wrap gap-2">
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs">temp: {temperature}</span>
-                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">max tokens: {maxTokens}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs">
-                      streaming: {streamingMode ? 'true' : 'false'}
-                    </span>
-                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs">
-                      store logs: {storeLogs ? 'true' : 'false'}
-                    </span>
-                  </div>
-                </div>
+            {/* System Prompt */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                System Prompt
+              </label>
+              <textarea
+                value={systemPrompt}
+                onChange={(e) => setSystemPrompt(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                rows={4}
+                placeholder="Enter system prompt..."
+              />
+            </div>
+
+            {/* Chat History */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Chat History</h3>
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {chatSessions.map((session) => (
+                  <button
+                    key={session.id}
+                    onClick={() => handleSessionSelect(session.id)}
+                    className={`w-full text-left p-2 rounded-lg text-sm hover:bg-gray-100 transition-colors ${
+                      currentSessionId === session.id ? 'bg-blue-50 border border-blue-200' : 'bg-white border border-gray-200'
+                    }`}
+                  >
+                    <div className="font-medium text-gray-900 truncate">
+                      {session.session_name || 'New Chat'}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      {session.provider}/{session.model} • {session.message_count || 0} messages
+                    </div>
+                  </button>
+                ))}
+                {hasMoreSessions && (
+                  <button
+                    onClick={loadMoreSessions}
+                    disabled={loadingMoreSessions}
+                    className="w-full p-2 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+                  >
+                    {loadingMoreSessions ? 'Loading...' : 'Load More'}
+                  </button>
+                )}
               </div>
             </div>
-          </Card>
 
-          {/* Configuration Sections */}
-          {[
-            { title: "Input Variables", count: 0, icon: "📝" },
-            { title: "MCP Servers", count: 0, icon: "🔧" },
-            { title: "Input Guardrails", count: 0, icon: "🛡️" },
-            { title: "Output Guardrails", count: 0, icon: "🔒" },
-            { title: "Structured Output", count: 0, icon: "📋" },
-          ].map((section) => (
-            <Card key={section.title} className="bg-white shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-slate-900 flex items-center">
-                  <span className="mr-2">{section.icon}</span>
-                  {section.title} ({section.count})
-                </h3>
-                <Button variant="ghost" size="sm" className="text-slate-400 hover:text-slate-600">
-                  <Plus className="w-4 h-4" />
-                </Button>
-              </div>
-              <p className="text-xs text-slate-500 mt-2">
-                No {section.title.toLowerCase()} configured
-              </p>
-            </Card>
-          ))}
+            {/* Action Buttons */}
+            <div className="space-y-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMessages([]);
+                  setCurrentSessionId(null);
+                }}
+                className="w-full"
+              >
+                New Chat
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setMessages([])}
+                className="w-full"
+                disabled={messages.length === 0}
+              >
+                Clear Current Chat
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+          <div className="flex items-center space-x-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="text-gray-600"
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-semibold text-gray-900">Playground</h1>
+            <span className="text-sm text-gray-500">
+              {selectedModel || "No model selected"}
+            </span>
+          </div>
         </div>
 
-        {/* Main Content - Chat Interface */}
-        <div className="lg:col-span-3">
-          <Card className="bg-white shadow-lg border border-gray-200">
-            {/* Tabs */}
-            <div className="flex border-b border-slate-200 -mx-6 -mt-6 px-6 pt-6">
-              {[
-                { id: "chat", label: "Chat", icon: MessageSquare },
-                { id: "embedding", label: "Embedding", icon: Zap },
-                { id: "rerank", label: "Rerank", icon: Settings },
-                { id: "image", label: "Image", icon: Code },
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center px-6 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600 bg-blue-50/50"
-                      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-                  }`}
-                >
-                  <tab.icon className="w-4 h-4 mr-2" />
-                  {tab.label}
-                </button>
+        {/* Messages Area */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {messages.length === 0 ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="text-center">
+                <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg mb-2">Start a conversation</p>
+                <p className="text-gray-400 text-sm">
+                  {selectedModel ? "Type a message below to get started" : "Select a model first"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="max-w-4xl mx-auto">
+              {messages.map((message) => (
+                <MessageBubble key={message.id} message={message} />
               ))}
+              <div ref={messagesEndRef} />
             </div>
+          )}
+        </div>
 
-            <div className="mt-6 space-y-6">
-              {/* System Prompt */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2 uppercase tracking-wide">
-                  System Prompt
-                </label>
+        {/* Input Area - Fixed at bottom */}
+        <div className="border-t border-gray-200 p-4 flex-shrink-0">
+          <div className="max-w-4xl mx-auto">
+            <div className="flex items-end space-x-3">
+              <div className="flex-1">
                 <textarea
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white shadow-sm transition-shadow"
-                  rows={3}
-                  placeholder="Enter system prompt..."
+                  ref={textareaRef}
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder={selectedModel ? "Type your message..." : "Select a model first"}
+                  disabled={!selectedModel || isGenerating}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  rows={1}
+                  style={{ minHeight: '48px', maxHeight: '200px' }}
                 />
               </div>
-
-              {/* Response Area */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Response
-                </label>
-                <div className="w-full h-64 border border-slate-300 rounded-xl bg-gradient-to-br from-slate-50 to-white flex items-center justify-center shadow-inner">
-                  {isGenerating ? (
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-3"></div>
-                      <p className="text-slate-600">AI is generating response...</p>
-                    </div>
-                  ) : (
-                    <div className="text-center">
-                      <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                      <p className="text-slate-500">Response will appear here after you send a message</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Prompt Examples */}
-              <div>
-                <h4 className="text-sm font-semibold text-slate-700 mb-4">Prompt Examples</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {promptExamples.map((example, index) => (
-                    <Card
-                      key={index}
-                      className="cursor-pointer hover:shadow-lg transition-all duration-200 border-slate-200 hover:border-blue-300 group bg-white/60"
-                      onClick={() => setUserInput(example.title)}
-                    >
-                      <div className="flex items-start space-x-3">
-                        <div className="text-2xl group-hover:scale-110 transition-transform duration-200">
-                          {example.icon}
-                        </div>
-                        <div className="flex-1">
-                          <h5 className="font-semibold text-slate-900 text-sm mb-1 group-hover:text-blue-600 transition-colors">
-                            {example.title}
-                          </h5>
-                          <p className="text-xs text-slate-600 leading-relaxed">
-                            {example.description}
-                          </p>
-                        </div>
-                      </div>
-                    </Card>
-                  ))}
-                </div>
-              </div>
-
-              {/* User Input Section */}
-              <div className="space-y-4">
-                {/* Input Mode Selector */}
-                <div className="flex space-x-2">
-                  {inputModes.map((mode) => (
-                    <button
-                      key={mode.key}
-                      onClick={() => setInputMode(mode.key as any)}
-                      className={`flex items-center px-4 py-2 text-sm rounded-xl border transition-all duration-200 ${
-                        inputMode === mode.key
-                          ? `border-${mode.color}-400 bg-${mode.color}-50 text-${mode.color}-700 shadow-sm`
-                          : "border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-white/60"
-                      }`}
-                    >
-                      <mode.icon className="w-4 h-4 mr-2" />
-                      {mode.label}
-                    </button>
-                  ))}
-                </div>
-
-                {/* Input Field */}
-                <div className="flex space-x-3">
-                  <div className="flex-1">
-                    <textarea
-                      value={userInput}
-                      onChange={(e) => setUserInput(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Enter user message..."
-                      className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none bg-white shadow-sm transition-shadow"
-                      rows={3}
-                    />
-                  </div>
-                  <div className="flex flex-col space-y-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-slate-300 text-slate-700 hover:border-slate-400 bg-white/60"
-                    >
-                      Add message
-                    </Button>
-                    <Button
-                      onClick={handleSendMessage}
-                      disabled={!userInput.trim() || isGenerating}
-                      className="bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-700 hover:to-slate-800 text-white shadow-lg border-0 disabled:opacity-50"
-                    >
-                      <Play className="w-4 h-4 mr-2" />
-                      {isGenerating ? "Running..." : "Run"}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                <div className="flex items-center space-x-4 text-xs text-slate-500">
-                  <span>Model: openai/chatgpt-4o-latest</span>
-                  <span>•</span>
-                  <span>Tokens: ~{Math.ceil(userInput.length / 4)}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="sm" className="text-slate-500">
-                    <Copy className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="sm" className="text-slate-500">
-                    <Download className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
+              <Button
+                onClick={handleSendMessage}
+                disabled={!userInput.trim() || !selectedModel || isGenerating}
+                className="bg-blue-500 hover:bg-blue-600 text-white p-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Send className="w-5 h-5" />
+              </Button>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };

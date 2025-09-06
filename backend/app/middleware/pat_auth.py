@@ -1,8 +1,8 @@
 """
 PAT (Personal Access Token) authentication middleware for unified API gateway.
 """
-from typing import Optional, Dict, Any
-from fastapi import HTTPException, status, Request
+from typing import Optional, Dict, Any, Callable
+from fastapi import HTTPException, status, Request, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import hashlib
 from ..utils.supabase_client import supabase_service
@@ -153,15 +153,15 @@ class PATAuthMiddleware:
         return True
 
 # Convenience function for route dependencies
-async def require_pat_auth(credentials: HTTPAuthorizationCredentials = security) -> Dict[str, Any]:
+async def require_pat_auth(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
     """Require PAT authentication for unified API routes."""
     return await PATAuthMiddleware.get_current_user_from_pat(credentials)
 
 async def require_pat_auth_with_scope(
     scope: str = "api:write"
-) -> callable:
+) -> Callable:
     """Create a dependency that requires PAT auth with specific scope."""
-    async def dependency(credentials: HTTPAuthorizationCredentials = security) -> Dict[str, Any]:
+    async def dependency(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
         user_context = await PATAuthMiddleware.get_current_user_from_pat(credentials)
         await PATAuthMiddleware.check_api_scope(user_context, scope)
         return user_context

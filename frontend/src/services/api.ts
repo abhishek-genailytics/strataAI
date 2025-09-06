@@ -18,7 +18,7 @@ class ApiService {
     this.api = axios.create({
       baseURL:
         (process.env.REACT_APP_API_URL || "http://localhost:8000") + "/api/v1",
-      timeout: 10000,
+      timeout: 120000,
       headers: {
         "Content-Type": "application/json",
       },
@@ -284,6 +284,142 @@ class ApiService {
   // Organization Management
   async getUserOrganizations(): Promise<ApiResponse<UserOrganization[]>> {
     return this.handleResponse(this.api.get("/organizations/"));
+  }
+
+  // API Keys Management
+  async getApiKeys(): Promise<ApiResponse<any[]>> {
+    return this.handleResponse(this.api.get("/api-keys/"));
+  }
+
+  // Playground-specific endpoints (direct auth, no PAT)
+  async getPlaygroundModels(): Promise<ApiResponse<any>> {
+    return this.handleResponse(this.api.get("/playground/models"));
+  }
+
+  async playgroundChatCompletion(data: any): Promise<ApiResponse<any>> {
+    if (data.stream) {
+      // Handle streaming response
+      return this.handleStreamingResponse("/playground/chat/completions", data);
+    } else {
+      // Handle regular response
+      return this.handleResponse(this.api.post("/playground/chat/completions", data));
+    }
+  }
+
+  // Chat Session Management
+  async getChatSessions(limit: number = 5, offset: number = 0): Promise<ApiResponse<any[]>> {
+    return this.handleResponse(this.api.get(`/chat/sessions?limit=${limit}&offset=${offset}`));
+  }
+
+  async createChatSession(data: { provider: string; model: string; session_name?: string }): Promise<ApiResponse<any>> {
+    return this.handleResponse(this.api.post("/chat/sessions", data));
+  }
+
+  async getChatSession(sessionId: string): Promise<ApiResponse<any>> {
+    return this.handleResponse(this.api.get(`/chat/sessions/${sessionId}`));
+  }
+
+  async getSessionMessages(sessionId: string): Promise<ApiResponse<any[]>> {
+    return this.handleResponse(this.api.get(`/chat/sessions/${sessionId}/messages`));
+  }
+
+  async updateSessionName(sessionId: string, sessionName: string): Promise<ApiResponse<any>> {
+    return this.handleResponse(this.api.put(`/chat/sessions/${sessionId}/name`, null, {
+      params: { session_name: sessionName }
+    }));
+  }
+
+  async deleteChatSession(sessionId: string): Promise<ApiResponse<any>> {
+    return this.handleResponse(this.api.delete(`/chat/sessions/${sessionId}`));
+  }
+
+  private async handleStreamingResponse(endpoint: string, data: any): Promise<ApiResponse<any>> {
+    try {
+      const token = this.getAuthToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      if (this.organizationId) {
+        headers['X-Organization-ID'] = this.organizationId;
+      }
+
+      const response = await fetch(`${this.api.defaults.baseURL}${endpoint}`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(data),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      if (!response.body) {
+        throw new Error('No response body for streaming');
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split('\n');
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                break;
+              }
+              try {
+                const parsed = JSON.parse(data);
+                if (parsed.choices?.[0]?.delta?.content) {
+                  fullContent += parsed.choices[0].delta.content;
+                }
+              } catch (e) {
+                // Skip invalid JSON chunks
+              }
+            }
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      // Extract session ID from response headers
+      const sessionId = response.headers.get('X-Session-ID');
+      
+      // Return in OpenAI format
+      return {
+        data: {
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: fullContent
+            },
+            finish_reason: 'stop'
+          }],
+          session_id: sessionId
+        },
+        error: undefined
+      };
+
+    } catch (error) {
+      console.error('Streaming error:', error);
+      return {
+        data: null,
+        error: error instanceof Error ? error.message : 'Streaming failed'
+      };
+    }
   }
 
   // Organization Context Management

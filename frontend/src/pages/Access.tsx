@@ -165,8 +165,13 @@ export const Access: React.FC = () => {
       )
     ) {
       try {
+        // Optimistically remove the token from UI immediately
+        setTokens(prevTokens => prevTokens.filter(token => token.id !== tokenId));
+        
         await userManagementService.deletePersonalAccessToken(tokenId);
         showToast("success", "Token deleted successfully");
+        
+        // Refresh tokens from server to ensure consistency
         await loadTokens();
       } catch (error: any) {
         console.error("Failed to delete token:", error);
@@ -174,6 +179,8 @@ export const Access: React.FC = () => {
           "error",
           error.response?.data?.detail || "Failed to delete token"
         );
+        // Reload tokens to restore the UI state if deletion failed
+        await loadTokens();
       }
     }
   };

@@ -3,11 +3,13 @@ from app.api.auth import router as auth_router
 from app.api.api_keys import router as api_keys_router
 from app.api.chat import router as chat_router
 from app.api.unified_api import router as unified_api_router
-from app.api.usage_analytics import router as usage_analytics_router
-from app.api.organizations import router as organizations_router
+from app.api.user_management import router as user_management_router
+from app.api.user_models import router as user_models_router
 from app.api.providers import router as providers_router
 from app.api.models import router as models_router
-from app.api.user_management import router as user_management_router
+from app.api.playground import router as playground_router
+from app.api.organizations import router as organizations_router
+from app.api.chat_sessions import router as chat_sessions_router
 from .cache_management import router as cache_management_router
 from .error_management import router as error_management_router
 from .mock_analytics import router as mock_analytics_router
@@ -26,9 +28,6 @@ api_router.include_router(unified_api_router)
 # Include chat completion routes (legacy)
 api_router.include_router(chat_router)
 
-# Include usage analytics routes
-api_router.include_router(usage_analytics_router, prefix="/analytics", tags=["analytics"])
-
 # Include mock analytics routes (temporary for testing)
 api_router.include_router(mock_analytics_router, prefix="/mock-analytics", tags=["mock-analytics"])
 
@@ -43,6 +42,15 @@ api_router.include_router(providers_router, prefix="/providers", tags=["provider
 
 # Include model management routes
 api_router.include_router(models_router, prefix="/models", tags=["models"])
+
+# Include user model configuration routes
+api_router.include_router(user_models_router)
+
+# Include playground routes (direct auth, no PAT)
+api_router.include_router(playground_router)
+
+# Include chat session management routes
+api_router.include_router(chat_sessions_router, prefix="/chat", tags=["chat-sessions"])
 
 # Include system management routes
 api_router.include_router(cache_management_router, prefix="/system", tags=["system"])
