@@ -333,6 +333,10 @@ class ApiService {
     return this.handleResponse(this.api.delete(`/chat/sessions/${sessionId}`));
   }
 
+  async getSessionConfig(sessionId: string): Promise<ApiResponse<any>> {
+    return this.handleResponse(this.api.get(`/chat/sessions/${sessionId}/config`));
+  }
+
   private async handleStreamingResponse(endpoint: string, data: any): Promise<ApiResponse<any>> {
     try {
       const token = this.getAuthToken();

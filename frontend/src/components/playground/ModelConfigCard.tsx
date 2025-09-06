@@ -55,7 +55,7 @@ export const ModelConfigCard: React.FC<ModelConfigCardProps> = ({
           setModels(response.data);
         }
       } catch (error) {
-        console.error('Error fetching playground models:', error);
+        // Error fetching playground models
       }
     };
 

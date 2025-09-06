@@ -39,6 +39,7 @@ export const Playground: React.FC = () => {
   const [loadingMoreSessions, setLoadingMoreSessions] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const currentSessionIdRef = useRef<string | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -48,9 +49,26 @@ export const Playground: React.FC = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Load chat sessions on component mount
+  // Load chat sessions on component mount and set up auto-refresh
   useEffect(() => {
     loadChatSessions();
+    
+    // Refresh sessions when window gains focus (user returns to tab)
+    const handleFocus = () => {
+      loadChatSessions();
+    };
+    
+    // Auto-refresh sessions every 30 seconds to stay in sync with database
+    const refreshInterval = setInterval(() => {
+      loadChatSessions();
+    }, 30000);
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      clearInterval(refreshInterval);
+    };
   }, []);
 
   // Detect provider changes and create new session if needed
@@ -94,11 +112,13 @@ export const Playground: React.FC = () => {
     // Clear current messages and start fresh session
     setMessages([]);
     setCurrentSessionId(null);
+    currentSessionIdRef.current = null;
     console.log(`Provider changed to ${newProvider}, starting new session`);
   };
 
-  const loadSessionMessages = async (sessionId: string) => {
+  const loadSessionMessages = async (sessionId: string, forceRefresh: boolean = false) => {
     try {
+      // Always fetch fresh data from the database
       const response = await apiService.getSessionMessages(sessionId);
       if (response.data) {
         const sessionMessages: Message[] = response.data.map((msg: any) => ({
@@ -109,6 +129,12 @@ export const Playground: React.FC = () => {
         }));
         setMessages(sessionMessages);
         setCurrentSessionId(sessionId);
+        currentSessionIdRef.current = sessionId;
+        
+        // Also refresh the session list to update message counts
+        if (forceRefresh) {
+          await loadChatSessions();
+        }
       }
     } catch (error) {
       console.error('Error loading session messages:', error);
@@ -116,7 +142,41 @@ export const Playground: React.FC = () => {
   };
 
   const handleSessionSelect = async (sessionId: string) => {
-    await loadSessionMessages(sessionId);
+    try {
+      // Load session messages
+      await loadSessionMessages(sessionId, true); // Force refresh session list when switching
+      
+      // Fetch session configuration to restore model settings
+      const sessionConfigResponse = await apiService.getSessionConfig(sessionId);
+      if (sessionConfigResponse.data) {
+        const sessionConfig = sessionConfigResponse.data;
+        
+        // Restore model selection
+        const modelId = `${sessionConfig.provider}/${sessionConfig.model}`;
+        setSelectedModel(modelId);
+        
+        // Restore model configuration settings based on session's model capabilities
+        const updatedConfig = { ...modelConfig };
+        
+        // Set max tokens based on model's capability, but keep user's preference if within limits
+        if (sessionConfig.max_tokens) {
+          updatedConfig.maxTokens = Math.min(modelConfig.maxTokens, sessionConfig.max_tokens);
+        }
+        
+        // Set streaming based on model's capability
+        if (sessionConfig.supports_streaming !== undefined) {
+          updatedConfig.streaming = sessionConfig.supports_streaming && modelConfig.streaming;
+        }
+        
+        setModelConfig(updatedConfig);
+        
+        console.log(`Restored session ${sessionId} with model ${modelId} and config:`, updatedConfig);
+      }
+    } catch (error) {
+      console.error('Error loading session configuration:', error);
+      // Still load messages even if config restoration fails
+      await loadSessionMessages(sessionId, true);
+    }
   };
 
   const adjustTextareaHeight = () => {
@@ -177,8 +237,12 @@ export const Playground: React.FC = () => {
         temperature: modelConfig.temperature,
         max_tokens: modelConfig.maxTokens,
         stream: modelConfig.streaming,
-        session_id: currentSessionId
+        session_id: currentSessionIdRef.current
       };
+
+      console.log('DEBUG: Sending request with session_id:', currentSessionIdRef.current);
+      console.log('DEBUG: Selected model:', selectedModel);
+      console.log('DEBUG: Request data:', requestData);
 
       const response = await apiService.playgroundChatCompletion(requestData);
       
@@ -187,8 +251,16 @@ export const Playground: React.FC = () => {
       }
 
       // Update current session ID from response
+      let sessionId = currentSessionIdRef.current;
       if (response.data?.session_id) {
-        setCurrentSessionId(response.data.session_id);
+        sessionId = response.data.session_id;
+        currentSessionIdRef.current = sessionId;
+        setCurrentSessionId(sessionId);
+        
+        // If this is a new session, force refresh the session list
+        if (!currentSessionId || currentSessionId !== sessionId) {
+          console.log('New session created, refreshing session list');
+        }
       }
 
       const aiResponse: Message = {
@@ -201,8 +273,14 @@ export const Playground: React.FC = () => {
       // Replace loading message with actual response
       setMessages((prev) => prev.slice(0, -1).concat([aiResponse]));
       
-      // Reload chat sessions to get updated list
+      // Reload chat sessions to get updated list with new message counts
       await loadChatSessions();
+      
+      // If we're continuing an existing session, refresh the current session messages
+      // to ensure we have the latest state from the database
+      if (sessionId && response.data?.session_id === sessionId) {
+        await loadSessionMessages(sessionId, false);
+      }
     } catch (error) {
       console.error("Error generating response:", error);
       const errorMessage: Message = {
@@ -305,7 +383,16 @@ export const Playground: React.FC = () => {
 
             {/* Chat History */}
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Chat History</h3>
+              <div className="flex justify-between items-center mb-3">
+                <h3 className="text-sm font-medium text-gray-700">Chat History</h3>
+                <button
+                  onClick={() => loadChatSessions()}
+                  className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded hover:bg-blue-50 transition-colors"
+                  title="Refresh chat history"
+                >
+                  Refresh
+                </button>
+              </div>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {chatSessions.map((session) => (
                   <button
@@ -342,6 +429,9 @@ export const Playground: React.FC = () => {
                 onClick={() => {
                   setMessages([]);
                   setCurrentSessionId(null);
+                  currentSessionIdRef.current = null;
+                  // Refresh session list when starting new chat
+                  loadChatSessions();
                 }}
                 className="w-full"
               >

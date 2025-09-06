@@ -270,6 +270,12 @@ async def playground_chat_completion(
             
             # Add session ID to response
             response["session_id"] = session_id
+            
+            # Ensure all database operations are committed before returning
+            # Small delay to ensure session name generation completes
+            import asyncio
+            await asyncio.sleep(0.1)
+            
             return response
         
     except HTTPException:

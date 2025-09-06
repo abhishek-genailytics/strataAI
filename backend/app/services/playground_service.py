@@ -68,7 +68,6 @@ Title:"""
                         return generated_name
             
             # If we get here, something went wrong - use a descriptive fallback
-            print("LLM call failed or returned empty, using descriptive fallback")
             words = first_message.split()[:2]  # Take first 2 words
             if len(words) > 0:
                 return " ".join(words).title() + " Discussion"
@@ -76,9 +75,6 @@ Title:"""
                 return "New Discussion"
                 
         except Exception as e:
-            print(f"Error generating session name: {e}")
-            import traceback
-            traceback.print_exc()
             # Even in error case, try to create something meaningful
             try:
                 words = first_message.split()[:2]
@@ -131,7 +127,6 @@ Title:"""
             return message_id
             
         except Exception as e:
-            print(f"Error saving message: {e}")
             raise
     
     @staticmethod
@@ -146,7 +141,6 @@ Title:"""
             }).eq("message_id", message_id).execute()
             
         except Exception as e:
-            print(f"Error updating token count: {e}")
             raise
     
     @staticmethod
@@ -174,12 +168,9 @@ Title:"""
                 
                 # If this is the first conversation (2 messages: user + assistant)
                 if message_count.count and message_count.count <= 2:
-                    print(f"Generating session name for new conversation...")
                     session_name = await PlaygroundProviderService.generate_session_name(
                         provider, model, first_message, api_key
                     )
-                    
-                    print(f"Generated session name: '{session_name}'")
                     
                     # Update session name
                     supabase.table("chat_sessions").update({
@@ -187,8 +178,8 @@ Title:"""
                     }).eq("id", session_id).execute()
                     
         except Exception as e:
-            print(f"Error updating session name: {e}")
             # Don't raise - this is not critical
+            pass
     
     @staticmethod
     async def create_or_get_session(
@@ -197,23 +188,39 @@ Title:"""
         model: str,
         current_session_id: Optional[str] = None
     ) -> str:
-        """Create new session or return existing one based on provider compatibility."""
+        """Create new session or return existing one based on model compatibility."""
         supabase = supabase_service
         
         try:
-            # If we have a current session, check if provider matches
+            print(f"DEBUG: create_or_get_session called with user_id={user_id}, provider={provider}, model={model}, current_session_id={current_session_id}")
+            
+            # If we have a current session, check if both provider and model match
             if current_session_id:
+                print(f"DEBUG: Checking existing session {current_session_id}")
                 session_result = supabase.table("chat_sessions").select(
-                    "provider"
+                    "provider, model"
                 ).eq("id", current_session_id).eq("user_id", user_id).execute()
+                
+                print(f"DEBUG: Session query result: {session_result.data}")
                 
                 if session_result.data:
                     current_provider = session_result.data[0]["provider"]
-                    # If provider matches, use existing session
-                    if current_provider == provider:
+                    current_model = session_result.data[0]["model"]
+                    print(f"DEBUG: Current session has provider={current_provider}, model={current_model}")
+                    print(f"DEBUG: Requested provider={provider}, model={model}")
+                    
+                    # Only use existing session if both provider AND model match
+                    if current_provider == provider and current_model == model:
+                        print(f"DEBUG: Reusing existing session {current_session_id}")
                         return current_session_id
+                    else:
+                        print(f"DEBUG: Provider or model mismatch, creating new session")
+                else:
+                    print(f"DEBUG: Session {current_session_id} not found or doesn't belong to user")
+            else:
+                print(f"DEBUG: No current session provided, creating new session")
             
-            # Create new session (provider changed or no current session)
+            # Create new session (provider or model changed, or no current session)
             session_result = supabase.table("chat_sessions").insert({
                 "user_id": user_id,
                 "provider": provider,
@@ -224,10 +231,12 @@ Title:"""
             if not session_result.data:
                 raise Exception("Failed to create session")
             
-            return session_result.data[0]["id"]
+            new_session_id = session_result.data[0]["id"]
+            print(f"DEBUG: Created new session {new_session_id}")
+            return new_session_id
             
         except Exception as e:
-            print(f"Error managing session: {e}")
+            print(f"DEBUG: Error in create_or_get_session: {e}")
             raise
     
     @staticmethod
@@ -263,7 +272,6 @@ Title:"""
             return decrypted_key
             
         except Exception as e:
-            print(f"Error retrieving API key: {e}")
             return None
     
     @staticmethod
@@ -303,12 +311,10 @@ Title:"""
                 response.raise_for_status()
                 return response.json()
             except httpx.TimeoutException:
-                print(f"OpenAI API timeout after 120 seconds for model {model}")
                 raise ValueError(f"Request timeout - OpenAI API took too long to respond for model {model}")
             except httpx.HTTPStatusError as e:
                 error_response = await e.response.aread() if hasattr(e.response, 'aread') else str(e.response.text)
                 error_text = error_response.decode() if isinstance(error_response, bytes) else error_response
-                print(f"OpenAI HTTP Error {e.response.status_code}: {error_text}")
                 raise ValueError(f"OpenAI API Error: {error_text}")
     
     @staticmethod
@@ -341,15 +347,12 @@ Title:"""
         if not model.startswith(("gpt-5", "o1")):
             payload["temperature"] = temperature
         
-        # Debug logging (remove in production)
-        print(f"OpenAI Request payload: {json.dumps(payload, indent=2)}")
         
         async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 async with client.stream("POST", url, headers=headers, json=payload) as response:
                     if response.status_code != 200:
                         error_text = await response.aread()
-                        print(f"OpenAI API Error {response.status_code}: {error_text.decode()}")
                     response.raise_for_status()
                     
                     async for line in response.aiter_lines():
@@ -368,12 +371,10 @@ Title:"""
                             except json.JSONDecodeError:
                                 continue
             except httpx.TimeoutException:
-                print(f"OpenAI streaming API timeout after 120 seconds for model {model}")
                 raise ValueError(f"Streaming request timeout - OpenAI API took too long to respond for model {model}")
             except httpx.HTTPStatusError as e:
                 error_response = await e.response.aread() if hasattr(e.response, 'aread') else str(e.response.text)
                 error_text = error_response.decode() if isinstance(error_response, bytes) else error_response
-                print(f"OpenAI HTTP Error {e.response.status_code}: {error_text}")
                 
                 # Handle specific streaming verification error
                 if "organization must be verified" in error_text.lower():
@@ -427,12 +428,10 @@ Title:"""
                 response.raise_for_status()
                 result = response.json()
             except httpx.TimeoutException:
-                print(f"Anthropic API timeout after 120 seconds for model {model}")
                 raise ValueError(f"Request timeout - Anthropic API took too long to respond for model {model}")
             except httpx.HTTPStatusError as e:
                 error_response = await e.response.aread() if hasattr(e.response, 'aread') else str(e.response.text)
                 error_text = error_response.decode() if isinstance(error_response, bytes) else error_response
-                print(f"Anthropic HTTP Error {e.response.status_code}: {error_text}")
                 raise ValueError(f"Anthropic API Error: {error_text}")
             
             # Convert Anthropic response to OpenAI format

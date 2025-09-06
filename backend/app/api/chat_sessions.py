@@ -24,6 +24,21 @@ class ChatSessionResponse(BaseModel):
     updated_at: datetime
     message_count: Optional[int] = 0
 
+class ChatSessionConfigResponse(BaseModel):
+    id: str
+    provider: str
+    model: str
+    session_name: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+    message_count: Optional[int] = 0
+    # Model configuration details
+    model_display_name: Optional[str] = None
+    max_tokens: Optional[int] = None
+    supports_streaming: Optional[bool] = None
+    cost_per_1k_input_tokens: Optional[float] = None
+    cost_per_1k_output_tokens: Optional[float] = None
+
 class ChatMessageCreate(BaseModel):
     role: str  # 'user', 'assistant', 'system'
     content: str
@@ -95,23 +110,10 @@ async def get_user_chat_sessions(
     supabase = supabase_service
     
     try:
-        print(f"DEBUG: Getting chat sessions for user {current_user.id}, limit={limit}, offset={offset}")
-        
-        # First, get total count of sessions for this user
-        count_result = supabase.table("chat_sessions").select(
-            "id", count="exact"
-        ).eq("user_id", str(current_user.id)).execute()
-        
-        total_sessions = count_result.count if count_result.count is not None else 0
-        print(f"DEBUG: Total sessions in database for user: {total_sessions}")
-        
-        # Get sessions with pagination
+        # Get sessions with pagination, ordered by most recent first
         result = supabase.table("chat_sessions").select(
             "*"
         ).eq("user_id", str(current_user.id)).order("updated_at", desc=True).range(offset, offset + limit - 1).execute()
-        
-        print(f"DEBUG: Query returned {len(result.data) if result.data else 0} sessions")
-        print(f"DEBUG: Raw session data: {result.data}")
         
         # Get message counts separately
         sessions = []
@@ -426,4 +428,86 @@ async def add_token_usage(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error adding token usage: {str(e)}"
+        )
+
+@router.get("/sessions/{session_id}/config", response_model=ChatSessionConfigResponse)
+async def get_session_config(
+    session_id: str,
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Get session details with model configuration for restoring playground settings"""
+    supabase = supabase_service
+    
+    try:
+        # Get session details
+        session_result = supabase.table("chat_sessions").select(
+            "*"
+        ).eq("id", session_id).eq("user_id", str(current_user.id)).execute()
+        
+        if not session_result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Chat session not found"
+            )
+        
+        session = session_result.data[0]
+        
+        # Get message count
+        message_count_result = supabase.table("chat_messages").select(
+            "id", count="exact"
+        ).eq("session_id", session_id).execute()
+        
+        message_count = message_count_result.count if message_count_result.count is not None else 0
+        
+        # Get model configuration details
+        model_result = supabase.table("ai_models").select(
+            """
+            display_name,
+            max_tokens,
+            supports_streaming,
+            model_pricing(pricing_type, price_per_unit)
+            """
+        ).eq("model_name", session["model"]).eq("is_active", True).execute()
+        
+        model_display_name = None
+        max_tokens = None
+        supports_streaming = None
+        input_cost = None
+        output_cost = None
+        
+        if model_result.data:
+            model_data = model_result.data[0]
+            model_display_name = model_data.get("display_name")
+            max_tokens = model_data.get("max_tokens")
+            supports_streaming = model_data.get("supports_streaming")
+            
+            # Extract pricing information
+            if model_data.get('model_pricing'):
+                for pricing in model_data['model_pricing']:
+                    if pricing['pricing_type'] == 'input':
+                        input_cost = float(pricing['price_per_unit'])
+                    elif pricing['pricing_type'] == 'output':
+                        output_cost = float(pricing['price_per_unit'])
+        
+        return ChatSessionConfigResponse(
+            id=session["id"],
+            provider=session["provider"],
+            model=session["model"],
+            session_name=session["session_name"],
+            created_at=session["created_at"],
+            updated_at=session["updated_at"],
+            message_count=message_count,
+            model_display_name=model_display_name,
+            max_tokens=max_tokens,
+            supports_streaming=supports_streaming,
+            cost_per_1k_input_tokens=input_cost,
+            cost_per_1k_output_tokens=output_cost
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching session config: {str(e)}"
         )
