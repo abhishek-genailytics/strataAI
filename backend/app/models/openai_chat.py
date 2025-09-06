@@ -25,13 +25,7 @@ class ChatCompletionRequest(BaseModel):
     user: Optional[str] = None
     stream: Optional[bool] = False  # ignored/forced false for MVP
 
-    @field_validator("model")
-    @classmethod
-    def require_slash_model(cls, v: str) -> str:
-        # 'provider/model' only, no colon
-        if "/" not in v or v.count("/") != 1:
-            raise ValueError("model must be 'provider/model'")
-        return v
+    # Model validation moved to route handler to enable proper OpenAI error formatting
 
 class ChatCompletionChoice(BaseModel):
     index: int

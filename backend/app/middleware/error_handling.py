@@ -1,39 +1,95 @@
 """
-Error handling middleware for FastAPI application - MVP version.
+Error handling middleware for FastAPI application.
 """
-import structlog
+import json
+import traceback
+from typing import Any, Dict
+
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
+import structlog
 
-logger = structlog.get_logger(__name__)
+from app.utils.errors import is_public_openai_path, openai_error_body, infer_type_from_status
+from app.core.exceptions import UnifiedAPIError
+
+logger = structlog.get_logger()
+
+def _request_id(req: Request) -> str:
+    return getattr(getattr(req, "state", None), "request_id", "-")
+
+def _log_exc(req: Request, status_code: int, payload: Dict[str, Any]) -> None:
+    logger.error(
+        "unified_api_error",
+        request_id=_request_id(req),
+        method=req.method,
+        path=req.url.path,
+        status_code=status_code,
+        error=payload.get("error", {}),
+    )
 
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
-    """Outermost middleware; produces OpenAI-style errors for public endpoints"""
-    
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next):
         try:
-            response = await call_next(request)
-            return response
-        except Exception as exc:
-            # Log structured record
-            logger.error(
-                "Internal server error",
-                error=str(exc),
-                request_id=getattr(request.state, 'request_id', 'unknown'),
-                method=request.method,
-                url=str(request.url)
-            )
+            return await call_next(request)
+
+        except UnifiedAPIError as e:
+            status_code = e.http_status
+            if is_public_openai_path(request.url.path):
+                payload = openai_error_body(e.message, type_=e.openai_type, param=e.param, code=e.code)
+                _log_exc(request, status_code, payload)
+                return JSONResponse(status_code=status_code, content=payload)
+            # Non-public routes: default JSON
+            return JSONResponse(status_code=status_code, content={"detail": e.message})
+
+        except RequestValidationError as e:
+            # Pydantic/FastAPI validation issues (body/path/query), treat as 400 for OpenAI consistency
+            status_code = 400
+            msg = "Invalid request"
+            param = None
             
-            # Return minimal JSON body with OpenAI-style error format
-            return JSONResponse(
-                status_code=500,
-                content={
-                    "error": {
-                        "message": "Internal Server Error",
-                        "type": "internal_server_error",
-                        "param": None,
-                        "code": None
-                    }
-                }
-            )
+            # Extract first error for better messaging
+            try:
+                err0 = e.errors()[0]
+                # Build param path, skipping 'body' prefix for cleaner param names
+                loc_parts = [str(p) for p in err0.get("loc", []) if isinstance(p, (str, int)) and p != "body"]
+                param = ".".join(loc_parts) if loc_parts else None
+                
+                # Use the actual error message from Pydantic
+                pydantic_msg = err0.get("msg", "")
+                if pydantic_msg:
+                    msg = pydantic_msg
+                    # Make message more user-friendly for required fields
+                    if err0.get("type") == "missing" and param:
+                        msg = f"Field '{param}' is required"
+            except Exception:
+                param = None
+                
+            if is_public_openai_path(request.url.path):
+                payload = openai_error_body(msg, type_=infer_type_from_status(status_code), param=param)
+                _log_exc(request, status_code, payload)
+                return JSONResponse(status_code=status_code, content=payload)
+            return JSONResponse(status_code=status_code, content={"detail": msg})
+
+        except StarletteHTTPException as e:
+            status_code = e.status_code
+            # Starlette's detail may be str or dict
+            detail = e.detail if isinstance(e.detail, str) else json.dumps(e.detail)
+            if is_public_openai_path(request.url.path):
+                payload = openai_error_body(detail or "Error", type_=infer_type_from_status(status_code))
+                _log_exc(request, status_code, payload)
+                return JSONResponse(status_code=status_code, content=payload)
+            return JSONResponse(status_code=status_code, content={"detail": detail}, headers=getattr(e, "headers", None))
+
+        except Exception as e:
+            status_code = 500
+            msg = "Internal Server Error"
+            if is_public_openai_path(request.url.path):
+                payload = openai_error_body(msg, type_="server_error")
+                _log_exc(request, status_code, payload)
+                return JSONResponse(status_code=status_code, content=payload)
+            # Non-public: keep a generic detail, never leak internals
+            logger.error("internal_error", request_id=_request_id(request), path=request.url.path, exc=str(e), tb=traceback.format_exc())
+            return JSONResponse(status_code=status_code, content={"detail": msg})

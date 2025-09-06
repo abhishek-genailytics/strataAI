@@ -1,6 +1,7 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, status
 from app.models.openai_chat import ChatCompletionRequest, ChatCompletionResponse
 from app.utils.model_id import parse_model_id
+from app.core.exceptions import InvalidRequestError, NotFoundError
 
 router = APIRouter(tags=["Unified API"])
 
@@ -12,13 +13,10 @@ async def chat_completions(req: ChatCompletionRequest) -> ChatCompletionResponse
     # Validate model id (provider/model)
     try:
         provider, native_model = parse_model_id(req.model)
-    except ValueError as e:
-        # Task 3 will normalize error envelopes; for now regular HTTP error
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except ValueError:
+        # OpenAI: type=invalid_request_error, param="model"
+        raise InvalidRequestError("model must be 'provider/model'", param="model")
 
-    # Stub behavior (we will replace with adapter call in Task 7/8)
-    # For now, return a deterministic placeholder that matches the schema
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="chat.completions is defined but provider adapters are not wired yet."
-    )
+    # Not implemented yet: adapters (Task 7/8)
+    # Keep a typed 404 for now (clearer than 501)
+    raise NotFoundError("Adapter not implemented for this model")

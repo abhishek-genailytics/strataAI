@@ -6,6 +6,70 @@ from fastapi import HTTPException, status
 from ..models.error_response import ErrorType, ErrorSeverity, ErrorDetail
 
 
+# OpenAI-compatible exception hierarchy for unified API
+class UnifiedAPIError(Exception):
+    """Base exception for OpenAI-compatible unified API errors."""
+    http_status: int = 500
+    openai_type: str = "server_error"   # default mapping
+    message: str = "Internal Server Error"
+    code: Optional[str] = None          # e.g., "model_not_found"
+    param: Optional[str] = None         # e.g., "model"
+
+    def __init__(self, message: Optional[str] = None, *, code: Optional[str] = None, param: Optional[str] = None):
+        if message is not None:
+            self.message = message
+        if code is not None:
+            self.code = code
+        if param is not None:
+            self.param = param
+        super().__init__(self.message)
+
+
+class InvalidRequestError(UnifiedAPIError):
+    http_status = 400
+    openai_type = "invalid_request_error"
+
+
+class AuthenticationError(UnifiedAPIError):
+    http_status = 401
+    openai_type = "authentication_error"
+
+
+class PermissionError_(UnifiedAPIError):  # avoid name clash with built-in
+    http_status = 403
+    openai_type = "permission_error"
+
+
+class NotFoundError(UnifiedAPIError):
+    http_status = 404
+    openai_type = "not_found_error"
+
+
+class ConflictError(UnifiedAPIError):
+    http_status = 409
+    openai_type = "conflict_error"
+
+
+class RateLimitExceeded(UnifiedAPIError):
+    http_status = 429
+    openai_type = "rate_limit_exceeded"
+
+
+class ProviderError(UnifiedAPIError):
+    http_status = 502
+    openai_type = "bad_gateway"
+
+
+class ServiceUnavailable(UnifiedAPIError):
+    http_status = 503
+    openai_type = "service_unavailable"
+
+
+class UpstreamTimeout(UnifiedAPIError):
+    http_status = 504
+    openai_type = "timeout_error"
+
+
 class StrataAIException(Exception):
     """Base exception class for StrataAI application."""
     
