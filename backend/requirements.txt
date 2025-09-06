@@ -1,61 +1,67 @@
-# Core dependencies
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-pydantic==2.5.0
-pydantic-settings==2.1.0
-python-dotenv==1.0.0
-python-multipart==0.0.6
-
-# Database and ORM
-sqlalchemy==2.0.23
-alembic==1.13.1
-psycopg2-binary==2.9.9
-
-# Authentication and security
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-decouple==3.8
+# Core MVP dependencies
+fastapi
+uvicorn[standard]
+pydantic
+pydantic-settings
+python-dotenv
+python-multipart
 
 # HTTP client
-httpx==0.25.2
-aiohttp==3.9.1
-
-# Redis
-redis==5.0.1
-aioredis==2.0.1
+httpx
 
 # Monitoring and logging
-structlog==23.2.0
-prometheus-client==0.19.0
-
-# Testing
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.2
+structlog
 
 # Supabase
-supabase==2.3.0
-gotrue==2.4.0
+supabase
+gotrue
 
-# Additional dependencies for gRPC and other features
-grpcio==1.59.3
-grpcio-tools==1.59.3
-protobuf==4.25.1
+# Security
+cryptography
+
+# Additional dependencies (kept for compatibility)
+aiohttp
+
+# Database and ORM (kept for existing functionality)
+sqlalchemy
+alembic
+psycopg2-binary
+
+# Authentication and security (kept for existing functionality)
+python-jose[cryptography]
+passlib[bcrypt]
+python-decouple
+
+# Redis (kept but will be disabled in MVP)
+redis
+aioredis
+
+# Monitoring and logging (kept for existing functionality)
+prometheus-client
+
+# Testing
+pytest
+pytest-asyncio
+
+# Additional dependencies for gRPC and other features (kept for existing functionality)
+grpcio
+grpcio-tools
+protobuf
 
 # Development and debugging
-ipython==8.18.1
-black==23.12.1
-flake8==6.1.0
-mypy==1.8.0
+ipython
+black
+flake8
+mypy
 
 # Documentation
-mkdocs==1.5.3
-mkdocs-material==9.5.3
+mkdocs
+mkdocs-material
 
 # Environment and deployment
-gunicorn==21.2.0
-docker==6.1.3
+gunicorn
+docker
 
 # Additional utilities
-python-dateutil==2.8.2
-pytz==2023.3
+python-dateutil
+pytz

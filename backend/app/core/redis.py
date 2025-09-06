@@ -2,7 +2,7 @@ import redis.asyncio as redis
 from typing import Optional
 import json
 import logging
-from app.core.config import settings
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,7 @@ class RedisManager:
         """Connect to Redis server"""
         if self._redis is None:
             try:
+                settings = get_settings()
                 self._redis = redis.from_url(
                     settings.REDIS_URL,
                     encoding="utf-8",

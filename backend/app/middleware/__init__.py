@@ -1,14 +1,12 @@
 from .usage_logging import UsageLoggingMiddleware
-from .rate_limiting import RateLimitingMiddleware, IPRateLimitingMiddleware
-from .caching import ResponseCachingMiddleware, cache_service
-from .pat_auth import require_pat_auth, PATAuthMiddleware
+from .error_handling import ErrorHandlingMiddleware
+from .request_context import RequestContextMiddleware
+
+# Note: Redis-dependent middleware (rate_limiting, caching) are kept as files
+# but not imported here for MVP to avoid Redis dependencies
 
 __all__ = [
     "UsageLoggingMiddleware",
-    "RateLimitingMiddleware", 
-    "IPRateLimitingMiddleware",
-    "ResponseCachingMiddleware",
-    "cache_service",
-    "require_pat_auth",
-    "PATAuthMiddleware"
+    "ErrorHandlingMiddleware",
+    "RequestContextMiddleware"
 ]
