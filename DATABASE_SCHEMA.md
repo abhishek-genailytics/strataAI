@@ -127,7 +127,7 @@ Defines supported AI providers (OpenAI, Anthropic, etc.).
 | `updated_at` | timestamptz | default: now() | Last update timestamp |
 
 **RLS Enabled:** No (public reference data)
-**Current Rows:** 2 (OpenAI, Anthropic)
+**Current Rows:** 7 (OpenAI, Anthropic, Perplexity, xAI Grok, Qwen, Mistral, Cohere)
 
 #### `ai_models`
 Catalog of available AI models from all providers.
@@ -253,6 +253,20 @@ User-specific model configurations and preferences.
 
 **RLS Enabled:** Yes
 
+#### `org_model_enablement`
+Organization-level model visibility and access control.
+
+| Column | Type | Constraints | Description |
+|--------|------|-------------|-------------|
+| `id` | uuid | PRIMARY KEY | Enablement identifier |
+| `organization_id` | uuid | FK to organizations | Organization reference |
+| `model_id` | uuid | FK to ai_models | Model reference |
+| `is_enabled` | boolean | default: true | Model visibility for organization |
+| `created_at` | timestamptz | default: now() | Creation timestamp |
+
+**RLS Enabled:** Yes
+**Unique Constraint:** (organization_id, model_id)
+
 ### Chat & Session Management
 
 #### `chat_sessions`
@@ -303,7 +317,7 @@ Tracks token consumption for cost analysis.
 ### Observability & Analytics
 
 #### `api_requests`
-Logs all API requests for monitoring and analytics.
+Logs all API requests for monitoring and analytics with first-class accounting.
 
 | Column | Type | Constraints | Description |
 |--------|------|-------------|-------------|
@@ -318,9 +332,18 @@ Logs all API requests for monitoring and analytics.
 | `duration_ms` | integer | nullable | Request duration |
 | `error_message` | text | nullable | Error details if failed |
 | `metadata` | jsonb | default: {} | Additional request metadata |
+| `organization_id` | uuid | nullable, FK to organizations | Organization reference |
+| `model_id` | uuid | nullable, FK to ai_models | Model reference |
+| `provider_request_id` | text | nullable | Upstream provider request ID |
+| `prompt_tokens` | integer | default: 0 | Input tokens consumed |
+| `completion_tokens` | integer | default: 0 | Output tokens consumed |
+| `total_tokens` | integer | default: 0 | Total tokens consumed |
+| `cost` | numeric(18,6) | default: 0 | Request cost in USD |
+| `currency` | text | default: 'USD' | Currency code |
 | `created_at` | timestamptz | default: now() | Request timestamp |
 
 **RLS Enabled:** Yes
+**Indexes:** `idx_api_requests_org_time` on (organization_id, created_at DESC)
 
 #### `usage_metrics`
 Aggregated usage metrics for reporting.
@@ -389,6 +412,7 @@ RLS is enabled on all user-facing tables to ensure data isolation:
 - `api_keys` - Organization-scoped access
 - `personal_access_tokens` - User-scoped access
 - `user_model_configurations` - User and organization scoped
+- `org_model_enablement` - Organization-scoped access
 - `chat_sessions` - User-scoped access
 - `chat_messages` - Session-scoped access via user ownership
 - `token_usage` - Inherited from message ownership
@@ -435,6 +459,11 @@ The database has been built through 52 migrations, with key milestones:
    - User model configurations
    - Chat session management
    - Token usage tracking
+
+7. **Enhanced Accounting & Provider Expansion** (Sep 6, 2025)
+   - First-class accounting columns in api_requests
+   - Added 5 new AI providers (Perplexity, xAI Grok, Qwen, Mistral, Cohere)
+   - Organization-level model enablement controls
 
 ## Key Design Principles
 
@@ -489,6 +518,7 @@ The database has been built through 52 migrations, with key milestones:
 - Primary keys on all tables (UUID)
 - Foreign key constraints with automatic indexing
 - Unique constraints on critical fields (tokens, emails)
+- Analytics index on api_requests (organization_id, created_at DESC)
 
 ### Data Types
 - UUIDs for all identifiers (better distribution)
