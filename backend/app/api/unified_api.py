@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, Request, Header
+from fastapi import APIRouter, Depends, Body, Request, Header, Response
 from uuid import UUID
 from app.models.openai_chat import ChatCompletionRequest, ChatCompletionResponse
 from app.core.auth import require_pat
@@ -22,13 +22,19 @@ def _resolve_model_from_body(req: ChatCompletionRequest = Body(...)) -> Resolved
 async def chat_completions(
     request: Request,
     req: ChatCompletionRequest,
+    response: Response,
     caller: CurrentCaller = Depends(require_pat),
     organization_id: UUID = Depends(resolve_organization),
     resolved_model: ResolvedModel = Depends(_resolve_model_from_body),
     x_session_id: str | None = Header(None, alias="X-Session-ID"),
 ) -> ChatCompletionResponse:
-    # Enforce "no streaming" for MVP — ignore silently
-    # req.stream may be True from client; we do not stream in this version
+    # --- Non-stream enforcement ---
+    requested_stream = bool(req.stream)
+    if requested_stream:
+        # Soft signal for clients; still a normal JSON body
+        response.headers["X-Stream-Disabled"] = "1"
+        # (Optionally) include reason
+        response.headers["X-Stream-Reason"] = "MVP_non_stream"
 
     # 1) Pick adapter
     adapter = get_adapter(resolved_model.provider_name)

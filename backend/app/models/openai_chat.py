@@ -25,6 +25,12 @@ class ChatCompletionRequest(BaseModel):
     user: Optional[str] = None
     stream: Optional[bool] = False  # ignored/forced false for MVP
 
+    @field_validator("stream")
+    @classmethod
+    def _force_stream_false(cls, v):
+        """Force streaming to False for MVP - no SSE support."""
+        return False
+
     # Model validation moved to route handler to enable proper OpenAI error formatting
 
 class ChatCompletionChoice(BaseModel):
