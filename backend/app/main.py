@@ -72,6 +72,27 @@ def create_app() -> FastAPI:
     # Register unified exception handlers for PG-15
     register_exception_handlers(app)
     
+    # Add root endpoint
+    @app.get("/")
+    async def root():
+        """Root endpoint for health checks and service identification."""
+        return {
+            "service": "StrataAI Backend",
+            "status": "healthy",
+            "version": "1.0.0",
+            "endpoints": {
+                "unified_api": "/v1/chat/completions",
+                "playground": "/api/v1",
+                "docs": "/docs",
+                "health": "/health"
+            }
+        }
+    
+    @app.get("/health")
+    async def health():
+        """Health check endpoint."""
+        return {"status": "healthy", "service": "StrataAI Backend"}
+    
     # Include API routes
     app.include_router(api_router, prefix=settings.API_V1_STR)
     

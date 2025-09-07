@@ -11,12 +11,12 @@ class UsageLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
         
-        # Compute duration if start_time is available
-        if hasattr(request.state, 'start_time'):
-            duration = (time.monotonic() - request.state.start_time) * 1000  # Convert to ms
-            response.headers["X-Request-Duration-ms"] = f"{duration:.2f}"
+        # Use duration_ms from RequestContextMiddleware if available
+        if hasattr(request.state, 'duration_ms'):
+            duration_ms = request.state.duration_ms
+            response.headers["X-Request-Duration-ms"] = f"{duration_ms:.2f}"
             
             # Placeholder print/log (no DB writes yet; will add in Task 14)
-            print(f"Request {getattr(request.state, 'request_id', 'unknown')} took {duration:.2f}ms")
+            print(f"Request {getattr(request.state, 'request_id', 'unknown')} took {duration_ms:.2f}ms")
         
         return response
