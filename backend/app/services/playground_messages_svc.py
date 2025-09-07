@@ -98,8 +98,11 @@ class PlaygroundMessagesService:
         r = q.execute()
         return bool(r.data)
 
-    def _base_select(self):
-        return self.sb.table("chat_messages").select("id,session_id,role,content,created_at")
+    def _base_select(self, include_system: bool = True):
+        query = self.sb.table("chat_messages").select("id,session_id,role,content,created_at")
+        if not include_system:
+            query = query.neq("role", "system")
+        return query
 
     def list_messages(
         self,
@@ -112,6 +115,7 @@ class PlaygroundMessagesService:
         since: Optional[datetime] = None,
         around: Optional[UUID] = None,
         include_usage: bool = True,
+        include_system: bool = True,
     ) -> MessagesPage:
         # Verify access early for better UX (RLS would also enforce)
         if not self._verify_session_access(session_id, user_id):
@@ -149,12 +153,12 @@ class PlaygroundMessagesService:
             fwd_count = limit - back_count
 
             # Backward slice (< anchor)
-            qb = self._base_select().eq("session_id", str(session_id))
+            qb = self._base_select(include_system).eq("session_id", str(session_id))
             qb = qb.or_(_postgrest_tuple_lt_filters(anchor_ca, anchor_id)).order("created_at", desc=True).order("id", desc=True).limit(back_count)
             back_rows = qb.execute().data or []
 
             # Forward slice (>= anchor)
-            qf = self._base_select().eq("session_id", str(session_id))
+            qf = self._base_select(include_system).eq("session_id", str(session_id))
             # include anchor in the forward slice
             qf = qf.or_(f"and(created_at.gt.{anchor_ca.isoformat()}),and(created_at.eq.{anchor_ca.isoformat()},id.gte.{anchor_id})")
             qf = qf.order("created_at", desc=False).order("id", desc=False).limit(fwd_count + 1)  # +1 to check has_next
@@ -182,7 +186,7 @@ class PlaygroundMessagesService:
 
         # B) Cursor-based fetch
         else:
-            q = self._base_select().eq("session_id", str(session_id))
+            q = self._base_select(include_system).eq("session_id", str(session_id))
 
             if since:
                 q = q.gt("created_at", since.isoformat())

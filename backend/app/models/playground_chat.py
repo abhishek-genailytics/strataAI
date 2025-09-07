@@ -18,6 +18,7 @@ class ChatMessage(BaseModel):
 class PlaygroundChatCompletionRequest(BaseModel):
     model: str                       # e.g., "openai/gpt-4o-mini" or "anthropic/claude-3-haiku"
     messages: List[ChatMessage]
+    system: Optional[str] = None     # NEW: per-request system prompt override
     temperature: Optional[float] = 0.7
     max_tokens: Optional[int] = 512
     top_p: Optional[float] = 1.0

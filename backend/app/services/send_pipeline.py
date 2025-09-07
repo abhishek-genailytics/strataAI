@@ -138,25 +138,30 @@ class SendPipeline:
                 organization_id, provider_id, user_ctx.jwt_token
             )
             
-            # Step 6: Dispatch (Gateway/Direct mode)
+            # Step 6: Assemble messages with system prompt injection
+            assembled_request = await self._assemble_messages_with_system(
+                session_id, request, user_ctx.jwt_token
+            )
+            
+            # Step 7: Dispatch (Gateway/Direct mode)
             response_data, provider_request_id = await self._dispatch_completion(
-                request_source, organization_id, user_ctx.id, request, 
+                request_source, organization_id, user_ctx.id, assembled_request, 
                 provider_name, model_name, str(session_id)
             )
             
-            # Step 7: Persist assistant + token usage
+            # Step 8: Persist assistant + token usage
             assistant_msg_id, usage = await self._persist_assistant_response(
                 session_id, response_data, headers.idempotency_key, provider_request_id
             )
             
-            # Step 8: Analytics log
+            # Step 9: Analytics log
             duration_ms = int((time.time() - start_time) * 1000)
             await self._log_analytics(
                 organization_id, user_ctx.id, session_id, request.model,
                 provider_id, provider_request_id, usage, duration_ms
             )
             
-            # Step 9: Return OpenAI-normalized response + headers
+            # Step 10: Return OpenAI-normalized response + headers
             response = self._build_openai_response(
                 request.model, response_data, usage
             )
@@ -426,9 +431,61 @@ class SendPipeline:
     
     async def _provider_key_preflight(
         self, organization_id: UUID, provider_id: UUID, user_jwt: str
-    ) -> None:
+    ):
         """Validate organization has active API key for provider."""
         await require_active_key(organization_id, provider_id, user_jwt)
+    
+    async def _assemble_messages_with_system(
+        self, session_id: UUID, request: ChatCompletionRequest, user_jwt: str
+    ) -> ChatCompletionRequest:
+        """
+        Assemble messages with system prompt injection.
+        
+        Assembly rules:
+        1. If request has 'system' field, use that as system prompt
+        2. Else load session's pinned system prompt (if exists)
+        3. If system text exists, prepend as first message with role='system'
+        4. Then append all user/assistant messages from request body
+        """
+        from ..services.system_prompt_svc import SystemPromptService
+        
+        # Determine system prompt text
+        system_text = None
+        
+        # Check if request has system override (per-request system prompt)
+        if hasattr(request, 'system') and request.system:
+            system_text = request.system.strip()
+        else:
+            # Load pinned system prompt from session
+            system_service = SystemPromptService(user_jwt)
+            system_text = system_service.get(session_id)
+        
+        # Build assembled messages array
+        assembled_messages = []
+        
+        # Prepend system message if we have system text
+        if system_text:
+            assembled_messages.append(
+                ChatMessage(role="system", content=system_text)
+            )
+        
+        # Append all messages from request body
+        assembled_messages.extend(request.messages)
+        
+        # Create new request with assembled messages
+        assembled_request = ChatCompletionRequest(
+            model=request.model,
+            messages=assembled_messages,
+            temperature=request.temperature,
+            top_p=request.top_p,
+            max_tokens=request.max_tokens,
+            stop=request.stop,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            stream=request.stream
+        )
+        
+        return assembled_request
     
     async def _dispatch_completion(
         self,
