@@ -2,6 +2,7 @@ from app.core.config import get_settings
 from app.services.llm_adapters.echo import EchoAdapter
 from app.core.exceptions import NotFoundError
 from app.services.llm_adapters.openai import OpenAIAdapter
+from app.services.llm_adapters.anthropic import AnthropicAdapter
 
 _settings = get_settings()
 
@@ -13,7 +14,7 @@ def get_adapter(provider_name: str):
     registry = {
         "echo": EchoAdapter,
         "openai": OpenAIAdapter,
-        # "anthropic": AnthropicAdapter,
+        "anthropic": AnthropicAdapter,
         # "perplexity": PerplexityAdapter,
         # "grok": GrokAdapter,
         # "qwen": QwenAdapter,

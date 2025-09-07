@@ -27,6 +27,14 @@ class Settings(BaseSettings):
     OPENAI_WRITE_TIMEOUT_S: float = 60.0
     OPENAI_TOTAL_TIMEOUT_S: float = 65.0  # optional upper bound
     
+    # Anthropic provider configuration (non-stream MVP)
+    ANTHROPIC_BASE_URL: str = "https://api.anthropic.com"
+    ANTHROPIC_VERSION: str = "2023-06-01"   # required header anthropic-version
+    ANTHROPIC_CONNECT_TIMEOUT_S: float = 10.0
+    ANTHROPIC_READ_TIMEOUT_S: float = 60.0
+    ANTHROPIC_WRITE_TIMEOUT_S: float = 60.0
+    ANTHROPIC_TOTAL_TIMEOUT_S: float = 65.0  # optional upper bound
+    
     # Legacy fields (kept for compatibility with existing code)
     SUPABASE_JWT_SECRET: str = ""
     REDIS_URL: str = "redis://localhost:6379"
