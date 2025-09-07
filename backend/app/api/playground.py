@@ -2,7 +2,7 @@
 Playground-specific API endpoints that use direct Supabase authentication
 and user's configured provider API keys without PAT complexity.
 """
-from typing import List, Optional, AsyncGenerator
+from typing import List, Optional, AsyncGenerator, Dict, Any
 from uuid import UUID
 import json
 
@@ -12,6 +12,7 @@ from pydantic import BaseModel
 
 from ..core.deps import get_current_user, get_organization_context, CurrentUser
 from ..models.organization import Organization
+from ..models.playground_mode import PlaygroundRequestSource, PlaygroundSessionMeta
 from ..services.playground_service import PlaygroundProviderService
 from ..utils.supabase_client import supabase_service
 
@@ -30,6 +31,29 @@ class PlaygroundChatRequest(BaseModel):
     max_tokens: Optional[int] = 2500
     stream: Optional[bool] = False
     session_id: Optional[str] = None  # Current session ID for continuation
+
+
+class PlaygroundSessionCreate(BaseModel):
+    title: Optional[str] = None
+    provider: str
+    model: str
+    metadata: Optional[PlaygroundSessionMeta] = None
+
+
+class PlaygroundSessionUpdate(BaseModel):
+    title: Optional[str] = None
+    metadata: Optional[PlaygroundSessionMeta] = None
+
+
+class PlaygroundSessionResponse(BaseModel):
+    id: str
+    title: str
+    provider: str
+    model: str
+    metadata: PlaygroundSessionMeta
+    created_at: str
+    updated_at: str
+    message_count: int = 0
 
 
 class PlaygroundModelInfo(BaseModel):
@@ -142,11 +166,15 @@ async def playground_chat_completion(
         provider_name, model_name = request.model.split("/", 1)
         
         # Get or create session based on provider compatibility
+        # Default metadata for new sessions (gateway mode by default)
+        default_metadata = PlaygroundSessionMeta(request_source=PlaygroundRequestSource.gateway)
+        
         session_id = await PlaygroundProviderService.create_or_get_session(
             str(current_user.id),
             provider_name,
             model_name,
-            request.session_id
+            request.session_id,
+            metadata=default_metadata
         )
         
         # Convert messages to dict format
@@ -234,7 +262,9 @@ async def playground_chat_completion(
                 messages,
                 request.temperature or 0.7,
                 request.max_tokens or 2500,
-                stream=False
+                stream=False,
+                session_id=session_id,
+                user_id=current_user.id
             )
             
             # Save assistant response and extract token usage
@@ -285,6 +315,179 @@ async def playground_chat_completion(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Chat completion failed: {str(e)}"
+        )
+
+
+@router.post("/sessions", response_model=PlaygroundSessionResponse)
+async def create_playground_session(
+    session_data: PlaygroundSessionCreate,
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
+):
+    """Create a new playground session with request source mode."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
+    try:
+        # Default metadata if not provided
+        metadata = session_data.metadata or PlaygroundSessionMeta()
+        
+        # Validate that the chosen mode is valid
+        if metadata.request_source not in [PlaygroundRequestSource.gateway, PlaygroundRequestSource.direct]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid request_source. Must be 'gateway' or 'direct'"
+            )
+        
+        # When mode is "gateway", verify org has an active provider key
+        if metadata.request_source == PlaygroundRequestSource.gateway:
+            provider_name = session_data.provider
+            api_key = await PlaygroundProviderService.get_decrypted_api_key(
+                organization.id, provider_name
+            )
+            if not api_key:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"No active API key configured for provider: {provider_name}. Gateway mode requires configured provider keys."
+                )
+        
+        # Create session with metadata
+        session_insert = {
+            "user_id": str(current_user.id),
+            "provider": session_data.provider,
+            "model": session_data.model,
+            "session_name": session_data.title or "New Chat",
+            "metadata": metadata.dict()
+        }
+        
+        result = supabase_service.table("chat_sessions").insert(session_insert).execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create playground session"
+            )
+        
+        session = result.data[0]
+        return PlaygroundSessionResponse(
+            id=session["id"],
+            title=session["session_name"],
+            provider=session["provider"],
+            model=session["model"],
+            metadata=PlaygroundSessionMeta(**session.get("metadata", {})),
+            created_at=session["created_at"],
+            updated_at=session["updated_at"],
+            message_count=0
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create playground session: {str(e)}"
+        )
+
+
+@router.put("/sessions/{session_id}", response_model=PlaygroundSessionResponse)
+async def update_playground_session(
+    session_id: str,
+    session_update: PlaygroundSessionUpdate,
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
+):
+    """Update playground session metadata including request source mode."""
+    if not organization:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Organization context is required"
+        )
+    
+    try:
+        # First verify session belongs to user
+        session_result = supabase_service.table("chat_sessions").select(
+            "*"
+        ).eq("id", session_id).eq("user_id", str(current_user.id)).execute()
+        
+        if not session_result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Playground session not found"
+            )
+        
+        current_session = session_result.data[0]
+        
+        # Prepare update data
+        update_data = {"updated_at": "now()"}
+        
+        if session_update.title is not None:
+            update_data["session_name"] = session_update.title
+        
+        if session_update.metadata is not None:
+            # Validate request source if being updated
+            if session_update.metadata.request_source not in [PlaygroundRequestSource.gateway, PlaygroundRequestSource.direct]:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Invalid request_source. Must be 'gateway' or 'direct'"
+                )
+            
+            # When switching to gateway mode, verify org has an active provider key
+            if session_update.metadata.request_source == PlaygroundRequestSource.gateway:
+                provider_name = current_session["provider"]
+                api_key = await PlaygroundProviderService.get_decrypted_api_key(
+                    organization.id, provider_name
+                )
+                if not api_key:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail=f"No active API key configured for provider: {provider_name}. Gateway mode requires configured provider keys."
+                    )
+            
+            # Merge with existing metadata
+            existing_metadata = current_session.get("metadata", {})
+            new_metadata = {**existing_metadata, **session_update.metadata.dict(exclude_unset=True)}
+            update_data["metadata"] = new_metadata
+        
+        # Update session
+        result = supabase_service.table("chat_sessions").update(update_data).eq(
+            "id", session_id
+        ).eq("user_id", str(current_user.id)).execute()
+        
+        if not result.data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Failed to update playground session"
+            )
+        
+        updated_session = result.data[0]
+        
+        # Get message count
+        message_count_result = supabase_service.table("chat_messages").select(
+            "id", count="exact"
+        ).eq("session_id", session_id).execute()
+        
+        message_count = message_count_result.count if message_count_result.count is not None else 0
+        
+        return PlaygroundSessionResponse(
+            id=updated_session["id"],
+            title=updated_session["session_name"],
+            provider=updated_session["provider"],
+            model=updated_session["model"],
+            metadata=PlaygroundSessionMeta(**updated_session.get("metadata", {})),
+            created_at=updated_session["created_at"],
+            updated_at=updated_session["updated_at"],
+            message_count=message_count
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update playground session: {str(e)}"
         )
 
 

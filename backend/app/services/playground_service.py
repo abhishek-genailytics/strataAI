@@ -1,5 +1,6 @@
 """
-Direct provider API service for playground - bypasses unified API complexity.
+Playground service that routes between direct provider calls and unified gateway.
+Supports both gateway mode (unified pipeline) and direct mode (fast-path adapters).
 """
 import asyncio
 import json
@@ -11,6 +12,9 @@ from datetime import datetime
 from ..utils.supabase_client import supabase_service
 from ..core.encryption import encryption_service
 from ..models.organization import Organization
+from ..models.playground_mode import PlaygroundRequestSource, PlaygroundSessionMeta
+from ..models.openai_chat import ChatCompletionRequest, ChatMessage
+from ..services.gateway_bridge import GatewayBridge
 from ..core.deps import CurrentUser
 
 
@@ -186,7 +190,8 @@ Title:"""
         user_id: str,
         provider: str,
         model: str,
-        current_session_id: Optional[str] = None
+        current_session_id: Optional[str] = None,
+        metadata: Optional[PlaygroundSessionMeta] = None
     ) -> str:
         """Create new session or return existing one based on model compatibility."""
         supabase = supabase_service
@@ -221,12 +226,18 @@ Title:"""
                 print(f"DEBUG: No current session provided, creating new session")
             
             # Create new session (provider or model changed, or no current session)
-            session_result = supabase.table("chat_sessions").insert({
+            session_insert = {
                 "user_id": user_id,
                 "provider": provider,
                 "model": model,
                 "session_name": "New Chat"
-            }).execute()
+            }
+            
+            # Add metadata if provided
+            if metadata:
+                session_insert["metadata"] = metadata.dict()
+            
+            session_result = supabase.table("chat_sessions").insert(session_insert).execute()
             
             if not session_result.data:
                 raise Exception("Failed to create session")
@@ -554,25 +565,116 @@ Title:"""
         messages: List[Dict],
         temperature: float = 0.7,
         max_tokens: int = 2500,
-        stream: bool = False
+        stream: bool = False,
+        session_id: Optional[str] = None,
+        user_id: Optional[UUID] = None
     ):
-        """Route to appropriate provider for chat completion."""
+        """Route to appropriate provider for chat completion based on session mode."""
         if stream:
             return cls.chat_completion_stream(
                 organization_id, provider, model, messages, temperature, max_tokens
             )
         
+        # Load session to determine request source mode
+        request_source = PlaygroundRequestSource.direct  # Default to direct
+        if session_id:
+            try:
+                session_result = supabase_service.table("chat_sessions").select(
+                    "metadata"
+                ).eq("id", session_id).execute()
+                
+                if session_result.data:
+                    session_metadata = session_result.data[0].get("metadata", {})
+                    if isinstance(session_metadata, dict):
+                        request_source = PlaygroundRequestSource(session_metadata.get("request_source", "direct"))
+            except Exception:
+                # If we can't determine mode, fall back to direct
+                pass
+        
+        # Route based on request source
+        if request_source == PlaygroundRequestSource.gateway:
+            return await cls._gateway_chat_completion(
+                organization_id, provider, model, messages, temperature, max_tokens, session_id, user_id
+            )
+        else:
+            return await cls._direct_chat_completion(
+                organization_id, provider, model, messages, temperature, max_tokens
+            )
+    
+    @classmethod
+    async def _gateway_chat_completion(
+        cls,
+        organization_id: UUID,
+        provider: str,
+        model: str,
+        messages: List[Dict],
+        temperature: float,
+        max_tokens: int,
+        session_id: Optional[str],
+        user_id: Optional[UUID]
+    ):
+        """Gateway mode: use unified pipeline via bridge."""
+        if not user_id:
+            raise ValueError("User ID required for gateway mode")
+        
+        # Convert to OpenAI format for unified pipeline
+        openai_messages = [ChatMessage(role=msg["role"], content=msg["content"]) for msg in messages]
+        
+        request = ChatCompletionRequest(
+            model=f"{provider}/{model}",
+            messages=openai_messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            stream=False
+        )
+        
+        # Use gateway bridge for in-process unified pipeline call
+        bridge = GatewayBridge()
+        response = await bridge.chat_completion_openai_compatible(
+            org_id=organization_id,
+            user_id=user_id,
+            request=request,
+            session_hint=session_id
+        )
+        
+        # Convert back to dict format for compatibility
+        return {
+            "choices": [{
+                "message": {
+                    "role": choice.message.role,
+                    "content": choice.message.content
+                },
+                "finish_reason": choice.finish_reason
+            } for choice in response.choices],
+            "usage": {
+                "prompt_tokens": response.usage.prompt_tokens if response.usage else 0,
+                "completion_tokens": response.usage.completion_tokens if response.usage else 0,
+                "total_tokens": response.usage.total_tokens if response.usage else 0
+            }
+        }
+    
+    @classmethod
+    async def _direct_chat_completion(
+        cls,
+        organization_id: UUID,
+        provider: str,
+        model: str,
+        messages: List[Dict],
+        temperature: float,
+        max_tokens: int
+    ):
+        """Direct mode: use provider adapters directly."""
         api_key = await cls.get_decrypted_api_key(organization_id, provider)
         if not api_key:
             raise ValueError(f"No API key found for provider: {provider}")
         
         if provider.lower() == "openai":
             return await cls.openai_chat_completion(
-                api_key, model, messages, temperature, max_tokens, stream
+                api_key, model, messages, temperature, max_tokens, False
             )
         elif provider.lower() == "anthropic":
             return await cls.anthropic_chat_completion(
-                api_key, model, messages, temperature, max_tokens, stream
+                api_key, model, messages, temperature, max_tokens, False
             )
         else:
             raise ValueError(f"Unsupported provider: {provider}")

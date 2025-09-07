@@ -2,21 +2,12 @@ from fastapi import APIRouter, Depends, Body, Request, Header, Response
 from uuid import UUID
 from app.models.openai_chat import ChatCompletionRequest, ChatCompletionResponse
 from app.core.auth import require_pat
-from app.core.deps import resolve_organization, validate_model
+from app.core.deps import resolve_organization
 from app.models.auth import CurrentCaller
-from app.models.catalog import ResolvedModel
-from app.services.adapter_factory import get_adapter
-from app.services.provider_keys import get_active_api_key
-from app.services.costing import compute_cost
+from app.services.unified_service import UnifiedChatService
 from app.core.telemetry import TelemetryHook
-from app.services.playground_logging import ensure_session, append_turn
 
 router = APIRouter(dependencies=[Depends(TelemetryHook())], tags=["Unified API"])
-
-def _resolve_model_from_body(req: ChatCompletionRequest = Body(...)) -> ResolvedModel:
-    """Dependency to extract and validate model from request body."""
-    import asyncio
-    return asyncio.run(validate_model(req.model))
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse, name="OpenAI-compatible chat")
 async def chat_completions(
@@ -25,7 +16,6 @@ async def chat_completions(
     response: Response,
     caller: CurrentCaller = Depends(require_pat),
     organization_id: UUID = Depends(resolve_organization),
-    resolved_model: ResolvedModel = Depends(_resolve_model_from_body),
     x_session_id: str | None = Header(None, alias="X-Session-ID"),
 ) -> ChatCompletionResponse:
     # --- Non-stream enforcement ---
@@ -36,66 +26,17 @@ async def chat_completions(
         # (Optionally) include reason
         response.headers["X-Stream-Reason"] = "MVP_non_stream"
 
-    # 1) Pick adapter
-    adapter = get_adapter(resolved_model.provider_name)
-
-    # 2) Load org-scoped provider key (throws OpenAI-style errors via middleware)
-    # Special case: echo adapter doesn't need API keys
-    if resolved_model.provider_name == "echo":
-        api_key_id, plaintext_key = None, None
-    else:
-        api_key_id, plaintext_key = get_active_api_key(
-            organization_id=organization_id,
-            provider_id=resolved_model.provider_id
-        )
-
-    # 3) Call provider adapter
-    resp = await adapter.chat_completion(
+    # Use unified service for all chat completion logic
+    unified_service = UnifiedChatService()
+    resp = await unified_service.chat_completions_internal(
         organization_id=organization_id,
+        initiated_by_user_id=caller.user_id,
         request=req,
-        model_name=resolved_model.model_name,
-        api_key=plaintext_key,
+        x_session_id=x_session_id,
     )
 
-    # 4) Compute cost from usage and model pricing (Task 13)
-    cost = compute_cost(
-        usage=resp.usage,
-        model_id=resolved_model.id,
-        region=None  # MVP: default; plug header/org setting later
-    )
-
-    # 5) Stash for logging middleware / Task 14 persistence
-    request.state.cost_breakdown = cost
-    request.state.model_id = resolved_model.id
-    request.state.provider_id = resolved_model.provider_id
+    # Store state for telemetry logging (if needed by middleware)
     request.state.caller = caller
-    if api_key_id:
-        request.state.api_key_id = api_key_id
-    
-    # Store usage for telemetry logging
     request.state.usage = resp.usage
-
-    # 6) Playground session logging (Task 15)
-    assistant_text = resp.choices[0].message.content if resp.choices else ""
-    
-    # Pick the last user message in the request (the new turn)
-    last_user = next((m for m in reversed(req.messages) if m.role == "user"), None)
-    
-    if x_session_id and last_user:
-        session_id = ensure_session(
-            organization_id=organization_id,
-            user_id=caller.user_id,
-            client_session_id=x_session_id,
-            default_title=f"{resolved_model.provider_name}/{resolved_model.model_name}",
-        )
-        append_turn(
-            session_id=session_id,
-            provider_id=resolved_model.provider_id,
-            model_id=resolved_model.id,
-            last_user_message=last_user,
-            assistant_text=assistant_text,
-            usage=resp.usage,
-            cost=getattr(request.state, "cost_breakdown", None),
-        )
 
     return resp

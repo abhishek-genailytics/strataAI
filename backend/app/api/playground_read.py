@@ -46,7 +46,10 @@ async def get_session(
         created_at=row["created_at"],
         updated_at=row.get("updated_at"),
         message_count=message_count,
-        metadata=SessionMeta(client_session_id=meta.get("client_session_id")),
+        metadata=SessionMeta(
+            client_session_id=meta.get("client_session_id"),
+            request_source=meta.get("request_source", "gateway")
+        ),
         provider_id=row.get("provider"),
         model_id=row.get("model"),
     )
@@ -169,7 +172,10 @@ async def list_sessions(
             created_at=r["created_at"],
             updated_at=r.get("updated_at"),
             message_count=message_counts.get(r["id"], 0),
-            metadata=SessionMeta(client_session_id=meta.get("client_session_id")),
+            metadata=SessionMeta(
+            client_session_id=meta.get("client_session_id"),
+            request_source=meta.get("request_source", "gateway")
+        ),
             provider_id=r.get("provider"),
             model_id=r.get("model"),
         ))
@@ -218,7 +224,10 @@ async def get_session_by_client_id(
         created_at=row["created_at"],
         updated_at=row.get("updated_at"),
         message_count=message_count,
-        metadata=SessionMeta(client_session_id=meta.get("client_session_id")),
+        metadata=SessionMeta(
+            client_session_id=meta.get("client_session_id"),
+            request_source=meta.get("request_source", "gateway")
+        ),
         provider_id=row.get("provider"),
         model_id=row.get("model"),
     )

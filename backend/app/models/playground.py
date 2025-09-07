@@ -1,9 +1,11 @@
 from pydantic import BaseModel
 from typing import Any, Optional, List
 from datetime import datetime
+from .playground_mode import PlaygroundRequestSource
 
 class SessionMeta(BaseModel):
     client_session_id: Optional[str] = None
+    request_source: Optional[PlaygroundRequestSource] = PlaygroundRequestSource.gateway
     # keep extensible
 
 class PlaygroundSession(BaseModel):
