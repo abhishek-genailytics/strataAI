@@ -217,7 +217,34 @@ class PlaygroundSessionService:
         if data.title is not None:
             update_data["title"] = data.title
         
-        if data.metadata is not None:
+        # Handle provider/model updates (store in top-level fields and metadata)
+        if data.provider is not None:
+            update_data["provider"] = data.provider
+        
+        if data.model is not None:
+            # Validate model format
+            if "/" not in data.model:
+                raise ValueError("Model must be in 'provider/model' format")
+            
+            # If provider is also being updated, validate consistency
+            provider_from_model = data.model.split("/")[0]
+            if data.provider and provider_from_model != data.provider:
+                raise ValueError(f"Provider '{data.provider}' does not match model prefix '{provider_from_model}'")
+            
+            update_data["model"] = data.model
+            # Also update provider if not explicitly set
+            if data.provider is None:
+                update_data["provider"] = provider_from_model
+        
+        # Handle metadata updates (including default_params)
+        needs_metadata_update = (
+            data.metadata is not None or 
+            data.provider is not None or 
+            data.model is not None or 
+            data.default_params is not None
+        )
+        
+        if needs_metadata_update:
             # Get current metadata for partial merge
             current_result = self.sb.table("chat_sessions").select(
                 "metadata"
@@ -230,18 +257,35 @@ class PlaygroundSessionService:
             
             current_metadata = current_result.data[0].get("metadata", {})
             
-            # Merge metadata with special handling for default_params
-            for key, value in data.metadata.items():
-                if key == "default_params":
-                    # Merge default_params instead of replacing
-                    current_params = current_metadata.get("default_params", {})
-                    if isinstance(value, dict) and isinstance(current_params, dict):
-                        current_params.update(value)
-                        current_metadata[key] = current_params
+            # Handle direct metadata updates
+            if data.metadata is not None:
+                for key, value in data.metadata.items():
+                    if key == "default_params":
+                        # Merge default_params instead of replacing
+                        current_params = current_metadata.get("default_params", {})
+                        if isinstance(value, dict) and isinstance(current_params, dict):
+                            current_params.update(value)
+                            current_metadata[key] = current_params
+                        else:
+                            current_metadata[key] = value
                     else:
                         current_metadata[key] = value
+            
+            # Handle provider/model in metadata for picker compatibility
+            if data.provider is not None:
+                current_metadata["provider"] = data.provider
+            
+            if data.model is not None:
+                current_metadata["model"] = data.model
+            
+            # Handle default_params updates
+            if data.default_params is not None:
+                current_params = current_metadata.get("default_params", {})
+                if isinstance(current_params, dict):
+                    current_params.update(data.default_params)
+                    current_metadata["default_params"] = current_params
                 else:
-                    current_metadata[key] = value
+                    current_metadata["default_params"] = data.default_params
             
             update_data["metadata"] = current_metadata
         

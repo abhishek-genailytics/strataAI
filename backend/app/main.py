@@ -17,6 +17,7 @@ from app.api.playground_models import router as playground_models_router
 from app.api.playground_keys import router as playground_keys_router
 from app.api.playground_usage import router as playground_usage_router
 from app.api.playground_actions import router as playground_actions_router
+from app.api.playground_picker import router as playground_picker_router
 from app.middleware.error_handling import ErrorHandlingMiddleware
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.usage_logging import UsageLoggingMiddleware
@@ -91,6 +92,9 @@ def create_app() -> FastAPI:
     
     # Playground actions (regenerate functionality)
     app.include_router(playground_actions_router, prefix=settings.API_V1_STR)
+    
+    # Playground picker aggregator endpoint
+    app.include_router(playground_picker_router, prefix=settings.API_V1_STR)
     
     # Custom exception handler for RequestValidationError on OpenAI paths
     @app.exception_handler(RequestValidationError)

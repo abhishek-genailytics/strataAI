@@ -21,6 +21,11 @@ class PlaygroundSessionUpdate(BaseModel):
     """Request model for updating an existing playground session."""
     title: Optional[str] = Field(None, description="Updated session title")
     metadata: Optional[Dict[str, Any]] = Field(None, description="Updated session metadata (partial merge)")
+    
+    # Allow direct provider/model updates for picker convenience
+    provider: Optional[str] = Field(None, description="Updated provider (will be stored in metadata)")
+    model: Optional[str] = Field(None, description="Updated model in provider/model format (will be stored in metadata)")
+    default_params: Optional[Dict[str, Any]] = Field(None, description="Updated default parameters (will be stored in metadata)")
 
 
 class PlaygroundSessionRead(BaseModel):

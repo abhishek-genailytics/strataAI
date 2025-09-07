@@ -151,9 +151,30 @@ async def update_session(
     current_user: CurrentUser = Depends(get_current_user),
     organization_id: UUID = Depends(get_organization_context)
 ):
-    """Update session title and/or metadata (whitelisted paths only)."""
+    """Update session title and/or metadata. Supports provider/model picker updates.
+    
+    Model format must be 'provider/model' (e.g., 'openai/gpt-4o-mini') for OpenAI compatibility.
+    """
     
     try:
+        # Validate model format if provided
+        if data.model and "/" not in data.model:
+            openai_error(
+                400,
+                "Model must be in 'provider/model' format (e.g., 'openai/gpt-4o-mini')",
+                code="invalid_model_format"
+            )
+        
+        # Validate provider/model consistency if both provided (provider_model_mismatch)
+        if data.model and data.provider:
+            provider_from_model = data.model.split("/")[0]
+            if provider_from_model != data.provider:
+                openai_error(
+                    400,
+                    f"Provider '{data.provider}' does not match model prefix '{provider_from_model}'",
+                    code="provider_model_mismatch"
+                )
+        
         service = PlaygroundSessionService()
         
         session = await service.update_session(
@@ -173,6 +194,8 @@ async def update_session(
         
     except HTTPException:
         raise
+    except ValueError as e:
+        openai_error(400, str(e), code="invalid_request")
     except Exception as e:
         openai_error(
             500,

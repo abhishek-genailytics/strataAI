@@ -46,6 +46,8 @@ class PlaygroundModel(BaseModel):
     """Individual model in the playground models list."""
     id: str  # Format: "provider/model"
     provider: str  # Provider slug (openai, anthropic, etc.)
+    provider_display_name: str  # Provider display name for UI
+    provider_logo_url: Optional[str] = None  # Provider logo URL for UI
     model_name: str  # Native model name
     display_name: str  # Human-readable name
     type: str = "chat"  # Model type

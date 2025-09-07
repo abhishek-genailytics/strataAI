@@ -21,6 +21,8 @@ class ProviderStatusResponse(BaseModel):
     """Provider key status for UI display."""
     provider: str
     provider_id: str
+    display_name: str
+    logo_url: Optional[str] = None
     has_org_api_key: bool
     is_active: bool
     key_prefix: Optional[str] = None
@@ -66,7 +68,7 @@ async def get_providers_status(
             provider_filter = provider_names
         
         # Get all providers (or filtered list)
-        providers_query = supabase.table("ai_providers").select("id, name, display_name")
+        providers_query = supabase.table("ai_providers").select("id, name, display_name, logo_url")
         if provider_filter:
             providers_query = providers_query.in_("name", provider_filter)
         
@@ -83,7 +85,8 @@ async def get_providers_status(
             provider_ids.append(provider_id)
             provider_map[provider_id] = {
                 "name": provider_data["name"],
-                "display_name": provider_data["display_name"]
+                "display_name": provider_data["display_name"],
+                "logo_url": provider_data.get("logo_url")
             }
         
         # Get key status for all providers
@@ -106,6 +109,8 @@ async def get_providers_status(
             response_data.append(ProviderStatusResponse(
                 provider=provider_info["name"],
                 provider_id=str(provider_id),
+                display_name=provider_info["display_name"],
+                logo_url=provider_info["logo_url"],
                 has_org_api_key=status.has_org_api_key,
                 is_active=status.is_active,
                 key_prefix=status.key_prefix,

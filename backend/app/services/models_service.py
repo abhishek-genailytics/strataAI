@@ -113,7 +113,8 @@ class ModelsService:
                 ai_providers!inner(
                     id,
                     name,
-                    display_name
+                    display_name,
+                    logo_url
                 )
             """)\
             .eq("model_type", model_type)\
@@ -307,6 +308,8 @@ class ModelsService:
         return PlaygroundModel(
             id=playground_model_id,
             provider=provider_name,
+            provider_display_name=model_data["ai_providers"]["display_name"],
+            provider_logo_url=model_data["ai_providers"].get("logo_url"),
             model_name=model_name,
             display_name=model_data["display_name"],
             type=model_data["model_type"],
