@@ -17,13 +17,44 @@ export const OrganizationProvider = ({ children }: { children: React.ReactNode }
   const [current, setCurrent] = useState<Organization | null>(null)
 
   useEffect(() => {
-    api.get('/organizations').then(r => {
-      setOrgs(r.data || [])
-      const stored = localStorage.getItem('org_id')
-      const found = r.data?.find((o: Organization) => o.id === stored) ?? r.data?.[0] ?? null
-      setCurrent(found || null)
-      if (found) localStorage.setItem('org_id', found.id)
-    }).catch(()=>{})
+    const loadOrganizations = async () => {
+      try {
+        // First check if we have a JWT token
+        const jwt = localStorage.getItem('sb:jwt')
+        if (!jwt) {
+          console.warn('No JWT token available, skipping organization loading')
+          return
+        }
+
+        const response = await api.get('/organizations')
+        const organizations = response.data || []
+        setOrgs(organizations)
+        
+        const stored = localStorage.getItem('org_id')
+        const found = organizations.find((o: Organization) => o.id === stored) ?? organizations[0] ?? null
+        setCurrent(found || null)
+        
+        if (found) {
+          localStorage.setItem('org_id', found.id)
+          console.log('Organization context set:', found.name, found.id)
+        } else {
+          console.warn('No organizations found for user')
+          // Clear invalid org_id if no organizations available
+          localStorage.removeItem('org_id')
+        }
+      } catch (error) {
+        console.error('Failed to load organizations:', error)
+        // If it's an auth error, clear the org context
+        if ((error as any)?.status === 401) {
+          localStorage.removeItem('org_id')
+          setCurrent(null)
+        }
+      }
+    }
+    
+    // Add a small delay to ensure JWT token is available
+    const timer = setTimeout(loadOrganizations, 100)
+    return () => clearTimeout(timer)
   }, [])
 
   useEffect(() => {

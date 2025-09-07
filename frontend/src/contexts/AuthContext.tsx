@@ -21,13 +21,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const token = data.session?.access_token
-      if (token) localStorage.setItem('sb:jwt', token)
+      if (token) {
+        localStorage.setItem('sb:jwt', token)
+        console.log('JWT token stored from session')
+      }
       setUser(data.session?.user ? { id: data.session.user.id, email: data.session.user.email } : null)
       setLoading(false)
     })
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.access_token) localStorage.setItem('sb:jwt', session.access_token)
+      if (session?.access_token) {
+        localStorage.setItem('sb:jwt', session.access_token)
+        console.log('JWT token updated from auth state change')
+      }
       setUser(session?.user ? { id: session.user.id, email: session.user.email } : null)
     })
 
