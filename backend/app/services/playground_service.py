@@ -15,7 +15,9 @@ from ..models.organization import Organization
 from ..models.playground_mode import PlaygroundRequestSource, PlaygroundSessionMeta
 from ..models.openai_chat import ChatCompletionRequest, ChatMessage
 from ..models.playground_chat import PlaygroundChatCompletionRequest, PlaygroundChatCompletionResponse
+from ..models.playground_session import MessageDraft
 from ..services.gateway_bridge import GatewayBridge
+from ..services.message_indexer import append_messages
 from ..core.deps import CurrentUser
 from ..errors.openai_envelope import (
     invalid_model_format_error, 
@@ -85,19 +87,17 @@ class PlaygroundProviderService:
             # Convert messages to dict format for internal processing
             messages = [{"role": msg.role, "content": msg.content} for msg in req.messages]
             
-            # Save user message to database
+            # Save user message to database using message indexer
             user_message = messages[-1] if messages else None
             user_message_id = None
             if user_message and user_message["role"] == "user":
-                user_message_id = await PlaygroundProviderService.save_message_with_tokens(
-                    str(session_id),
-                    "user",
-                    user_message["content"],
-                    provider_name,
-                    model_name,
-                    0,  # Will be updated with actual token count
-                    "input"
+                user_draft = MessageDraft(
+                    role="user",
+                    content=user_message["content"],
+                    metadata={"provider": provider_name, "model": model_name}
                 )
+                user_messages = await append_messages(session_id, [user_draft])
+                user_message_id = user_messages[0]["id"] if user_messages else None
             
             # Route based on request source
             if request_source == PlaygroundRequestSource.gateway:
@@ -127,17 +127,27 @@ class PlaygroundProviderService:
                     user_message_id, prompt_tokens
                 )
             
-            # Save assistant message
+            # Save assistant message using message indexer
+            assistant_message_id = None
             if assistant_content:
-                await PlaygroundProviderService.save_message_with_tokens(
-                    str(session_id),
-                    "assistant",
-                    assistant_content,
-                    provider_name,
-                    model_name,
-                    completion_tokens,
-                    "output"
+                assistant_draft = MessageDraft(
+                    role="assistant",
+                    content=assistant_content,
+                    metadata={"provider": provider_name, "model": model_name}
                 )
+                assistant_messages = await append_messages(session_id, [assistant_draft])
+                assistant_message_id = assistant_messages[0]["id"] if assistant_messages else None
+                
+                # Save token usage for assistant message
+                if assistant_message_id and completion_tokens > 0:
+                    supabase_service.table("token_usage").insert({
+                        "message_id": assistant_message_id,
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens,
+                        "currency": "USD",
+                        "total_cost": "0"  # Will be calculated by pricing service
+                    }).execute()
                 
                 # Generate session name if needed
                 if user_message:

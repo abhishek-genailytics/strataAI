@@ -2,9 +2,14 @@
 Error response models for structured error handling.
 """
 from datetime import datetime
+from typing import Optional, List, Any, Literal, Union
 from enum import Enum
-from typing import Any, Dict, List, Optional, Union, Literal
 from pydantic import BaseModel, Field
+
+
+def _current_timestamp():
+    """Factory function for current timestamp."""
+    return datetime.utcnow()
 
 
 class ErrorType(str, Enum):
@@ -44,7 +49,7 @@ class ErrorResponse(BaseModel):
     message: str = Field(..., description="Human-readable error message")
     details: Optional[List[ErrorDetail]] = Field(None, description="Detailed error information")
     error_code: Optional[str] = Field(None, description="Specific error code for programmatic handling")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Error timestamp")
+    timestamp: datetime = Field(default_factory=_current_timestamp, description="Error timestamp")
     request_id: Optional[str] = Field(None, description="Request ID for tracking")
     severity: ErrorSeverity = Field(ErrorSeverity.MEDIUM, description="Error severity level")
     retry_after: Optional[int] = Field(None, description="Seconds to wait before retrying (for rate limits)")
@@ -52,7 +57,7 @@ class ErrorResponse(BaseModel):
     
     class Config:
         json_encoders = {
-            datetime: lambda v: v.isoformat()
+            datetime: str
         }
 
 

@@ -1,3 +1,7 @@
+# DEPRECATED: Legacy chat session endpoints
+# These endpoints have been replaced by playground_sessions.py
+# This file is kept for reference but should not be mounted in main.py
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from pydantic import BaseModel
@@ -7,6 +11,7 @@ import uuid
 from ..utils.supabase_client import supabase_service
 from ..core.deps import get_current_user, CurrentUser
 
+# DO NOT MOUNT THIS ROUTER - Use playground_sessions.py instead
 router = APIRouter()
 
 # Pydantic models for request/response
