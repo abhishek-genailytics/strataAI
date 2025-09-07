@@ -7,6 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from app.core.config import get_settings
 from app.api.routes import api_router
 from app.api.unified_api import router as unified_router
+from app.api.playground_read import router as playground_read_router
 from app.middleware.error_handling import ErrorHandlingMiddleware
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.usage_logging import UsageLoggingMiddleware
@@ -42,6 +43,9 @@ def create_app() -> FastAPI:
     
     # Public OpenAI-compatible gateway
     app.include_router(unified_router, prefix="/v1")
+    
+    # Playground read endpoints
+    app.include_router(playground_read_router, prefix="/v1")
     
     # Custom exception handler for RequestValidationError on OpenAI paths
     @app.exception_handler(RequestValidationError)
