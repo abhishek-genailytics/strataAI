@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body
+from fastapi import APIRouter, Depends, Body, Request
 from uuid import UUID
 from app.models.openai_chat import ChatCompletionRequest, ChatCompletionResponse
 from app.core.auth import require_pat
@@ -7,6 +7,7 @@ from app.models.auth import CurrentCaller
 from app.models.catalog import ResolvedModel
 from app.services.adapter_factory import get_adapter
 from app.services.provider_keys import get_active_api_key
+from app.services.costing import compute_cost
 
 router = APIRouter(tags=["Unified API"])
 
@@ -17,6 +18,7 @@ def _resolve_model_from_body(req: ChatCompletionRequest = Body(...)) -> Resolved
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse, name="OpenAI-compatible chat")
 async def chat_completions(
+    request: Request,
     req: ChatCompletionRequest,
     caller: CurrentCaller = Depends(require_pat),
     organization_id: UUID = Depends(resolve_organization),
@@ -46,5 +48,18 @@ async def chat_completions(
         api_key=plaintext_key,
     )
 
-    # (Task 14 will persist api_requests and include api_key_id)
+    # 4) Compute cost from usage and model pricing (Task 13)
+    cost = compute_cost(
+        usage=resp.usage,
+        model_id=resolved_model.id,
+        region=None  # MVP: default; plug header/org setting later
+    )
+
+    # 5) Stash for logging middleware / Task 14 persistence
+    request.state.cost_breakdown = cost
+    request.state.model_id = resolved_model.id
+    request.state.provider_id = resolved_model.provider_id
+    if api_key_id:
+        request.state.api_key_id = api_key_id
+
     return resp
