@@ -179,20 +179,51 @@ async def playground_chat_completion(
         # Check if stream was requested (MVP: always disabled)
         stream_requested = request.stream
         
-        # Prepare headers for service layer
-        request_headers = {}
-        if x_client_message_id:
-            request_headers["x-client-message-id"] = x_client_message_id
-        if x_idempotency_key:
-            request_headers["x-idempotency-key"] = x_idempotency_key
+        # Prepare headers for send pipeline
+        from ..services.send_pipeline import SendHeaders
+        headers = SendHeaders(
+            session_id=x_session_id,
+            client_message_id=x_client_message_id,
+            idempotency_key=x_idempotency_key
+        )
         
-        # Call the service layer with OpenAI-compatible interface
-        chat_response, send_context = await PlaygroundProviderService.send(
+        # Convert PlaygroundChatCompletionRequest to ChatCompletionRequest
+        from ..models.openai_chat import ChatCompletionRequest, ChatMessage
+        openai_request = ChatCompletionRequest(
+            model=request.model,
+            messages=[
+                ChatMessage(role=msg.role, content=msg.content)
+                for msg in request.messages
+            ],
+            temperature=request.temperature,
+            top_p=request.top_p,
+            max_tokens=request.max_tokens,
+            stop=request.stop,
+            presence_penalty=request.presence_penalty,
+            frequency_penalty=request.frequency_penalty,
+            stream=request.stream
+        )
+        
+        # Call the send pipeline orchestration
+        from ..services.send_pipeline import SendPipeline
+        pipeline = SendPipeline()
+        
+        openai_response, send_context = await pipeline.run(
             session_id=effective_session_id,
-            req=request,
+            request=openai_request,
             user_ctx=current_user,
             organization_id=organization.id,
-            headers=request_headers
+            headers=headers
+        )
+        
+        # Convert OpenAI response back to PlaygroundChatCompletionResponse
+        chat_response = PlaygroundChatCompletionResponse.create(
+            model=openai_response.model,
+            content=openai_response.choices[0].message.content if openai_response.choices else "",
+            prompt_tokens=openai_response.usage.prompt_tokens if openai_response.usage else 0,
+            completion_tokens=openai_response.usage.completion_tokens if openai_response.usage else 0,
+            finish_reason=openai_response.choices[0].finish_reason if openai_response.choices else "stop",
+            response_id=openai_response.id
         )
         
         # Set PG-7 response headers
