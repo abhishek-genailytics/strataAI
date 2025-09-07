@@ -12,6 +12,7 @@ from app.api.unified_api import router as unified_router
 from app.api.playground_read import router as playground_read_router
 from app.api.playground import router as playground_router
 from app.api.playground_sessions import router as playground_sessions_router
+from app.api.playground_messages import router as playground_messages_router
 from app.api.playground_models import router as playground_models_router
 from app.api.playground_keys import router as playground_keys_router
 from app.middleware.error_handling import ErrorHandlingMiddleware
@@ -74,6 +75,8 @@ def create_app() -> FastAPI:
     
     # Mount playground sessions router (session lifecycle management)
     app.include_router(playground_sessions_router, prefix="/api/v1")
+    # Messages fetch & pagination for playground sessions
+    app.include_router(playground_messages_router, prefix="/api/v1")
     
     # Playground models listing endpoint
     app.include_router(playground_models_router, prefix=settings.API_V1_STR)
