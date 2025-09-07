@@ -15,6 +15,7 @@ from app.api.playground_sessions import router as playground_sessions_router
 from app.api.playground_messages import router as playground_messages_router
 from app.api.playground_models import router as playground_models_router
 from app.api.playground_keys import router as playground_keys_router
+from app.api.playground_usage import router as playground_usage_router
 from app.middleware.error_handling import ErrorHandlingMiddleware
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.usage_logging import UsageLoggingMiddleware
@@ -83,6 +84,9 @@ def create_app() -> FastAPI:
     
     # Playground keys status endpoint
     app.include_router(playground_keys_router, prefix=settings.API_V1_STR)
+    
+    # Playground usage endpoints
+    app.include_router(playground_usage_router, prefix=settings.API_V1_STR)
     
     # Custom exception handler for RequestValidationError on OpenAI paths
     @app.exception_handler(RequestValidationError)
