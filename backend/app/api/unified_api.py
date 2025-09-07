@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Body, Request
+from fastapi import APIRouter, Depends, Body, Request, Header
 from uuid import UUID
 from app.models.openai_chat import ChatCompletionRequest, ChatCompletionResponse
 from app.core.auth import require_pat
@@ -9,6 +9,7 @@ from app.services.adapter_factory import get_adapter
 from app.services.provider_keys import get_active_api_key
 from app.services.costing import compute_cost
 from app.core.telemetry import TelemetryHook
+from app.services.playground_logging import ensure_session, append_turn
 
 router = APIRouter(dependencies=[Depends(TelemetryHook())], tags=["Unified API"])
 
@@ -24,6 +25,7 @@ async def chat_completions(
     caller: CurrentCaller = Depends(require_pat),
     organization_id: UUID = Depends(resolve_organization),
     resolved_model: ResolvedModel = Depends(_resolve_model_from_body),
+    x_session_id: str | None = Header(None, alias="X-Session-ID"),
 ) -> ChatCompletionResponse:
     # Enforce "no streaming" for MVP — ignore silently
     # req.stream may be True from client; we do not stream in this version
@@ -66,5 +68,28 @@ async def chat_completions(
     
     # Store usage for telemetry logging
     request.state.usage = resp.usage
+
+    # 6) Playground session logging (Task 15)
+    assistant_text = resp.choices[0].message.content if resp.choices else ""
+    
+    # Pick the last user message in the request (the new turn)
+    last_user = next((m for m in reversed(req.messages) if m.role == "user"), None)
+    
+    if x_session_id and last_user:
+        session_id = ensure_session(
+            organization_id=organization_id,
+            user_id=caller.user_id,
+            client_session_id=x_session_id,
+            default_title=f"{resolved_model.provider_name}/{resolved_model.model_name}",
+        )
+        append_turn(
+            session_id=session_id,
+            provider_id=resolved_model.provider_id,
+            model_id=resolved_model.id,
+            last_user_message=last_user,
+            assistant_text=assistant_text,
+            usage=resp.usage,
+            cost=getattr(request.state, "cost_breakdown", None),
+        )
 
     return resp
