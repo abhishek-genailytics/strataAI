@@ -6,7 +6,7 @@ from typing import List, Optional, AsyncGenerator, Dict, Any
 from uuid import UUID
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Header
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -140,7 +140,10 @@ async def playground_chat_completion(
     request: PlaygroundChatCompletionRequest,
     response: Response,
     current_user: CurrentUser = Depends(get_current_user),
-    organization: Optional[Organization] = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context),
+    x_session_id: Optional[str] = Header(None, alias="X-Session-ID"),
+    x_client_message_id: Optional[str] = Header(None, alias="X-Client-Message-ID"),
+    x_idempotency_key: Optional[str] = Header(None, alias="X-Idempotency-Key")
 ):
     """
     Single playground chat completion endpoint with OpenAI-compatible interface.
@@ -150,10 +153,18 @@ async def playground_chat_completion(
         session_id: Required session ID to locate mode & persist messages
         request: OpenAI-style chat completion request
         
+    Request Headers:
+        X-Session-ID: Session ID (optional, overrides path parameter)
+        X-Client-Message-ID: Client-generated UUID for user message (optional)
+        X-Idempotency-Key: Idempotency key for safe retries (optional)
+        
     Returns:
         PlaygroundChatCompletionResponse: OpenAI-compatible response
         
-    Headers:
+    Response Headers:
+        X-User-Message-ID: Server UUID for persisted user message
+        X-Assistant-Message-ID: Server UUID for persisted assistant message
+        X-Message-Index-Start: Starting message index for this exchange
         X-Stream-Disabled: 1 (if request contained stream=true, for parity with /v1)
     """
     if not organization:
@@ -162,22 +173,41 @@ async def playground_chat_completion(
     settings = get_settings()
     
     try:
+        # Use X-Session-ID header if provided, otherwise use path parameter
+        effective_session_id = UUID(x_session_id) if x_session_id else session_id
+        
         # Check if stream was requested (MVP: always disabled)
         stream_requested = request.stream
         
+        # Prepare headers for service layer
+        request_headers = {}
+        if x_client_message_id:
+            request_headers["x-client-message-id"] = x_client_message_id
+        if x_idempotency_key:
+            request_headers["x-idempotency-key"] = x_idempotency_key
+        
         # Call the service layer with OpenAI-compatible interface
-        chat_response = await PlaygroundProviderService.send(
-            session_id=session_id,
+        chat_response, send_context = await PlaygroundProviderService.send(
+            session_id=effective_session_id,
             req=request,
             user_ctx=current_user,
-            organization_id=organization.id
+            organization_id=organization.id,
+            headers=request_headers
         )
+        
+        # Set PG-7 response headers
+        response.headers["X-User-Message-ID"] = str(send_context.user_msg_id)
+        response.headers["X-Assistant-Message-ID"] = str(send_context.assistant_msg_id)
+        response.headers["X-Message-Index-Start"] = str(send_context.start_index)
         
         # Add optional response headers if enabled
         if settings.PLAYGROUND_RESP_HEADERS:
-            response.headers["X-Playground-Session-ID"] = str(session_id)
+            response.headers["X-Playground-Session-ID"] = str(effective_session_id)
             if stream_requested:
                 response.headers["X-Stream-Disabled"] = "1"
+        elif stream_requested:
+            # Always set X-Stream-Disabled per PG-7 spec
+            response.headers["X-Stream-Disabled"] = "1"
         
         return chat_response
         

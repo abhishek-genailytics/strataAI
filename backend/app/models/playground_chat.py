@@ -69,11 +69,12 @@ class PlaygroundChatCompletionResponse(BaseModel):
         content: str,
         prompt_tokens: int = 0,
         completion_tokens: int = 0,
-        finish_reason: str = "stop"
+        finish_reason: str = "stop",
+        response_id: Optional[str] = None
     ) -> "PlaygroundChatCompletionResponse":
         """Create a standardized playground chat completion response."""
         return cls(
-            id=f"chatcmpl_{uuid.uuid4().hex[:24]}",
+            id=response_id or f"chatcmpl_{uuid.uuid4().hex[:24]}",
             created=int(time.time()),
             model=model,
             choices=[

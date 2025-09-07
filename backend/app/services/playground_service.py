@@ -4,8 +4,8 @@ Supports both gateway mode (unified pipeline) and direct mode (fast-path adapter
 """
 import asyncio
 import json
-from typing import List, Dict, Optional, AsyncGenerator
-from uuid import UUID
+from typing import List, Dict, Optional, AsyncGenerator, Tuple, NamedTuple
+from uuid import UUID, uuid4
 import json
 import httpx
 from datetime import datetime
@@ -26,6 +26,14 @@ from ..errors.openai_envelope import (
     server_error
 )
 from ..services.key_preflight import require_active_key, get_provider_id_by_name
+from ..utils.idempotency import find_prior_result, find_existing_user_message, get_token_usage_for_message
+
+
+class SendContext(NamedTuple):
+    """Context returned from send() for response headers."""
+    user_msg_id: UUID
+    assistant_msg_id: UUID
+    start_index: int
 
 
 class PlaygroundProviderService:
@@ -36,18 +44,48 @@ class PlaygroundProviderService:
         session_id: UUID, 
         req: PlaygroundChatCompletionRequest, 
         user_ctx: CurrentUser,
-        organization_id: UUID
-    ) -> PlaygroundChatCompletionResponse:
+        organization_id: UUID,
+        headers: Optional[Dict[str, str]] = None
+    ) -> Tuple[PlaygroundChatCompletionResponse, SendContext]:
         """
         Single playground chat completion endpoint with OpenAI-compatible interface.
         Routes between Gateway and Direct modes based on session metadata.
+        Supports idempotency and optimistic UI reconciliation.
         """
+        headers = headers or {}
+        client_msg_id = headers.get("x-client-message-id")
+        idempotency_key = headers.get("x-idempotency-key")
         try:
             # Validate model prefix format
             if "/" not in req.model:
                 invalid_model_format_error(req.model)
             
             provider_name, model_name = req.model.split("/", 1)
+            
+            # Idempotency short-circuit: check for prior result
+            if idempotency_key:
+                prior_result = find_prior_result(session_id, idempotency_key)
+                if prior_result:
+                    user_msg, assistant_msg = prior_result
+                    # Reconstruct response from stored data
+                    token_usage = get_token_usage_for_message(UUID(assistant_msg["id"]))
+                    
+                    response = PlaygroundChatCompletionResponse.create(
+                        model=req.model,
+                        content=assistant_msg["content"],
+                        prompt_tokens=token_usage.get("input_tokens", 0) if token_usage else 0,
+                        completion_tokens=token_usage.get("output_tokens", 0) if token_usage else 0,
+                        finish_reason="stop",
+                        response_id=f"chatcmpl_{uuid4().hex[:24]}"  # Generate new since no metadata storage
+                    )
+                    
+                    context = SendContext(
+                        user_msg_id=UUID(user_msg["id"]) if user_msg else UUID(assistant_msg["id"]),
+                        assistant_msg_id=UUID(assistant_msg["id"]),
+                        start_index=0  # Since we don't have message_index in schema
+                    )
+                    
+                    return response, context
             
             # Validate provider is supported
             supported_providers = ["openai", "anthropic", "echo"]
@@ -87,17 +125,28 @@ class PlaygroundProviderService:
             # Convert messages to dict format for internal processing
             messages = [{"role": msg.role, "content": msg.content} for msg in req.messages]
             
-            # Save user message to database using message indexer
+            # Validate last message is from user
             user_message = messages[-1] if messages else None
-            user_message_id = None
-            if user_message and user_message["role"] == "user":
-                user_draft = MessageDraft(
-                    role="user",
-                    content=user_message["content"],
-                    metadata={"provider": provider_name, "model": model_name}
-                )
-                user_messages = await append_messages(session_id, [user_draft])
-                user_message_id = user_messages[0]["id"] if user_messages else None
+            if not user_message or user_message["role"] != "user":
+                from ..errors.openai_envelope import invalid_request_error
+                invalid_request_error("Last message must be from user")
+            
+            # Get next message index for user message
+            from ..services.message_indexer import next_index
+            start_index = await next_index(session_id)
+            
+            # Check for existing user message with same client_message_id (double-click protection)
+            # Since we don't have metadata column, we'll skip this for now and rely on idempotency_key
+            existing_user_msg = None
+            
+            # Persist user message
+            user_draft = MessageDraft(
+                role="user",
+                content=user_message["content"],
+                metadata={}  # Will be stored separately if needed
+            )
+            user_messages = await append_messages(session_id, [user_draft])
+            user_message_id = UUID(user_messages[0]["id"]) if user_messages else None
             
             # Route based on request source
             if request_source == PlaygroundRequestSource.gateway:
@@ -127,26 +176,27 @@ class PlaygroundProviderService:
                     user_message_id, prompt_tokens
                 )
             
+            # Generate response ID for OpenAI compatibility
+            response_id = f"chatcmpl_{uuid4().hex[:24]}"
+            
             # Save assistant message using message indexer
             assistant_message_id = None
             if assistant_content:
                 assistant_draft = MessageDraft(
                     role="assistant",
                     content=assistant_content,
-                    metadata={"provider": provider_name, "model": model_name}
+                    metadata={}  # Will be stored separately if needed
                 )
                 assistant_messages = await append_messages(session_id, [assistant_draft])
-                assistant_message_id = assistant_messages[0]["id"] if assistant_messages else None
+                assistant_message_id = UUID(assistant_messages[0]["id"]) if assistant_messages else None
                 
                 # Save token usage for assistant message
                 if assistant_message_id and completion_tokens > 0:
                     supabase_service.table("token_usage").insert({
-                        "message_id": assistant_message_id,
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens,
-                        "total_tokens": prompt_tokens + completion_tokens,
-                        "currency": "USD",
-                        "total_cost": "0"  # Will be calculated by pricing service
+                        "message_id": str(assistant_message_id),
+                        "input_tokens": prompt_tokens,
+                        "output_tokens": completion_tokens,
+                        "total_tokens": prompt_tokens + completion_tokens
                     }).execute()
                 
                 # Generate session name if needed
@@ -165,14 +215,28 @@ class PlaygroundProviderService:
                 organization_id, user_ctx.id, req.model, prompt_tokens, completion_tokens
             )
             
-            # Create OpenAI-compatible response
-            return PlaygroundChatCompletionResponse.create(
+            # Update session timestamp
+            supabase_service.table("chat_sessions").update({
+                "updated_at": datetime.utcnow().isoformat()
+            }).eq("id", str(session_id)).execute()
+            
+            # Create OpenAI-compatible response with context
+            response = PlaygroundChatCompletionResponse.create(
                 model=req.model,
                 content=assistant_content,
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
-                finish_reason="stop"
+                finish_reason="stop",
+                response_id=response_id
             )
+            
+            context = SendContext(
+                user_msg_id=user_message_id,
+                assistant_msg_id=assistant_message_id,
+                start_index=start_index
+            )
+            
+            return response, context
             
         except Exception as e:
             # Convert any non-OpenAI errors to OpenAI format
