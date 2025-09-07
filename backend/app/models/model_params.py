@@ -56,19 +56,36 @@ class ModelParams(BaseModel):
     @field_validator('stop')
     @classmethod
     def validate_stop(cls, v):
-        """Validate stop sequences."""
+        """Validate stop sequences with strict rules."""
         if v is None:
             return v
         
         if isinstance(v, str):
+            if len(v) == 0:
+                raise ValueError("stop sequence cannot be empty")
+            if len(v) > 64:
+                raise ValueError("stop sequence cannot exceed 64 characters")
             return v
         
         if isinstance(v, list):
             if len(v) > 4:
                 raise ValueError("stop sequences cannot exceed 4 items")
-            if not all(isinstance(item, str) for item in v):
-                raise ValueError("all stop sequences must be strings")
-            return v
+            if len(v) == 0:
+                raise ValueError("stop sequences list cannot be empty")
+            
+            # Check each item
+            unique_items = set()
+            for item in v:
+                if not isinstance(item, str):
+                    raise ValueError("all stop sequences must be strings")
+                if len(item) == 0:
+                    raise ValueError("stop sequence cannot be empty")
+                if len(item) > 64:
+                    raise ValueError("stop sequence cannot exceed 64 characters")
+                unique_items.add(item)
+            
+            # Return unique items as list to prevent duplicates
+            return list(unique_items)
         
         raise ValueError("stop must be a string or list of strings")
 
