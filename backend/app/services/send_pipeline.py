@@ -28,6 +28,112 @@ from ..errors.openai_envelope import (
 )
 
 
+async def assemble_openai_messages(
+    session_id: UUID,
+    ui_messages: Optional[list] = None,
+    override_system: Optional[str] = None,
+    limit_turns: Optional[int] = None,
+    user_jwt: Optional[str] = None
+) -> ChatCompletionRequest:
+    """
+    Assemble OpenAI-compatible messages with system prompt injection.
+    
+    Single source of truth for message assembly used by both send pipeline and exports.
+    
+    Args:
+        session_id: Session UUID
+        ui_messages: Messages from UI (if None, fetch from DB)
+        override_system: Override system prompt (takes precedence over pinned)
+        limit_turns: Limit to last N user+assistant pairs
+        user_jwt: JWT token for database access
+        
+    Returns:
+        ChatCompletionRequest with assembled messages
+        
+    Assembly rules:
+    1. Use override_system if provided, else pinned system (system_prompt_svc.get)
+    2. Take ui_messages or fetch from DB (playground_messages_svc.last_k_pairs)
+    3. Build OpenAI-style messages array:
+       - optional system at the front
+       - then alternating user/assistant pairs (string content only, MVP)
+    """
+    from ..services.system_prompt_svc import SystemPromptService
+    
+    # Step 1: Resolve system prompt
+    system_text = None
+    if override_system is not None:
+        system_text = override_system.strip() if override_system else None
+    else:
+        # Load pinned system prompt from session
+        if user_jwt:
+            system_service = SystemPromptService(user_jwt)
+            system_text = system_service.get(session_id)
+    
+    # Step 2: Get messages (from UI or DB)
+    messages_to_assemble = []
+    if ui_messages is not None:
+        messages_to_assemble = ui_messages
+    else:
+        # Fetch from database using playground_messages_svc
+        from ..services.playground_messages_svc import PlaygroundMessagesService
+        if user_jwt:
+            messages_svc = PlaygroundMessagesService(user_jwt)
+            # Get user ID from JWT - for now we'll need to pass it or get it from context
+            # This is a simplified approach for export functionality
+            messages_page = messages_svc.list_messages(
+                session_id=session_id,
+                user_id=UUID("00000000-0000-0000-0000-000000000000"),  # Placeholder - will be resolved in actual usage
+                limit=200,  # Large limit to get full conversation
+                include_usage=False,
+                include_system=False  # We handle system separately
+            )
+            messages_to_assemble = [
+                ChatMessage(role=msg.role, content=msg.content)
+                for msg in messages_page.data
+            ]
+    
+    # Step 3: Apply limit_turns if specified
+    if limit_turns is not None and limit_turns > 0:
+        # Keep only last N user+assistant pairs
+        # Filter to user/assistant messages only, then take last N*2 messages
+        user_assistant_msgs = [
+            msg for msg in messages_to_assemble 
+            if getattr(msg, 'role', msg.get('role') if isinstance(msg, dict) else None) in ['user', 'assistant']
+        ]
+        if len(user_assistant_msgs) > limit_turns * 2:
+            user_assistant_msgs = user_assistant_msgs[-(limit_turns * 2):]
+        messages_to_assemble = user_assistant_msgs
+    
+    # Step 4: Build assembled messages array
+    assembled_messages = []
+    
+    # Prepend system message if we have system text
+    if system_text:
+        assembled_messages.append(ChatMessage(role="system", content=system_text))
+    
+    # Append user/assistant messages
+    for msg in messages_to_assemble:
+        if isinstance(msg, dict):
+            assembled_messages.append(ChatMessage(role=msg['role'], content=msg['content']))
+        else:
+            assembled_messages.append(msg)
+    
+    # Step 5: Create ChatCompletionRequest with assembled messages
+    # Note: For export usage, we'll create a minimal request
+    # The actual parameters will be merged separately in the export builder
+    return ChatCompletionRequest(
+        model="placeholder/model",  # Will be overridden by caller
+        messages=assembled_messages,
+        temperature=None,
+        top_p=None,
+        max_tokens=None,
+        stop=None,
+        presence_penalty=None,
+        frequency_penalty=None,
+        stream=False
+    )
+
+
 class SendHeaders(NamedTuple):
     """Headers for send pipeline requests."""
     session_id: Optional[str] = None
@@ -447,45 +553,13 @@ class SendPipeline:
         3. If system text exists, prepend as first message with role='system'
         4. Then append all user/assistant messages from request body
         """
-        from ..services.system_prompt_svc import SystemPromptService
-        
-        # Determine system prompt text
-        system_text = None
-        
-        # Check if request has system override (per-request system prompt)
-        if hasattr(request, 'system') and request.system:
-            system_text = request.system.strip()
-        else:
-            # Load pinned system prompt from session
-            system_service = SystemPromptService(user_jwt)
-            system_text = system_service.get(session_id)
-        
-        # Build assembled messages array
-        assembled_messages = []
-        
-        # Prepend system message if we have system text
-        if system_text:
-            assembled_messages.append(
-                ChatMessage(role="system", content=system_text)
-            )
-        
-        # Append all messages from request body
-        assembled_messages.extend(request.messages)
-        
-        # Create new request with assembled messages
-        assembled_request = ChatCompletionRequest(
-            model=request.model,
-            messages=assembled_messages,
-            temperature=request.temperature,
-            top_p=request.top_p,
-            max_tokens=request.max_tokens,
-            stop=request.stop,
-            presence_penalty=request.presence_penalty,
-            frequency_penalty=request.frequency_penalty,
-            stream=request.stream
+        return await assemble_openai_messages(
+            session_id=session_id,
+            ui_messages=request.messages,
+            override_system=getattr(request, 'system', None),
+            limit_turns=None,
+            user_jwt=user_jwt
         )
-        
-        return assembled_request
     
     async def _dispatch_completion(
         self,

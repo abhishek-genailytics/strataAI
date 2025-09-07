@@ -257,3 +257,57 @@ class PlaygroundMessagesService:
             meta={"session_id": str(session_id), "count": len(messages)},
         )
 
+    def last_k_pairs(
+        self,
+        session_id: UUID,
+        user_id: UUID,
+        k: Optional[int] = None,
+        include_system: bool = False
+    ) -> List[PlaygroundMessageRead]:
+        """
+        Fetch the last K user+assistant message pairs from a session.
+        
+        Args:
+            session_id: Session UUID
+            user_id: User UUID for ownership verification
+            k: Number of pairs to fetch (None = all messages)
+            include_system: Whether to include system messages
+            
+        Returns:
+            List of messages in chronological order
+        """
+        # Verify session access
+        if not self._verify_session_access(session_id, user_id):
+            from app.errors.openai_envelope import session_not_found_error
+            session_not_found_error(str(session_id))
+        
+        # Calculate limit: k pairs = k*2 messages, or large number if k is None
+        limit = (k * 2) if k is not None else 1000
+        
+        # Fetch messages in reverse chronological order, then reverse
+        q = self._base_select(include_system).eq("session_id", str(session_id))
+        q = q.order("created_at", desc=True).order("id", desc=True).limit(limit)
+        
+        rows = q.execute().data or []
+        rows.reverse()  # Convert to chronological order
+        
+        # If k is specified, ensure we have proper user+assistant pairs
+        if k is not None and rows:
+            # Filter to user/assistant only, then take last k*2
+            user_assistant_rows = [
+                row for row in rows 
+                if row.get("role") in ["user", "assistant"]
+            ]
+            if len(user_assistant_rows) > k * 2:
+                user_assistant_rows = user_assistant_rows[-(k * 2):]
+            
+            # If include_system, add back any system messages
+            if include_system:
+                system_rows = [row for row in rows if row.get("role") == "system"]
+                rows = system_rows + user_assistant_rows
+            else:
+                rows = user_assistant_rows
+        
+        # Convert to message objects (no usage needed for export)
+        return [self._row_to_message(row) for row in rows]
+
