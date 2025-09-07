@@ -1,152 +1,37 @@
-import React from "react";
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
-import { ToastProvider } from "./contexts/ToastContext";
-import { OrgProvider } from "./contexts/OrgContext";
-import { ErrorBoundary } from "./components/ErrorBoundary";
-import { OrganizationProvider } from "./components/OrganizationProvider";
-import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
-import { Layout } from "./components/layout/Layout";
-import {
-  Login,
-  Register,
-  Playground,
-  Providers,
-  Models,
-  Access,
-} from "./pages";
-import Monitor from "./pages/Monitor";
-import { ForgotPassword, UserProfile } from "./components";
-import "./App.css";
+import { lazy, Suspense } from 'react'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
+import Layout from '@/components/layout/Layout'
+import { AuthProvider } from '@/contexts/AuthContext'
+import { OrganizationProvider } from '@/contexts/OrganizationContext'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
-function App() {
+const Models = lazy(() => import('@/pages/Models'))
+const Playground = lazy(() => import('@/pages/Playground'))
+const Access = lazy(() => import('@/pages/Access'))
+const Monitor = lazy(() => import('@/pages/Monitor'))
+
+const qc = new QueryClient()
+
+export default function App() {
   return (
-    <ErrorBoundary>
-      <ToastProvider>
-        <AuthProvider>
-          <OrgProvider>
-            <OrganizationProvider>
-            <Router>
+    <QueryClientProvider client={qc}>
+      <AuthProvider>
+        <OrganizationProvider>
+          <Layout>
+            <Suspense fallback={<div className="p-6">Loading…</div>}>
               <Routes>
-                {/* Public routes */}
-                <Route
-                  path="/login"
-                  element={
-                    <PublicRoute>
-                      <Login />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/register"
-                  element={
-                    <PublicRoute>
-                      <Register />
-                    </PublicRoute>
-                  }
-                />
-                <Route
-                  path="/forgot-password"
-                  element={
-                    <PublicRoute>
-                      <ForgotPassword />
-                    </PublicRoute>
-                  }
-                />
-
-                {/* Protected routes */}
-                <Route
-                  path="/"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Navigate to="/models" replace />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/models"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Models />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/playground"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Playground />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/monitor"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Monitor />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/access"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Access />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/providers"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <Providers />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                <Route
-                  path="/profile"
-                  element={
-                    <ProtectedRoute>
-                      <Layout>
-                        <UserProfile />
-                      </Layout>
-                    </ProtectedRoute>
-                  }
-                />
-
-                {/* Catch all route */}
-                <Route path="*" element={<Navigate to="/models" replace />} />
+                <Route path="/" element={<Navigate to="/models" replace />} />
+                <Route path="/models" element={<Models />} />
+                <Route path="/playground" element={<Playground />} />
+                <Route path="/access" element={<Access />} />
+                <Route path="/monitor" element={<Monitor />} />
               </Routes>
-            </Router>
-            </OrganizationProvider>
-          </OrgProvider>
-        </AuthProvider>
-      </ToastProvider>
-    </ErrorBoundary>
-  );
+            </Suspense>
+            <Toaster />
+          </Layout>
+        </OrganizationProvider>
+      </AuthProvider>
+    </QueryClientProvider>
+  )
 }
-
-export default App;
