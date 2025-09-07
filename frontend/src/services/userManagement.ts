@@ -1,8 +1,14 @@
-import { apiDelete, apiGet, apiPost } from '@/services/api'
+import { apiDelete, apiGet, apiPost, apiPut } from '@/services/api'
 import type { Profile, TokenRow } from '@/types/backend'
 
-// Org members (read-only table for now; role changes can be added if backend supports)
-export const listOrgMembers = () => apiGet<Profile[]>('/user-management/members')
+// Org members
+export const listOrgMembers = () => apiGet<Profile[]>('/user-management/users')
+export const inviteMember = (payload: { email: string; role: 'admin' | 'member' }) =>
+  apiPost<{ id: string }>('/user-management/invite', payload)
+export const updateMemberRole = (id: string, role: 'owner'|'admin'|'member') =>
+  apiPut<void>(`/user-management/members/${id}/role`, { role })
+export const removeMember = (id: string) =>
+  apiDelete<void>(`/user-management/users/${id}`)
 
 // PATs
 export const listTokens = () => apiGet<TokenRow[]>('/user-management/tokens')

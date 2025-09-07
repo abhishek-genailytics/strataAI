@@ -7,7 +7,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 
 from app.core.redis import redis_manager
-from app.core.config import settings
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +16,10 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
     
     def __init__(self, app, calls_per_minute: int = None, calls_per_hour: int = None, burst_limit: int = None):
         super().__init__(app)
-        self.calls_per_minute = calls_per_minute or settings.RATE_LIMIT_PER_MINUTE
-        self.calls_per_hour = calls_per_hour or settings.RATE_LIMIT_PER_HOUR
-        self.burst_limit = burst_limit or settings.RATE_LIMIT_BURST
+        settings = get_settings()
+        self.calls_per_minute = calls_per_minute or getattr(settings, 'RATE_LIMIT_PER_MINUTE', 60)
+        self.calls_per_hour = calls_per_hour or getattr(settings, 'RATE_LIMIT_PER_HOUR', 1000)
+        self.burst_limit = burst_limit or getattr(settings, 'RATE_LIMIT_BURST', 10)
     
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
         # Skip rate limiting for health checks and internal endpoints
@@ -231,6 +232,7 @@ async def get_rate_limit_status(client_id: str) -> dict:
         
         results = await pipe.execute()
         
+        settings = get_settings()
         return {
             "minute_count": int(results[0] or 0),
             "hour_count": int(results[1] or 0),
@@ -239,18 +241,19 @@ async def get_rate_limit_status(client_id: str) -> dict:
             "hour_reset": results[4],
             "burst_reset": results[5],
             "limits": {
-                "per_minute": settings.RATE_LIMIT_PER_MINUTE,
-                "per_hour": settings.RATE_LIMIT_PER_HOUR,
-                "burst": settings.RATE_LIMIT_BURST
+                "per_minute": getattr(settings, 'RATE_LIMIT_PER_MINUTE', 60),
+                "per_hour": getattr(settings, 'RATE_LIMIT_PER_HOUR', 1000),
+                "burst": getattr(settings, 'RATE_LIMIT_BURST', 10)
             }
         }
     except Exception as e:
         logger.error(f"Error getting rate limit status: {e}")
+        settings = get_settings()
         return {
             "error": "Unable to fetch rate limit status",
             "limits": {
-                "per_minute": settings.RATE_LIMIT_PER_MINUTE,
-                "per_hour": settings.RATE_LIMIT_PER_HOUR,
-                "burst": settings.RATE_LIMIT_BURST
+                "per_minute": getattr(settings, 'RATE_LIMIT_PER_MINUTE', 60),
+                "per_hour": getattr(settings, 'RATE_LIMIT_PER_HOUR', 1000),
+                "burst": getattr(settings, 'RATE_LIMIT_BURST', 10)
             }
         }

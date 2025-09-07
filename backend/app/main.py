@@ -9,6 +9,20 @@ from app.core.logging import setup_logging, get_logger
 from app.core.preflight import run_preflight
 from app.api.routes import api_router
 from app.api.unified_api import router as unified_router
+from app.api.user_management import router as user_management_router
+from app.api.api_keys import router as api_keys_router
+from app.api.auth import router as auth_router
+from app.api.cache_management import router as cache_management_router
+from app.api.chat import router as chat_router
+from app.api.chat_sessions import router as chat_sessions_router
+from app.api.error_management import router as error_management_router
+from app.api.health import router as health_router
+from app.api.mock_analytics import router as mock_analytics_router
+from app.api.models import router as models_router
+from app.api.organizations import router as organizations_router
+from app.api.providers import router as providers_router
+from app.api.usage_analytics import router as usage_analytics_router
+from app.api.user_models import router as user_models_router
 from app.api.playground_read import router as playground_read_router
 from app.api.playground import router as playground_router
 from app.api.playground_sessions import router as playground_sessions_router
@@ -95,6 +109,24 @@ def create_app() -> FastAPI:
     
     # Include API routes
     app.include_router(api_router, prefix=settings.API_V1_STR)
+    
+    # Core API endpoints
+    app.include_router(api_keys_router, prefix=settings.API_V1_STR)
+    app.include_router(auth_router, prefix=settings.API_V1_STR)
+    app.include_router(cache_management_router, prefix=settings.API_V1_STR)
+    app.include_router(chat_router, prefix=settings.API_V1_STR)
+    app.include_router(chat_sessions_router, prefix=settings.API_V1_STR)
+    app.include_router(error_management_router, prefix=settings.API_V1_STR)
+    app.include_router(health_router, prefix=settings.API_V1_STR)
+    app.include_router(mock_analytics_router, prefix=settings.API_V1_STR)
+    app.include_router(models_router, prefix=settings.API_V1_STR)
+    app.include_router(organizations_router, prefix=settings.API_V1_STR)
+    app.include_router(providers_router, prefix=settings.API_V1_STR)
+    app.include_router(usage_analytics_router, prefix=settings.API_V1_STR)
+    app.include_router(user_models_router, prefix=settings.API_V1_STR)
+    
+    # User management endpoints
+    app.include_router(user_management_router, prefix=f"{settings.API_V1_STR}/user-management")
     
     # Public OpenAI-compatible gateway
     app.include_router(unified_router, prefix="/v1")

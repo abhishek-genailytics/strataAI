@@ -62,6 +62,9 @@ class UserResponse(BaseModel):
     created_at: datetime
     last_activity: Optional[datetime]
 
+class UpdateRoleRequest(BaseModel):
+    role: str
+
 @router.post("/invite", response_model=UserInvitationResponse)
 async def invite_user(
     invitation: UserInvitationRequest,
@@ -376,3 +379,62 @@ async def remove_organization_user(
         )
     
     return {"message": "User removed from organization successfully"}
+
+@router.put("/members/{user_id}/role")
+async def update_member_role(
+    user_id: str,
+    role_request: UpdateRoleRequest,
+    organization_id: Optional[str] = Query(None, description="Organization ID (optional)"),
+    current_user: CurrentUser = Depends(get_current_user)
+):
+    """Update a member's role in the organization (admin only)"""
+    supabase = get_supabase_client()
+    
+    # Get user's organization and role
+    org_service = OrganizationService()
+    user_orgs = await org_service.get_user_organizations(current_user.user_id)
+    
+    if not user_orgs:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You must be a member of an organization to update roles"
+        )
+    
+    # Use the first organization if not specified
+    org_id = organization_id or user_orgs[0]["organization_id"]
+    
+    # Check if user is admin in the organization
+    user_org = next((uo for uo in user_orgs if uo["organization_id"] == org_id), None)
+    if not user_org or user_org["role"] != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only admins can update member roles"
+        )
+    
+    # Validate role
+    valid_roles = ["owner", "admin", "member"]
+    if role_request.role not in valid_roles:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid role. Must be one of: {', '.join(valid_roles)}"
+        )
+    
+    # Check if trying to update self to non-admin role
+    if user_id == str(current_user.user_id) and role_request.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot change your own admin role"
+        )
+    
+    # Update user role in organization
+    result = supabase.table("user_organizations").update(
+        {"role": role_request.role}
+    ).eq("user_id", user_id).eq("organization_id", org_id).execute()
+    
+    if not result.data:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found in organization"
+        )
+    
+    return {"message": f"User role updated to {role_request.role} successfully"}

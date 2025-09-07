@@ -7,7 +7,7 @@ from starlette.responses import Response as StarletteResponse
 import logging
 
 from app.core.redis import redis_manager
-from app.core.config import settings
+from app.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -22,16 +22,17 @@ class ResponseCachingMiddleware(BaseHTTPMiddleware):
         cache_key_prefix: str = "cache:response"
     ):
         super().__init__(app)
+        settings = get_settings()
         self.default_ttl = default_ttl or settings.CACHE_TTL_DEFAULT
         self.cacheable_methods = cacheable_methods or ["GET"]
         self.cache_key_prefix = cache_key_prefix
         
         # Define cache TTL for different endpoint patterns
         self.endpoint_ttl_map = {
-            "/api/v1/models": settings.CACHE_TTL_MODELS,
-            "/api/v1/analytics": settings.CACHE_TTL_ANALYTICS,
-            "/api/v1/usage-metrics": settings.CACHE_TTL_ANALYTICS,
-            "/api/v1/cost-analysis": settings.CACHE_TTL_ANALYTICS,
+            "/api/v1/models": getattr(settings, 'CACHE_TTL_MODELS', 3600),
+            "/api/v1/analytics": getattr(settings, 'CACHE_TTL_ANALYTICS', 1800),
+            "/api/v1/usage-metrics": getattr(settings, 'CACHE_TTL_ANALYTICS', 1800),
+            "/api/v1/cost-analysis": getattr(settings, 'CACHE_TTL_ANALYTICS', 1800),
         }
         
         # Endpoints that should not be cached
@@ -45,7 +46,8 @@ class ResponseCachingMiddleware(BaseHTTPMiddleware):
     
     async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
         # Skip caching if disabled
-        if not settings.CACHE_ENABLED:
+        settings = get_settings()
+        if not getattr(settings, 'CACHE_ENABLED', True):
             return await call_next(request)
         
         # Only cache specified HTTP methods
@@ -228,6 +230,7 @@ class CacheService:
     async def get_cache_stats() -> Dict[str, Any]:
         """Get cache statistics"""
         try:
+            settings = get_settings()
             redis_client = await redis_manager.get_client()
             
             # Get cache keys count
@@ -250,8 +253,8 @@ class CacheService:
                 "total_cached_responses": total_keys,
                 "memory_usage": memory_usage,
                 "sample_ttls": ttl_info,
-                "cache_enabled": settings.CACHE_ENABLED,
-                "default_ttl": settings.CACHE_TTL_DEFAULT
+                "cache_enabled": getattr(settings, 'CACHE_ENABLED', True),
+                "default_ttl": getattr(settings, 'CACHE_TTL_DEFAULT', 3600)
             }
         except Exception as e:
             logger.error(f"Error getting cache stats: {e}")
