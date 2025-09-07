@@ -66,6 +66,9 @@ docker
 python-dateutil
 pytz
 
+# Database async driver
+asyncpg>=0.29.0
+
 # Optional precise tokenizers (enable later if needed)
 # tiktoken==0.7.0           # OpenAI models
 # anthropic-tokenizer==0.1  # Claude models (if a lib is published/usable)

@@ -1,7 +1,9 @@
 import { Link, useLocation } from 'react-router-dom'
 import { type ReactNode } from 'react'
 import { Separator } from '@/components/ui/separator'
+import { Button } from '@/components/ui/button'
 import { useOrganization } from '@/contexts/OrganizationContext'
+import { useAuth } from '@/contexts/AuthContext'
 
 const links = [
   { to: '/models', label: 'Models' },
@@ -13,10 +15,19 @@ const links = [
 export default function Layout({ children }: { children: ReactNode }) {
   const { pathname } = useLocation()
   const { current, orgs, setCurrent } = useOrganization()
+  const { user, signOut } = useAuth()
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+    } catch (error) {
+      console.error('Sign out error:', error)
+    }
+  }
 
   return (
     <div className="min-h-full grid grid-cols-[240px_1fr]">
-      <aside className="border-r bg-slate-50">
+      <aside className="border-r bg-slate-50 flex flex-col min-h-screen">
         <div className="p-4">
           <div className="font-semibold">AI Gateway</div>
           <select
@@ -28,7 +39,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           </select>
         </div>
         <Separator />
-        <nav className="p-2 space-y-1">
+        <nav className="p-2 space-y-1 flex-1">
           {links.map(l => (
             <Link key={l.to} to={l.to}
               className={`block rounded-md px-3 py-2 text-sm hover:bg-slate-100 ${pathname===l.to?'bg-slate-100 font-medium':''}`}>
@@ -36,6 +47,20 @@ export default function Layout({ children }: { children: ReactNode }) {
             </Link>
           ))}
         </nav>
+        <Separator />
+        <div className="p-4">
+          <div className="text-xs text-gray-600 mb-2">
+            {user?.email}
+          </div>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleSignOut}
+            className="w-full"
+          >
+            Sign Out
+          </Button>
+        </div>
       </aside>
       <main className="min-h-screen">{children}</main>
     </div>

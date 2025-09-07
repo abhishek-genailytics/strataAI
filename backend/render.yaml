@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: strataai-backend
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PROJECT_NAME
+        value: StrataAI
+      - key: API_V1_STR
+        value: /api/v1
+      - key: LOG_LEVEL
+        value: INFO
+      - key: FORCE_ECHO_ADAPTER
+        value: false
+      - key: ENABLE_REQUEST_LOGGING
+        value: true
+      - key: ENABLE_USAGE_ROLLUPS
+        value: true
+      - key: ENABLE_PLAYGROUND_LOGGING
+        value: true
+      - key: SUPABASE_URL
+        value: https://pucvturagllxmkvmwoqv.supabase.co
+      - key: SUPABASE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1Y3Z0dXJhZ2xseG1rdm13b3F2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU5NjU3MTQsImV4cCI6MjA3MTU0MTcxNH0.6k5wzPsQc2JAIgsEX7zmpHYOWsyDXYI8VA3-_cu0uxw
+      - key: SUPABASE_SERVICE_KEY
+        value: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1Y3Z0dXJhZ2xseG1rdm13b3F2Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1NTk2NTcxNCwiZXhwIjoyMDcxNTQxNzE0fQ._DSMch4onI0SCSK0PzSjfQMqcW2yPzfXyshQ2YjRFTo
+      - key: ENCRYPTION_KEY
+        value: Iv26XUJPmS0eWfAu9SpM3yKkfFTPbuAOCWngGZtLKhQ=
+      - key: OPENAI_BASE_URL
+        value: https://api.openai.com
+      - key: OPENAI_CONNECT_TIMEOUT_S
+        value: 10
+      - key: OPENAI_READ_TIMEOUT_S
+        value: 60
+      - key: OPENAI_WRITE_TIMEOUT_S
+        value: 60
+      - key: ANTHROPIC_BASE_URL
+        value: https://api.anthropic.com
+      - key: ANTHROPIC_VERSION
+        value: 2023-06-01
+      - key: ANTHROPIC_CONNECT_TIMEOUT_S
+        value: 10
+      - key: ANTHROPIC_READ_TIMEOUT_S
+        value: 60
+      - key: ANTHROPIC_WRITE_TIMEOUT_S
+        value: 60
+      - key: ALLOWED_ORIGINS
+        value: "*"

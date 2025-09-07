@@ -1,0 +1,15 @@
+export const qk = {
+  orgs: ['orgs'] as const,
+  profile: ['profile'] as const,
+  providers: ['providers'] as const,
+  apiKeys: ['api-keys'] as const,
+  models: (provider?: string) => ['models', provider ?? 'all'] as const,
+  pgModels: ['pg-models'] as const,
+  sessions: ['pg-sessions'] as const,
+  usageSummary: (id?: string) => ['usage-summary', id ?? 'global'] as const,
+  byModel: ['analytics-by-model'] as const,
+  byUser: ['analytics-by-user'] as const,
+  errors: ['recent-errors'] as const,
+  tokens: ['pat-tokens'] as const,
+  members: ['org-members'] as const,
+}

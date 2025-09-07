@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { api } from '@/services/api'
+import api from '@/services/api'
 
 type Organization = { id: string; name: string }
 type OrgCtx = {
@@ -9,7 +9,7 @@ type OrgCtx = {
 }
 
 const OrgContext = createContext<OrgCtx>({
-  current: null, orgs: [], setCurrent: () => {}
+  current: null, orgs: [], setCurrent: ()=>{}
 })
 
 export const OrganizationProvider = ({ children }: { children: React.ReactNode }) => {
@@ -33,4 +33,4 @@ export const OrganizationProvider = ({ children }: { children: React.ReactNode }
   return <OrgContext.Provider value={{ current, orgs, setCurrent }}>{children}</OrgContext.Provider>
 }
 
-export const useOrganization = () => useContext(OrgContext)
+export const useOrganization = ()=>useContext(OrgContext)

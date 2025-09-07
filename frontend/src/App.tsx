@@ -5,6 +5,9 @@ import Layout from '@/components/layout/Layout'
 import { AuthProvider } from '@/contexts/AuthContext'
 import { OrganizationProvider } from '@/contexts/OrganizationContext'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import ProtectedRoute from '@/components/layout/ProtectedRoute'
+import Login from '@/pages/Login'
+import SignUp from '@/pages/SignUp'
 
 const Models = lazy(() => import('@/pages/Models'))
 const Playground = lazy(() => import('@/pages/Playground'))
@@ -18,18 +21,18 @@ export default function App() {
     <QueryClientProvider client={qc}>
       <AuthProvider>
         <OrganizationProvider>
-          <Layout>
-            <Suspense fallback={<div className="p-6">Loading…</div>}>
-              <Routes>
-                <Route path="/" element={<Navigate to="/models" replace />} />
-                <Route path="/models" element={<Models />} />
-                <Route path="/playground" element={<Playground />} />
-                <Route path="/access" element={<Access />} />
-                <Route path="/monitor" element={<Monitor />} />
-              </Routes>
-            </Suspense>
-            <Toaster />
-          </Layout>
+          <Suspense fallback={<div className="p-6">Loading…</div>}>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/" element={<Navigate to="/models" replace />} />
+              <Route path="/models" element={<Layout><ProtectedRoute><Models /></ProtectedRoute></Layout>} />
+              <Route path="/playground" element={<Layout><ProtectedRoute><Playground /></ProtectedRoute></Layout>} />
+              <Route path="/access" element={<Layout><ProtectedRoute><Access /></ProtectedRoute></Layout>} />
+              <Route path="/monitor" element={<Layout><ProtectedRoute><Monitor /></ProtectedRoute></Layout>} />
+            </Routes>
+          </Suspense>
+          <Toaster />
         </OrganizationProvider>
       </AuthProvider>
     </QueryClientProvider>
