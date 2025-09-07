@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ToastProvider } from "./contexts/ToastContext";
+import { OrgProvider } from "./contexts/OrgContext";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { OrganizationProvider } from "./components/OrganizationProvider";
 import { ProtectedRoute, PublicRoute } from "./components/ProtectedRoute";
@@ -28,7 +29,8 @@ function App() {
     <ErrorBoundary>
       <ToastProvider>
         <AuthProvider>
-          <OrganizationProvider>
+          <OrgProvider>
+            <OrganizationProvider>
             <Router>
               <Routes>
                 {/* Public routes */}
@@ -139,7 +141,8 @@ function App() {
                 <Route path="*" element={<Navigate to="/models" replace />} />
               </Routes>
             </Router>
-          </OrganizationProvider>
+            </OrganizationProvider>
+          </OrgProvider>
         </AuthProvider>
       </ToastProvider>
     </ErrorBoundary>
