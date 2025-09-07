@@ -6,6 +6,7 @@ from app.core.deps import resolve_organization, validate_model
 from app.models.auth import CurrentCaller
 from app.models.catalog import ResolvedModel
 from app.services.adapter_factory import get_adapter
+from app.services.provider_keys import get_active_api_key
 
 router = APIRouter(tags=["Unified API"])
 
@@ -24,19 +25,22 @@ async def chat_completions(
     # Enforce "no streaming" for MVP — ignore silently
     # req.stream may be True from client; we do not stream in this version
 
-    # Model is now validated through the resolved_model dependency
-    # resolved_model contains provider info, model capabilities, etc.
-    
-    # We now have access to the resolved organization_id for downstream use
-    # (provider-key lookup, accounting, etc.) - will be used in Task 11
-    
-    # Use adapter factory to get the appropriate adapter
+    # 1) Pick adapter
     adapter = get_adapter(resolved_model.provider_name)
-    
-    # Provider API key will be added in Task 11 (provider key lookup)
-    return await adapter.chat_completion(
+
+    # 2) Load org-scoped provider key (throws OpenAI-style errors via middleware)
+    api_key_id, plaintext_key = get_active_api_key(
+        organization_id=organization_id,
+        provider_id=resolved_model.provider_id
+    )
+
+    # 3) Call provider adapter
+    resp = await adapter.chat_completion(
         organization_id=organization_id,
         request=req,
         model_name=resolved_model.model_name,
-        api_key=None,
+        api_key=plaintext_key,
     )
+
+    # (Task 14 will persist api_requests and include api_key_id)
+    return resp
