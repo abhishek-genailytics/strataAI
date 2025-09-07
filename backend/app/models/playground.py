@@ -13,6 +13,8 @@ class PlaygroundSession(BaseModel):
     updated_at: Optional[datetime] = None
     message_count: int
     metadata: SessionMeta
+    provider_id: Optional[str] = None  # e.g., "openai", "anthropic"
+    model_id: Optional[str] = None     # e.g., "gpt-4o-mini", "claude-3-sonnet"
 
 class PlaygroundMessageUsage(BaseModel):
     prompt_tokens: int
@@ -36,3 +38,7 @@ class MessagesPage(BaseModel):
     session_id: str
     messages: List[PlaygroundMessage]
     next_after_index: Optional[int] = None  # for pagination
+
+class SessionsPage(BaseModel):
+    sessions: List[PlaygroundSession]
+    next_cursor: Optional[str] = None  # for cursor-based pagination

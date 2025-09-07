@@ -6,13 +6,13 @@ from app.core.deps import resolve_organization
 from app.core.exceptions import NotFoundError, PermissionError_, InvalidRequestError
 from app.core.supabase import get_supabase_service
 from app.models.auth import CurrentCaller
-from app.models.playground import PlaygroundSession, MessagesPage, PlaygroundMessage, PlaygroundMessageUsage, PlaygroundMessageCost, SessionMeta
+from app.models.playground import PlaygroundSession, MessagesPage, PlaygroundMessage, PlaygroundMessageUsage, PlaygroundMessageCost, SessionMeta, SessionsPage
 
 router = APIRouter(tags=["Playground"])
 
 def _assert_owns_session(sb, session_id: str, organization_id: UUID, user_id: UUID):
     row = sb.table("chat_sessions")\
-        .select("id, title, created_at, updated_at, metadata")\
+        .select("id, title, created_at, updated_at, metadata, provider, model")\
         .eq("id", session_id)\
         .eq("organization_id", str(organization_id))\
         .eq("user_id", str(user_id))\
@@ -47,6 +47,8 @@ async def get_session(
         updated_at=row.get("updated_at"),
         message_count=message_count,
         metadata=SessionMeta(client_session_id=meta.get("client_session_id")),
+        provider_id=row.get("provider"),
+        model_id=row.get("model"),
     )
 
 @router.get("/playground/sessions/{session_id}/messages", response_model=MessagesPage)
@@ -110,3 +112,113 @@ async def list_messages(
         next_after_index = int(rows[limit - 1]["message_index"])
 
     return MessagesPage(session_id=session_id, messages=messages, next_after_index=next_after_index)
+
+@router.get("/playground/sessions", response_model=SessionsPage)
+async def list_sessions(
+    limit: int = Query(20, ge=1, le=100, description="Number of sessions to return"),
+    cursor: Optional[str] = Query(None, description="Cursor for pagination (session ID)"),
+    caller: CurrentCaller = Depends(require_pat),
+    organization_id: UUID = Depends(resolve_organization),
+):
+    """List the caller's recent chat sessions with cursor-based pagination."""
+    sb = get_supabase_service()
+    
+    # Build query with organization and user filtering
+    q = sb.table("chat_sessions")\
+        .select("id, title, created_at, updated_at, metadata, provider, model")\
+        .eq("organization_id", str(organization_id))\
+        .eq("user_id", str(caller.user_id))\
+        .eq("is_active", True)\
+        .order("updated_at", desc=True)
+    
+    # Apply cursor pagination if provided
+    if cursor:
+        # Get the cursor session's updated_at timestamp for comparison
+        cursor_row = sb.table("chat_sessions")\
+            .select("updated_at")\
+            .eq("id", cursor)\
+            .eq("organization_id", str(organization_id))\
+            .eq("user_id", str(caller.user_id))\
+            .limit(1).execute().data
+        
+        if cursor_row:
+            cursor_timestamp = cursor_row[0]["updated_at"]
+            q = q.lt("updated_at", cursor_timestamp)
+    
+    # Fetch limit + 1 to determine if there are more results
+    rows = q.limit(limit + 1).execute().data or []
+    
+    # Get message counts for each session
+    session_ids = [r["id"] for r in rows[:limit]]
+    message_counts = {}
+    if session_ids:
+        for session_id in session_ids:
+            cnt = sb.table("chat_messages")\
+                .select("id", count="exact")\
+                .eq("session_id", session_id)\
+                .execute()
+            message_counts[session_id] = int(getattr(cnt, "count", 0) or 0)
+    
+    # Build session objects
+    sessions: List[PlaygroundSession] = []
+    for r in rows[:limit]:
+        meta = r.get("metadata") or {}
+        sessions.append(PlaygroundSession(
+            id=r["id"],
+            title=r.get("title") or "Playground session",
+            created_at=r["created_at"],
+            updated_at=r.get("updated_at"),
+            message_count=message_counts.get(r["id"], 0),
+            metadata=SessionMeta(client_session_id=meta.get("client_session_id")),
+            provider_id=r.get("provider"),
+            model_id=r.get("model"),
+        ))
+    
+    # Determine next cursor
+    next_cursor = None
+    if len(rows) > limit:
+        next_cursor = rows[limit - 1]["id"]
+    
+    return SessionsPage(sessions=sessions, next_cursor=next_cursor)
+
+@router.get("/playground/sessions/by-client-id/{client_session_id}", response_model=PlaygroundSession)
+async def get_session_by_client_id(
+    client_session_id: str = Path(..., description="Client-side session ID from metadata"),
+    caller: CurrentCaller = Depends(require_pat),
+    organization_id: UUID = Depends(resolve_organization),
+):
+    """Get a session by client_session_id from metadata (single-row fetch)."""
+    sb = get_supabase_service()
+    
+    # Query using JSONB metadata filter
+    rows = sb.table("chat_sessions")\
+        .select("id, title, created_at, updated_at, metadata, provider, model")\
+        .eq("organization_id", str(organization_id))\
+        .eq("user_id", str(caller.user_id))\
+        .eq("is_active", True)\
+        .contains("metadata", {"client_session_id": client_session_id})\
+        .limit(1).execute().data
+    
+    if not rows:
+        raise NotFoundError("Session not found", code="session_not_found")
+    
+    row = rows[0]
+    
+    # Get message count
+    cnt = sb.table("chat_messages")\
+        .select("id", count="exact")\
+        .eq("session_id", row["id"])\
+        .execute()
+    message_count = int(getattr(cnt, "count", 0) or 0)
+    
+    meta = row.get("metadata") or {}
+    return PlaygroundSession(
+        id=row["id"],
+        title=row.get("title") or "Playground session",
+        created_at=row["created_at"],
+        updated_at=row.get("updated_at"),
+        message_count=message_count,
+        metadata=SessionMeta(client_session_id=meta.get("client_session_id")),
+        provider_id=row.get("provider"),
+        model_id=row.get("model"),
+    )
