@@ -19,11 +19,12 @@ logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 class CurrentUser:
-    def __init__(self, user_id: UUID, email: str, organizations: list = None, is_active: bool = True):
+    def __init__(self, user_id: UUID, email: str, organizations: list = None, is_active: bool = True, jwt_token: str = None):
         self.user_id = user_id
         self.email = email
         self.organizations = organizations or []
         self._is_active = is_active
+        self.jwt_token = jwt_token
     
     @property
     def id(self) -> UUID:
@@ -132,12 +133,12 @@ async def get_current_user(
             else:
                 logger.warning(f"No user profile data found for user {user_uuid}")
             
-            return CurrentUser(user_uuid, email, organizations, is_active)
+            return CurrentUser(user_uuid, email, organizations, is_active, token)
             
         except Exception as org_error:
             logger.warning(f"Could not load organizations for user {user_uuid}: {org_error}")
             # Return user without organizations if loading fails
-            return CurrentUser(user_uuid, email, [], True)
+            return CurrentUser(user_uuid, email, [], True, token)
         
     except ValueError as e:
         logger.error(f"Invalid UUID format: {e}")

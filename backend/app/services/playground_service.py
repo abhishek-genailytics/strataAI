@@ -23,6 +23,7 @@ from ..errors.openai_envelope import (
     provider_key_missing_error,
     server_error
 )
+from ..services.key_preflight import require_active_key, get_provider_id_by_name
 
 
 class PlaygroundProviderService:
@@ -50,6 +51,12 @@ class PlaygroundProviderService:
             supported_providers = ["openai", "anthropic", "echo"]
             if provider_name.lower() not in supported_providers:
                 model_not_found_error(req.model)
+            
+            # PREFLIGHT: Verify organization has active API key for provider
+            if user_ctx.jwt_token:
+                provider_id = await get_provider_id_by_name(provider_name, user_ctx.jwt_token)
+                if provider_id:
+                    await require_active_key(organization_id, provider_id, user_ctx.jwt_token)
             
             # Load session to determine request source mode
             session_result = supabase_service.table("chat_sessions").select(

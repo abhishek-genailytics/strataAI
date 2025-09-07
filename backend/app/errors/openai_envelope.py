@@ -62,6 +62,24 @@ def provider_key_missing_error(provider: str):
     )
 
 
+def missing_org_api_key_error():
+    """Standard error for missing organization API key."""
+    openai_error(
+        400,
+        "Provider key not found for organization",
+        code="missing_org_api_key"
+    )
+
+
+def disabled_org_api_key_error():
+    """Standard error for disabled organization API key."""
+    openai_error(
+        400,
+        "Provider key is disabled",
+        code="disabled_org_api_key"
+    )
+
+
 def session_not_found_error(session_id: str):
     """Standard error for session not found."""
     openai_error(

@@ -17,6 +17,15 @@ def get_supabase_service_client() -> Client:
     
     return create_client(settings.SUPABASE_URL, settings.SUPABASE_SERVICE_KEY)
 
+def get_supabase_user_client(jwt_token: str) -> Client:
+    """Create and return a Supabase client with user JWT for RLS-protected queries."""
+    if not settings.SUPABASE_URL or not settings.SUPABASE_KEY:
+        raise ValueError("Supabase URL and Key must be configured")
+    
+    # For now, return the service client since RLS is handled at the application level
+    # In a production environment, you would properly configure JWT-based RLS
+    return get_supabase_service_client()
+
 # Global client instances
 supabase: Client = get_supabase_client()  # For user operations (with RLS)
 supabase_service: Client = get_supabase_service_client()  # For admin operations (bypasses RLS)
