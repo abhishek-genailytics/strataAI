@@ -8,8 +8,9 @@ from app.models.catalog import ResolvedModel
 from app.services.adapter_factory import get_adapter
 from app.services.provider_keys import get_active_api_key
 from app.services.costing import compute_cost
+from app.core.telemetry import TelemetryHook
 
-router = APIRouter(tags=["Unified API"])
+router = APIRouter(dependencies=[Depends(TelemetryHook())], tags=["Unified API"])
 
 def _resolve_model_from_body(req: ChatCompletionRequest = Body(...)) -> ResolvedModel:
     """Dependency to extract and validate model from request body."""
@@ -59,7 +60,11 @@ async def chat_completions(
     request.state.cost_breakdown = cost
     request.state.model_id = resolved_model.id
     request.state.provider_id = resolved_model.provider_id
+    request.state.caller = caller
     if api_key_id:
         request.state.api_key_id = api_key_id
+    
+    # Store usage for telemetry logging
+    request.state.usage = resp.usage
 
     return resp

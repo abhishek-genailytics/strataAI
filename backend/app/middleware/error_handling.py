@@ -37,6 +37,13 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
         except UnifiedAPIError as e:
             status_code = e.http_status
+            # Set error info for telemetry logging
+            request.state.error_info = {
+                "type": e.openai_type,
+                "message": e.message,
+                "code": e.code,
+                "param": e.param
+            }
             if is_public_openai_path(request.url.path):
                 payload = openai_error_body(e.message, type_=e.openai_type, param=e.param, code=e.code)
                 _log_exc(request, status_code, payload)
@@ -66,6 +73,14 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
                         msg = f"Field '{param}' is required"
             except Exception:
                 param = None
+            
+            # Set error info for telemetry logging
+            request.state.error_info = {
+                "type": infer_type_from_status(status_code),
+                "message": msg,
+                "code": None,
+                "param": param
+            }
                 
             if is_public_openai_path(request.url.path):
                 payload = openai_error_body(msg, type_=infer_type_from_status(status_code), param=param)
@@ -81,9 +96,24 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
             # Map HTTPBearer 403 to 401 for OpenAI compatibility
             if status_code == 403 and "Not authenticated" in str(detail) and is_public_openai_path(request.url.path):
                 status_code = 401
+                # Set error info for telemetry logging
+                request.state.error_info = {
+                    "type": "authentication_error",
+                    "message": "Missing Authorization header",
+                    "code": "missing_authorization",
+                    "param": None
+                }
                 payload = openai_error_body("Missing Authorization header", type_="authentication_error", code="missing_authorization")
                 _log_exc(request, status_code, payload)
                 return JSONResponse(status_code=status_code, content=payload)
+            
+            # Set error info for telemetry logging
+            request.state.error_info = {
+                "type": infer_type_from_status(status_code),
+                "message": detail or "Error",
+                "code": None,
+                "param": None
+            }
             
             if is_public_openai_path(request.url.path):
                 payload = openai_error_body(detail or "Error", type_=infer_type_from_status(status_code))
@@ -94,6 +124,13 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             status_code = 500
             msg = "Internal Server Error"
+            # Set error info for telemetry logging
+            request.state.error_info = {
+                "type": "server_error",
+                "message": msg,
+                "code": None,
+                "param": None
+            }
             if is_public_openai_path(request.url.path):
                 payload = openai_error_body(msg, type_="server_error")
                 _log_exc(request, status_code, payload)
