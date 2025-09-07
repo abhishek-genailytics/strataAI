@@ -15,6 +15,7 @@ class ChatMessage(BaseModel):
 class ChatCompletionRequest(BaseModel):
     model: str  # "provider/model" (e.g., "openai/gpt-4o-mini")
     messages: List[ChatMessage]
+    system: Optional[str] = None  # NEW: per-request system prompt override
     temperature: Optional[float] = 1.0
     top_p: Optional[float] = 1.0
     max_tokens: Optional[int] = None
