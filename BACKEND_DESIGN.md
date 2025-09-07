@@ -151,15 +151,28 @@ The API is organized into logical modules with clear separation of concerns:
 - `GET /v1/playground/sessions/{id}` - Get session metadata (Task 16)
 - `GET /v1/playground/sessions/{id}/messages` - Get paginated messages (Task 16)
 
-#### Playground Routes (`/playground/*`)
-- `GET /playground/models` - Get user's configured models
-- `POST /playground/chat/completions` - Direct chat completions with streaming
-- `GET /playground/sessions` - List user's chat sessions
+#### Playground Routes (`/playground/*` & `/api/v1/playground/*`)
+
+**Model Management:**
+- `GET /playground/models` - Get user's configured models with capabilities, pricing, and availability
+- `GET /api/v1/playground/providers/status` - Get provider API key status for UI banners
+
+**Chat & Completions:**
+- `POST /playground/chat/completions` - Direct chat completions with streaming support
+- `POST /api/v1/playground/sessions/{id}/regenerate` - Regenerate last/specific message with parameter overrides
+
+**Session Management:**
+- `GET /playground/sessions` - List user's chat sessions with pagination
 - `POST /playground/sessions` - Create new chat session
 - `PUT /playground/sessions/{id}` - Update session metadata
 - `DELETE /playground/sessions/{id}` - Delete chat session
-- `GET /playground/sessions/{id}/messages` - Get session messages
+- `GET /playground/sessions/{id}/messages` - Get session messages with token usage
 - `POST /playground/sessions/{id}/messages` - Add message to session
+- `GET /playground/sessions/by-client-id/{client_id}` - Get session by client ID
+
+**Usage Analytics:**
+- `GET /playground/sessions/{id}/usage` - Session totals and breakdown by provider/model
+- `GET /playground/sessions/{id}/usage/series` - Time series data for usage charts
 
 #### Management APIs (`/api/v1/*`)
 - `GET /api/v1/organizations` - List user organizations
@@ -285,20 +298,29 @@ class PlaygroundService:
     """Direct provider API calls for optimal playground performance."""
     
     async def get_available_models(self, user_id: UUID):
-        # Queries user's configured API keys
+        # Queries user's configured API keys via ModelsService
         # Returns models available based on active provider keys
-        # Includes model capabilities and pricing information
+        # Includes model capabilities, pricing, and availability status
+        # Supports provider filtering and pricing inclusion flags
         
     async def chat_completion(self, request: PlaygroundChatRequest):
+        # Provider key preflight validation before expensive operations
         # Automatic session management (create/continue)
         # Provider detection from model prefix (openai/, anthropic/)
         # Direct API calls without unified gateway overhead
         # Real-time token usage tracking and persistence
+        # Parameter merging with user/org/system defaults
+        
+    async def regenerate_message(self, session_id: UUID, request: RegenerateRequest):
+        # Supports "last" message or specific message_id targeting
+        # Parameter override with 5-tier precedence system
+        # Optional parameter persistence as new user defaults
+        # Returns OpenAI-compatible response with usage headers
         
     async def create_or_continue_session(self, user_id: UUID, provider: str):
         # Provider change detection (OpenAI ↔ Anthropic triggers new session)
         # Contextual session name generation from first message
-        # Session metadata persistence
+        # Session metadata persistence with provider/model tracking
 ```
 
 #### 2. Session Service (`session_service.py`)
@@ -331,11 +353,25 @@ class TokenUsageService:
         # Records prompt_tokens, completion_tokens, total_tokens
         # Calculates costs based on model pricing
         # Links usage to specific messages and sessions
+        # Stores in both token_usage and api_requests tables
         
     async def get_usage_analytics(self, user_id: UUID, date_range):
         # Aggregates usage by model, provider, time period
         # Cost analysis and trending
         # Export capabilities for billing integration
+
+class PlaygroundUsageService:
+    """Session-level usage analytics with caching."""
+    
+    async def get_session_totals(self, session_id: UUID, include_breakdown: bool):
+        # Aggregates session totals from api_requests table
+        # Optional per-provider/model breakdown with cost sorting
+        # 30-second microcache for performance optimization
+        
+    async def get_session_series(self, session_id: UUID, bucket: str, window: str):
+        # Time-bucketed usage data (hour/day) for charting
+        # Supports multiple time windows (all, 24h, 7d, 30d)
+        # Returns data points for frontend visualization
 ```
 
 #### 4. API Key Service (`api_key_service.py`)
@@ -514,7 +550,7 @@ CREATE TABLE token_usage (
 );
 ```
 
-#### 4. User Model Configurations
+#### 4. User Model Configurations & API Requests Tracking
 ```sql
 -- User's preferred model settings
 CREATE TABLE user_model_configurations (
@@ -529,6 +565,28 @@ CREATE TABLE user_model_configurations (
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(user_id, organization_id, provider, model)
 );
+
+-- API requests tracking for usage analytics
+CREATE TABLE api_requests (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID REFERENCES user_profiles(id),
+    organization_id UUID REFERENCES organizations(id),
+    endpoint TEXT NOT NULL,
+    method TEXT NOT NULL,
+    status_code INTEGER,
+    provider TEXT,
+    model TEXT,
+    tokens_used INTEGER DEFAULT 0,
+    cost DECIMAL(10,4) DEFAULT 0,
+    metadata JSONB DEFAULT '{}', -- session_id, message_id, etc.
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Performance indexes for playground usage analytics
+CREATE INDEX idx_api_requests_metadata_session ON api_requests USING GIN (metadata);
+CREATE INDEX idx_api_requests_session_time ON api_requests (((metadata->>'session_id')::UUID), created_at);
+CREATE INDEX idx_token_usage_message_id ON token_usage (message_id);
+CREATE INDEX idx_api_requests_endpoint_status ON api_requests (endpoint, status_code);
 ```
 
 ### Row Level Security (RLS) Policies
@@ -645,6 +703,8 @@ class PlaygroundSession(BaseModel):
     updated_at: datetime
     message_count: int
     metadata: Dict[str, Any] = {}
+    provider_id: Optional[str] = None
+    model_id: Optional[str] = None
 
 class PlaygroundMessage(BaseModel):
     id: UUID
@@ -665,8 +725,90 @@ class PlaygroundMessageCost(BaseModel):
     total_cost: str  # String for decimal precision
 
 class MessagesPage(BaseModel):
+    session_id: UUID
     messages: List[PlaygroundMessage]
     next_after_index: Optional[int] = None
+
+# Playground Models Service Models
+class PlaygroundModel(BaseModel):
+    id: str  # Format: "provider/model"
+    provider: str
+    model_name: str
+    display_name: str
+    type: str = "chat"
+    capabilities: ModelCapabilities
+    limits: ModelLimits
+    pricing: Optional[ModelPricing] = None
+    availability: ModelAvailability
+    is_default_for_user: bool = False
+    metadata: Dict[str, Any] = {}
+
+class ModelCapabilities(BaseModel):
+    supports_streaming: bool
+    supports_function_calling: bool
+    vision: bool = False
+
+class ModelLimits(BaseModel):
+    max_input_tokens: int
+    max_output_tokens: int
+
+class ModelPricing(BaseModel):
+    input: PricingTier
+    output: PricingTier
+
+class PricingTier(BaseModel):
+    unit: str = "token"
+    price: float
+    currency: str = "USD"
+
+class ModelAvailability(BaseModel):
+    org_enabled: bool
+    has_org_api_key: bool
+    user_enabled: bool = True
+    locked_reason: Optional[str] = None
+
+class PlaygroundModelsResponse(BaseModel):
+    data: List[PlaygroundModel]
+    meta: Dict[str, Any]
+
+# Usage Analytics Models
+class SessionTotals(BaseModel):
+    total_tokens: int
+    total_cost: str  # String for decimal precision
+    currency: str = "USD"
+    request_count: int
+
+class SessionBreakdownItem(BaseModel):
+    provider: str
+    model: str
+    tokens: int
+    cost: str
+    requests: int
+
+class SessionUsageResponse(BaseModel):
+    session_id: UUID
+    totals: SessionTotals
+    breakdown: Optional[List[SessionBreakdownItem]] = None
+
+class SessionSeriesPoint(BaseModel):
+    timestamp: datetime
+    tokens: int
+    cost: str
+    requests: int
+
+# Parameter Override Models
+class ModelParams(BaseModel):
+    temperature: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    max_tokens: Optional[int] = Field(default=None, gt=0)
+    top_p: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    stop: Optional[Union[str, List[str]]] = None
+    presence_penalty: Optional[float] = Field(default=None, ge=-2.0, le=2.0)
+    frequency_penalty: Optional[float] = Field(default=None, ge=-2.0, le=2.0)
+
+class RegenerateRequest(BaseModel):
+    target: Union[Literal["last"], UUID]  # "last" or specific message_id
+    params: Optional[ModelParams] = None
+    save_params: bool = False  # Save as new user defaults
 ```
 
 #### Authentication Models (`models/auth.py`)
@@ -1165,11 +1307,19 @@ async def health_check():
 - **Organization Resolution**: X-Organization-ID header override with membership validation
 - **Read-Only Playground Endpoints**: Task 16 implementation for external access
 
-#### Playground System (`/playground/*`)
-- **Direct Provider APIs**: Optimized performance bypassing unified gateway
-- **Session Management**: Automatic session creation/continuation with provider detection
-- **Real-Time Streaming**: SSE streaming with token usage tracking
-- **Chat History**: Complete conversation persistence and retrieval
+#### Playground System (`/playground/*` & `/api/v1/playground/*`)
+- **✅ PG-3 Model Catalog**: Comprehensive model listing with capabilities, pricing, and availability
+- **✅ PG-4 Provider Key Preflight**: Early validation with status endpoints for UI banners
+- **✅ PG-6 Session Management**: Automatic creation/continuation with provider change detection
+- **✅ PG-8 Usage Analytics**: Session-level totals, breakdowns, and time series with microcaching
+- **✅ PG-10 Regeneration**: Parameter override system with 5-tier precedence and user defaults
+- **✅ Task 16 Read-Only Access**: PAT-authenticated endpoints for external integrations
+- **Direct Provider APIs**: Optimized performance bypassing unified gateway overhead
+- **Real-Time Streaming**: SSE streaming with token usage tracking and cost calculation
+- **Chat History**: Complete conversation persistence with paginated message retrieval
+- **Parameter Management**: User/org/system defaults with request-level overrides
+- **Cost Tracking**: Real-time token usage and cost calculation with currency support
+- **Multi-Provider Support**: Seamless switching between OpenAI and Anthropic with session separation
 
 #### Management APIs (`/api/v1/*`)
 - **Organization Management**: Multi-tenant CRUD operations
@@ -1350,6 +1500,33 @@ class OpenAIErrorMiddleware:
 - **Test Coverage**: Comprehensive test suite needed for all endpoints
 - **OpenAPI Documentation**: Complete API specification needed
 
+### Playground Implementation Summary
+
+The playground system represents a comprehensive chat interface with advanced features:
+
+**Key Achievements:**
+- **Complete Model Management**: PG-3 provides filtered model catalog with real-time availability
+- **Provider Key Validation**: PG-4 enables early validation and UI feedback for missing keys
+- **Advanced Session System**: PG-6 with provider-aware session management and automatic naming
+- **Usage Analytics**: PG-8 with session-level cost tracking, breakdowns, and time series
+- **Parameter Customization**: PG-10 with 5-tier precedence and regeneration support
+- **External Integration**: Task 16 with PAT-authenticated read-only access
+
+**Architecture Benefits:**
+- **Performance**: Direct provider APIs bypass unified gateway for optimal speed
+- **Flexibility**: Parameter override system supports user preferences and request-level customization
+- **Cost Transparency**: Real-time usage tracking with detailed breakdowns and analytics
+- **Security**: RLS-protected data with organization-scoped access controls
+- **Scalability**: Microcaching and optimized queries for production performance
+
+**Database Integration:**
+- **Session Persistence**: Complete conversation history with message threading
+- **Usage Tracking**: Dual storage in token_usage and api_requests for different use cases
+- **Performance Indexes**: Optimized GIN and composite indexes for analytics queries
+- **User Preferences**: Configurable model defaults with organization inheritance
+
+The playground system is production-ready with comprehensive testing and follows OpenAI-compatible patterns for seamless integration.
+
 ---
 
-*This document reflects the current state of the StrataAI backend as of September 7, 2025. The architecture is production-ready with a comprehensive feature set including dual authentication, multi-provider support, session management, and real-time usage tracking.*
+*This document reflects the current state of the StrataAI backend as of September 7, 2025. The architecture is production-ready with a comprehensive feature set including dual authentication, multi-provider support, advanced playground functionality with usage analytics, session management, and real-time cost tracking.*
