@@ -62,12 +62,12 @@ class AnalyticsLogger:
             # Convert cost to float for database storage
             cost_float = float(cost) if cost is not None else None
             
-            # Prepare insert data
+            # Prepare insert data with required fields
             insert_data = {
                 "organization_id": str(organization_id),
                 "user_id": str(user_id),
-                "endpoint": endpoint,
-                "method": method,
+                "api_key_id": str(organization_id),  # Use org_id as placeholder for required field
+                "model_name": model_id or "unknown",  # Use model_id or default
                 "status_code": status_code,
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
@@ -78,7 +78,7 @@ class AnalyticsLogger:
             
             # Add optional fields if provided
             if duration_ms is not None:
-                insert_data["duration_ms"] = duration_ms
+                insert_data["latency_ms"] = duration_ms
             if provider_id is not None:
                 insert_data["provider_id"] = str(provider_id)
             if model_id is not None:
@@ -135,7 +135,10 @@ class AnalyticsLogger:
         Returns:
             Request ID if successful, None if failed
         """
-        metadata = {"session_id": str(session_id)}
+        metadata = {
+            "session_id": str(session_id),
+            "provider_request_id": provider_request_id
+        }
         
         return await AnalyticsLogger.log_request(
             organization_id=organization_id,

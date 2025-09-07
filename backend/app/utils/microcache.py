@@ -81,6 +81,12 @@ class MicroCache:
         """Get current cache size."""
         with self._lock:
             return len(self._cache)
+    
+    def clear(self) -> None:
+        """Clear all entries from cache."""
+        with self._lock:
+            self._cache.clear()
+            self._access_order.clear()
 
 
 # Global cache instance for usage data

@@ -9,6 +9,7 @@ from app.models.playground_usage import (
     SessionUsageResponse,
     SessionSeriesPoint
 )
+from app.models.playground_hud import HudRecentItem
 from app.utils.microcache import usage_cache
 
 
@@ -91,9 +92,7 @@ class PlaygroundUsageService:
         
         query = self.supabase.table("api_requests").select(
             "prompt_tokens, completion_tokens, total_tokens, cost, currency"
-        ).eq("metadata->>session_id", session_id).eq(
-            "endpoint", "/v1/chat/completions"
-        ).gte("status_code", 200).lte("status_code", 299)
+        ).eq("metadata->>session_id", session_id).gte("status_code", 200).lte("status_code", 299)
         
         if from_time:
             query = query.gte("created_at", from_time.isoformat())
@@ -140,9 +139,7 @@ class PlaygroundUsageService:
         # First get the raw aggregated data
         query = self.supabase.table("api_requests").select(
             "model_id, provider_id, prompt_tokens, completion_tokens, total_tokens, cost"
-        ).eq("metadata->>session_id", session_id).eq(
-            "endpoint", "/v1/chat/completions"
-        ).gte("status_code", 200).lte("status_code", 299)
+        ).eq("metadata->>session_id", session_id).gte("status_code", 200).lte("status_code", 299)
         
         if from_time:
             query = query.gte("created_at", from_time.isoformat())
@@ -210,9 +207,7 @@ class PlaygroundUsageService:
         # Get raw data first
         query = self.supabase.table("api_requests").select(
             "created_at, total_tokens, cost"
-        ).eq("metadata->>session_id", session_id).eq(
-            "endpoint", "/v1/chat/completions"
-        ).gte("status_code", 200).lte("status_code", 299).gte(
+        ).eq("metadata->>session_id", session_id).gte("status_code", 200).lte("status_code", 299).gte(
             "created_at", since.isoformat()
         ).lte("created_at", until.isoformat()).order("created_at")
         
@@ -258,6 +253,74 @@ class PlaygroundUsageService:
         
         series.sort(key=lambda x: x.period_start)
         return series
+    
+    async def get_recent_requests(
+        self,
+        session_id: str,
+        from_time: Optional[datetime] = None,
+        to_time: Optional[datetime] = None,
+        limit: int = 10
+    ) -> List[HudRecentItem]:
+        """Get recent API requests for a session."""
+        
+        # Validate limit
+        if limit > 50:
+            limit = 50
+        
+        query = self.supabase.table("api_requests").select(
+            "id, created_at, status_code, latency_ms, provider_id, model_id, "
+            "prompt_tokens, completion_tokens, total_tokens, cost, currency, metadata"
+        ).eq("metadata->>session_id", session_id)
+        
+        if from_time:
+            query = query.gte("created_at", from_time.isoformat())
+        if to_time:
+            query = query.lte("created_at", to_time.isoformat())
+        
+        response = query.order("created_at", desc=True).limit(limit).execute()
+        
+        if not response.data:
+            return []
+        
+        # Build provider and model name maps for efficiency
+        provider_ids = set(row.get("provider_id") for row in response.data if row.get("provider_id"))
+        model_ids = set(row.get("model_id") for row in response.data if row.get("model_id"))
+        
+        provider_map = {}
+        if provider_ids:
+            provider_response = self.supabase.table("ai_providers").select("id, name").in_("id", list(provider_ids)).execute()
+            provider_map = {p["id"]: p["name"] for p in provider_response.data}
+        
+        model_map = {}
+        if model_ids:
+            model_response = self.supabase.table("ai_models").select("id, model_name").in_("id", list(model_ids)).execute()
+            model_map = {m["id"]: m["model_name"] for m in model_response.data}
+        
+        # Convert to HudRecentItem objects
+        recent_items = []
+        for row in response.data:
+            provider_name = provider_map.get(row.get("provider_id"), "unknown")
+            model_name = model_map.get(row.get("model_id"), "unknown")
+            
+            # Extract provider_request_id from metadata
+            metadata = row.get("metadata", {}) or {}
+            provider_request_id = metadata.get("provider_request_id")
+            
+            recent_items.append(HudRecentItem(
+                id=row["id"],
+                created_at=datetime.fromisoformat(row["created_at"].replace("Z", "+00:00")),
+                status_code=row.get("status_code", 0),
+                duration_ms=row.get("latency_ms", 0),
+                provider=provider_name,
+                model=model_name,
+                prompt_tokens=row.get("prompt_tokens", 0) or 0,
+                completion_tokens=row.get("completion_tokens", 0) or 0,
+                total_tokens=row.get("total_tokens", 0) or 0,
+                cost=Decimal(str(row.get("cost", 0) or 0)),
+                provider_request_id=provider_request_id
+            ))
+        
+        return recent_items
     
     async def _get_session_time_bounds(self, session_id: str) -> dict:
         """Get session creation and last update times."""

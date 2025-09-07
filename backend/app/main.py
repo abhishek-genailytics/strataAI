@@ -19,6 +19,7 @@ from app.api.playground_usage import router as playground_usage_router
 from app.api.playground_actions import router as playground_actions_router
 from app.api.playground_picker import router as playground_picker_router
 from app.api.playground_system import router as playground_system_router
+from app.api.playground_hud import router as playground_hud_router
 from app.middleware.error_handling import ErrorHandlingMiddleware
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.usage_logging import UsageLoggingMiddleware
@@ -99,6 +100,9 @@ def create_app() -> FastAPI:
     
     # Playground system prompt management endpoints
     app.include_router(playground_system_router, prefix=settings.API_V1_STR)
+    
+    # Playground HUD (Heads-Up Display) analytics endpoint
+    app.include_router(playground_hud_router, prefix=settings.API_V1_STR)
     
     # Custom exception handler for RequestValidationError on OpenAI paths
     @app.exception_handler(RequestValidationError)
