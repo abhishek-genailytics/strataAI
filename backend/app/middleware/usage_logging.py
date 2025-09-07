@@ -2,13 +2,14 @@
 Usage logging middleware for tracking request metrics - MVP version.
 """
 import time
+from typing import Callable, Awaitable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 class UsageLoggingMiddleware(BaseHTTPMiddleware):
     """On response, compute duration and attach to header X-Request-Duration-ms"""
     
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         response = await call_next(request)
         
         # Use duration_ms from RequestContextMiddleware if available

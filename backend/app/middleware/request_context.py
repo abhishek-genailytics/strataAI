@@ -1,5 +1,6 @@
 import uuid
 import time
+from typing import Callable, Awaitable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from ..core.errors import generate_request_id
@@ -16,7 +17,7 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
     - Handles exceptions gracefully for timing
     """
     
-    async def dispatch(self, request: Request, call_next) -> Response:
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]) -> Response:
         # Get or generate request ID
         request_id = request.headers.get("x-request-id")
         if not request_id:

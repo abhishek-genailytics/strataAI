@@ -1,6 +1,6 @@
 import hashlib
 import json
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Callable, Awaitable
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response as StarletteResponse
@@ -43,7 +43,7 @@ class ResponseCachingMiddleware(BaseHTTPMiddleware):
             "/docs",                     # Documentation
         ]
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
         # Skip caching if disabled
         if not settings.CACHE_ENABLED:
             return await call_next(request)

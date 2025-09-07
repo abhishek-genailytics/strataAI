@@ -5,9 +5,7 @@ from app.core.auth import require_pat
 from app.core.deps import resolve_organization
 from app.models.auth import CurrentCaller
 from app.services.unified_service import UnifiedChatService
-from app.core.telemetry import TelemetryHook
-
-router = APIRouter(dependencies=[Depends(TelemetryHook())], tags=["Unified API"])
+router = APIRouter(tags=["Unified API"])
 
 @router.post("/chat/completions", response_model=ChatCompletionResponse, name="OpenAI-compatible chat")
 async def chat_completions(

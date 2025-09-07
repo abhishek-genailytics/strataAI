@@ -1,6 +1,6 @@
 import time
 import hashlib
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable, Awaitable
 from fastapi import Request, Response, HTTPException
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -20,7 +20,7 @@ class RateLimitingMiddleware(BaseHTTPMiddleware):
         self.calls_per_hour = calls_per_hour or settings.RATE_LIMIT_PER_HOUR
         self.burst_limit = burst_limit or settings.RATE_LIMIT_BURST
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
         # Skip rate limiting for health checks and internal endpoints
         if request.url.path in ["/", "/health", "/docs", "/redoc", "/openapi.json"]:
             return await call_next(request)
@@ -157,7 +157,7 @@ class IPRateLimitingMiddleware(BaseHTTPMiddleware):
         super().__init__(app)
         self.calls_per_minute = calls_per_minute
     
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
         # Skip for authenticated requests (handled by main rate limiter)
         if hasattr(request.state, 'user_id'):
             return await call_next(request)

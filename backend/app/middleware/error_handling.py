@@ -3,8 +3,7 @@ Error handling middleware for FastAPI application.
 """
 import json
 import traceback
-from typing import Any, Dict
-
+from typing import Dict, Any, Callable, Awaitable
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
@@ -31,7 +30,7 @@ def _log_exc(req: Request, status_code: int, payload: Dict[str, Any]) -> None:
     )
 
 class ErrorHandlingMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next: Callable[[Request], Awaitable[Response]]):
         try:
             return await call_next(request)
 
