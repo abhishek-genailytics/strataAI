@@ -29,10 +29,14 @@ async def chat_completions(
     adapter = get_adapter(resolved_model.provider_name)
 
     # 2) Load org-scoped provider key (throws OpenAI-style errors via middleware)
-    api_key_id, plaintext_key = get_active_api_key(
-        organization_id=organization_id,
-        provider_id=resolved_model.provider_id
-    )
+    # Special case: echo adapter doesn't need API keys
+    if resolved_model.provider_name == "echo":
+        api_key_id, plaintext_key = None, None
+    else:
+        api_key_id, plaintext_key = get_active_api_key(
+            organization_id=organization_id,
+            provider_id=resolved_model.provider_id
+        )
 
     # 3) Call provider adapter
     resp = await adapter.chat_completion(

@@ -325,6 +325,8 @@ async def validate_model(model_id: str) -> ResolvedModel:
     3. Model exists under that provider and is active in ai_models
     4. Model type is 'chat' or 'multimodal' (MVP constraint)
     
+    Special case: When FORCE_ECHO_ADAPTER is enabled, bypass validation for echo models.
+    
     Args:
         model_id: Model identifier in 'provider/model' format
         
@@ -336,12 +338,34 @@ async def validate_model(model_id: str) -> ResolvedModel:
         NotFoundError: If provider or model not found
         PermissionError_: If provider or model is disabled
     """
+    from app.core.config import get_settings
+    settings = get_settings()
+    
     try:
         # 1) Parse and normalize provider/model
         provider_slug, native_model = parse_model_id(model_id)
     except ValueError as e:
         # Convert ValueError to proper OpenAI-compatible error
         raise InvalidRequestError(str(e), param="model")
+    
+    # Special case: FORCE_ECHO_ADAPTER bypasses catalog validation
+    if settings.FORCE_ECHO_ADAPTER and provider_slug == "echo":
+        from uuid import uuid4
+        return ResolvedModel(
+            id=uuid4(),
+            provider_id=uuid4(),
+            provider_name="echo",
+            model_name=native_model,
+            display_name=f"Echo {native_model}",
+            model_type="chat",
+            supports_streaming=False,
+            supports_function_calling=False,
+            supports_vision=False,
+            supports_audio=False,
+            max_tokens=1000,
+            max_input_tokens=1000,
+            is_active=True
+        )
     
     # 2) Validate provider exists and is active
     provider = get_provider_by_name(provider_slug)

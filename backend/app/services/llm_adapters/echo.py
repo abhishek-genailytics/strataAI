@@ -1,14 +1,10 @@
-import math
 from uuid import UUID
 from app.services.llm_adapters.base import LLMAdapter
 from app.models.openai_chat import (
     ChatCompletionRequest, ChatCompletionResponse, ChatCompletionChoice,
     ChatCompletionUsage, ChatMessage
 )
-
-def _approx_tokens(text: str) -> int:
-    # naive & deterministic: 1 token ~ 4 chars (ASCII assumption)
-    return max(1, math.ceil(len(text) / 4))
+from app.services.token_counting import unify_usage
 
 class EchoAdapter(LLMAdapter):
     provider_name = "echo"
@@ -26,14 +22,14 @@ class EchoAdapter(LLMAdapter):
         user_text = last_user.content if last_user else "Hello!"
         reply_text = f"echo: {user_text}"
 
-        # 2) usage (approx)
-        prompt_text = "".join(m.content for m in request.messages)
-        prompt_tokens = _approx_tokens(prompt_text)
-        completion_tokens = _approx_tokens(reply_text)
-        usage = ChatCompletionUsage(
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            total_tokens=prompt_tokens + completion_tokens,
+        # 2) usage (centralized counting)
+        provider_usage = None  # echo has no provider-reported usage
+        usage = unify_usage(
+            provider_usage=provider_usage,
+            messages=request.messages,
+            assistant_text=reply_text,
+            model_name=model_name,
+            provider="echo",
         )
 
         # 3) response

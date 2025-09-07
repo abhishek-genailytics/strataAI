@@ -12,6 +12,7 @@ from app.core.exceptions import (
     InvalidRequestError, AuthenticationError, RateLimitExceeded,
     ServiceUnavailable, UpstreamTimeout, ProviderError
 )
+from app.services.token_counting import unify_usage
 
 _settings = get_settings()
 
@@ -128,11 +129,22 @@ class AnthropicAdapter(LLMAdapter):
         else:  # "end_turn" or "stop_sequence" (and others default to 'stop')
             finish_reason = "stop"
 
+        # Use centralized token counting with provider fallback
         usage_in = data.get("usage") or {}
-        usage = ChatCompletionUsage(
-            prompt_tokens=int(usage_in.get("input_tokens", 0) or 0),
-            completion_tokens=int(usage_in.get("output_tokens", 0) or 0),
-            total_tokens=int(usage_in.get("input_tokens", 0) or 0) + int(usage_in.get("output_tokens", 0) or 0),
+        provider_usage = None
+        if usage_in:
+            provider_usage = (
+                usage_in.get("input_tokens"),
+                usage_in.get("output_tokens"),
+                (usage_in.get("input_tokens", 0) + usage_in.get("output_tokens", 0)),
+            )
+
+        usage = unify_usage(
+            provider_usage=provider_usage,
+            messages=request.messages,
+            assistant_text=assistant_text,
+            model_name=model_name,
+            provider="anthropic",
         )
 
         choice = ChatCompletionChoice(

@@ -65,3 +65,7 @@ docker
 # Additional utilities
 python-dateutil
 pytz
+
+# Optional precise tokenizers (enable later if needed)
+# tiktoken==0.7.0           # OpenAI models
+# anthropic-tokenizer==0.1  # Claude models (if a lib is published/usable)
