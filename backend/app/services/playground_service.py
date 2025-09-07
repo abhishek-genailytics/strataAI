@@ -14,12 +14,200 @@ from ..core.encryption import encryption_service
 from ..models.organization import Organization
 from ..models.playground_mode import PlaygroundRequestSource, PlaygroundSessionMeta
 from ..models.openai_chat import ChatCompletionRequest, ChatMessage
+from ..models.playground_chat import PlaygroundChatCompletionRequest, PlaygroundChatCompletionResponse
 from ..services.gateway_bridge import GatewayBridge
 from ..core.deps import CurrentUser
+from ..errors.openai_envelope import (
+    invalid_model_format_error, 
+    model_not_found_error, 
+    provider_key_missing_error,
+    server_error
+)
 
 
 class PlaygroundProviderService:
     """Direct API calls to providers using user's configured API keys."""
+    
+    @staticmethod
+    async def send(
+        session_id: UUID, 
+        req: PlaygroundChatCompletionRequest, 
+        user_ctx: CurrentUser,
+        organization_id: UUID
+    ) -> PlaygroundChatCompletionResponse:
+        """
+        Single playground chat completion endpoint with OpenAI-compatible interface.
+        Routes between Gateway and Direct modes based on session metadata.
+        """
+        try:
+            # Validate model prefix format
+            if "/" not in req.model:
+                invalid_model_format_error(req.model)
+            
+            provider_name, model_name = req.model.split("/", 1)
+            
+            # Validate provider is supported
+            supported_providers = ["openai", "anthropic", "echo"]
+            if provider_name.lower() not in supported_providers:
+                model_not_found_error(req.model)
+            
+            # Load session to determine request source mode
+            session_result = supabase_service.table("chat_sessions").select(
+                "metadata, user_id"
+            ).eq("id", str(session_id)).execute()
+            
+            if not session_result.data:
+                from ..errors.openai_envelope import session_not_found_error
+                session_not_found_error(str(session_id))
+            
+            session_data = session_result.data[0]
+            
+            # Verify session ownership
+            if session_data["user_id"] != str(user_ctx.id):
+                from ..errors.openai_envelope import session_not_found_error
+                session_not_found_error(str(session_id))
+            
+            # Determine request source (default to gateway)
+            session_metadata = session_data.get("metadata", {})
+            request_source = PlaygroundRequestSource.gateway
+            if isinstance(session_metadata, dict):
+                request_source = PlaygroundRequestSource(
+                    session_metadata.get("request_source", "gateway")
+                )
+            
+            # Convert messages to dict format for internal processing
+            messages = [{"role": msg.role, "content": msg.content} for msg in req.messages]
+            
+            # Save user message to database
+            user_message = messages[-1] if messages else None
+            user_message_id = None
+            if user_message and user_message["role"] == "user":
+                user_message_id = await PlaygroundProviderService.save_message_with_tokens(
+                    str(session_id),
+                    "user",
+                    user_message["content"],
+                    provider_name,
+                    model_name,
+                    0,  # Will be updated with actual token count
+                    "input"
+                )
+            
+            # Route based on request source
+            if request_source == PlaygroundRequestSource.gateway:
+                response_data = await PlaygroundProviderService._gateway_chat_completion(
+                    organization_id, provider_name, model_name, messages, 
+                    req.temperature or 0.7, req.max_tokens or 512, 
+                    str(session_id), user_ctx.id
+                )
+            else:
+                response_data = await PlaygroundProviderService._direct_chat_completion(
+                    organization_id, provider_name, model_name, messages,
+                    req.temperature or 0.7, req.max_tokens or 512
+                )
+            
+            # Extract response content and usage
+            assistant_content = ""
+            usage_data = response_data.get("usage", {})
+            prompt_tokens = usage_data.get("prompt_tokens", 0)
+            completion_tokens = usage_data.get("completion_tokens", 0)
+            
+            if "choices" in response_data and response_data["choices"]:
+                assistant_content = response_data["choices"][0]["message"]["content"]
+            
+            # Update user message token count
+            if user_message_id and prompt_tokens > 0:
+                await PlaygroundProviderService.update_message_token_count(
+                    user_message_id, prompt_tokens
+                )
+            
+            # Save assistant message
+            if assistant_content:
+                await PlaygroundProviderService.save_message_with_tokens(
+                    str(session_id),
+                    "assistant",
+                    assistant_content,
+                    provider_name,
+                    model_name,
+                    completion_tokens,
+                    "output"
+                )
+                
+                # Generate session name if needed
+                if user_message:
+                    api_key = await PlaygroundProviderService.get_decrypted_api_key(
+                        organization_id, provider_name
+                    )
+                    if api_key:
+                        await PlaygroundProviderService.update_session_name_if_needed(
+                            str(session_id), provider_name, model_name, 
+                            user_message["content"], api_key
+                        )
+            
+            # Persist API request for analytics
+            await PlaygroundProviderService._persist_api_request(
+                organization_id, user_ctx.id, req.model, prompt_tokens, completion_tokens
+            )
+            
+            # Create OpenAI-compatible response
+            return PlaygroundChatCompletionResponse.create(
+                model=req.model,
+                content=assistant_content,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                finish_reason="stop"
+            )
+            
+        except Exception as e:
+            # Convert any non-OpenAI errors to OpenAI format
+            if hasattr(e, 'status_code'):
+                raise e  # Already an OpenAI-formatted error
+            else:
+                server_error(f"Chat completion failed: {str(e)}")
+    
+    @staticmethod
+    async def _persist_api_request(
+        organization_id: UUID,
+        user_id: UUID, 
+        model: str,
+        prompt_tokens: int,
+        completion_tokens: int
+    ):
+        """Persist API request for analytics and cost tracking."""
+        try:
+            # Calculate cost based on model pricing
+            total_cost = 0.0
+            currency = "USD"
+            
+            # Get model pricing
+            provider_name, model_name = model.split("/", 1)
+            pricing_result = supabase_service.table("model_pricing").select(
+                "pricing_type, price_per_unit"
+            ).eq("model_name", model_name).execute()
+            
+            if pricing_result.data:
+                for pricing in pricing_result.data:
+                    if pricing["pricing_type"] == "input":
+                        total_cost += (prompt_tokens / 1000) * float(pricing["price_per_unit"])
+                    elif pricing["pricing_type"] == "output":
+                        total_cost += (completion_tokens / 1000) * float(pricing["price_per_unit"])
+            
+            # Insert API request record
+            supabase_service.table("api_requests").insert({
+                "organization_id": str(organization_id),
+                "user_id": str(user_id),
+                "endpoint": "/playground/chat/completions",
+                "model": model,
+                "prompt_tokens": prompt_tokens,
+                "completion_tokens": completion_tokens,
+                "total_tokens": prompt_tokens + completion_tokens,
+                "cost_usd": total_cost,
+                "currency": currency,
+                "created_at": datetime.utcnow().isoformat()
+            }).execute()
+            
+        except Exception:
+            # Don't fail the request if analytics fails
+            pass
     
     @staticmethod
     async def generate_session_name(provider: str, model: str, first_message: str, api_key: str) -> str:

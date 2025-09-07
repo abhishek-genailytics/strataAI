@@ -6,31 +6,23 @@ from typing import List, Optional, AsyncGenerator, Dict, Any
 from uuid import UUID
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from ..core.deps import get_current_user, get_organization_context, CurrentUser
+from ..core.config import get_settings
 from ..models.organization import Organization
 from ..models.playground_mode import PlaygroundRequestSource, PlaygroundSessionMeta
+from ..models.playground_chat import PlaygroundChatCompletionRequest, PlaygroundChatCompletionResponse
 from ..services.playground_service import PlaygroundProviderService
 from ..utils.supabase_client import supabase_service
+from ..errors.openai_envelope import openai_error
 
 router = APIRouter(prefix="/playground", tags=["playground"])
 
 
-class PlaygroundMessage(BaseModel):
-    role: str
-    content: str
-
-
-class PlaygroundChatRequest(BaseModel):
-    model: str  # Format: "provider/model" (e.g., "openai/gpt-4")
-    messages: List[PlaygroundMessage]
-    temperature: Optional[float] = 0.7
-    max_tokens: Optional[int] = 2500
-    stream: Optional[bool] = False
-    session_id: Optional[str] = None  # Current session ID for continuation
+# Legacy models removed - now using OpenAI-compatible models from playground_chat.py
 
 
 class PlaygroundSessionCreate(BaseModel):
@@ -142,180 +134,58 @@ async def get_playground_models(
         )
 
 
-@router.post("/chat/completions")
+@router.post("/chat/completions", response_model=PlaygroundChatCompletionResponse)
 async def playground_chat_completion(
-    request: PlaygroundChatRequest,
+    session_id: UUID,
+    request: PlaygroundChatCompletionRequest,
+    response: Response,
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context)
 ):
-    """Direct chat completion for playground using user's provider API keys with session management."""
+    """
+    Single playground chat completion endpoint with OpenAI-compatible interface.
+    Routes between Gateway and Direct modes based on session metadata.
+    
+    Args:
+        session_id: Required session ID to locate mode & persist messages
+        request: OpenAI-style chat completion request
+        
+    Returns:
+        PlaygroundChatCompletionResponse: OpenAI-compatible response
+        
+    Headers:
+        X-Stream-Disabled: 1 (if request contained stream=true, for parity with /v1)
+    """
     if not organization:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Organization context is required"
-        )
+        openai_error(400, "Organization context is required")
+    
+    settings = get_settings()
     
     try:
-        # Parse provider and model from request
-        if "/" not in request.model:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Model must be in format 'provider/model'"
-            )
+        # Check if stream was requested (MVP: always disabled)
+        stream_requested = request.stream
         
-        provider_name, model_name = request.model.split("/", 1)
-        
-        # Get or create session based on provider compatibility
-        # Default metadata for new sessions (gateway mode by default)
-        default_metadata = PlaygroundSessionMeta(request_source=PlaygroundRequestSource.gateway)
-        
-        session_id = await PlaygroundProviderService.create_or_get_session(
-            str(current_user.id),
-            provider_name,
-            model_name,
-            request.session_id,
-            metadata=default_metadata
+        # Call the service layer with OpenAI-compatible interface
+        chat_response = await PlaygroundProviderService.send(
+            session_id=session_id,
+            req=request,
+            user_ctx=current_user,
+            organization_id=organization.id
         )
         
-        # Convert messages to dict format
-        messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        # Add optional response headers if enabled
+        if settings.PLAYGROUND_RESP_HEADERS:
+            response.headers["X-Playground-Session-ID"] = str(session_id)
+            if stream_requested:
+                response.headers["X-Stream-Disabled"] = "1"
         
-        # Save user message to database (we'll update token count after API response)
-        user_message = messages[-1]  # Last message should be the user's input
-        user_message_id = None
-        if user_message["role"] == "user":
-            user_message_id = await PlaygroundProviderService.save_message_with_tokens(
-                session_id,
-                "user",
-                user_message["content"],
-                provider_name,
-                model_name,
-                0,  # Will be updated with actual token count from API response
-                "input"
-            )
-        
-        # Get API key for the provider
-        api_key = await PlaygroundProviderService.get_decrypted_api_key(
-            organization.id, provider_name
-        )
-        if not api_key:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"No API key configured for provider: {provider_name}"
-            )
-        
-        if request.stream:
-            # Return streaming response
-            async def generate():
-                full_response = ""
-                async for chunk in PlaygroundProviderService.chat_completion_stream(
-                    organization.id,
-                    provider_name,
-                    model_name,
-                    messages,
-                    request.temperature or 0.7,
-                    request.max_tokens or 2500
-                ):
-                    # Extract content from streaming chunks for saving
-                    if "data: " in chunk and chunk.strip() != "data: [DONE]":
-                        try:
-                            chunk_data = json.loads(chunk.replace("data: ", ""))
-                            if "choices" in chunk_data and chunk_data["choices"]:
-                                delta = chunk_data["choices"][0].get("delta", {})
-                                if "content" in delta:
-                                    full_response += delta["content"]
-                        except:
-                            pass
-                    yield chunk
-                
-                # Save assistant response after streaming completes
-                if full_response:
-                    await PlaygroundProviderService.save_message_with_tokens(
-                        session_id,
-                        "assistant",
-                        full_response,
-                        provider_name,
-                        model_name,
-                        len(full_response.split()),  # Approximate token count for streaming
-                        "output"
-                    )
-                    
-                    # Generate session name if this is the first user message
-                    await PlaygroundProviderService.update_session_name_if_needed(
-                        session_id, provider_name, model_name, user_message["content"], api_key
-                    )
-            
-            return StreamingResponse(
-                generate(),
-                media_type="text/plain",
-                headers={
-                    "Cache-Control": "no-cache",
-                    "X-Session-ID": session_id  # Return session ID in header
-                }
-            )
-        else:
-            # Return non-streaming response
-            response = await PlaygroundProviderService.chat_completion(
-                organization.id,
-                provider_name,
-                model_name,
-                messages,
-                request.temperature or 0.7,
-                request.max_tokens or 2500,
-                stream=False,
-                session_id=session_id,
-                user_id=current_user.id
-            )
-            
-            # Save assistant response and extract token usage
-            if "choices" in response and response["choices"]:
-                assistant_content = response["choices"][0]["message"]["content"]
-                
-                # Extract token usage
-                usage = response.get("usage", {})
-                input_tokens = usage.get("prompt_tokens", 0)
-                output_tokens = usage.get("completion_tokens", 0)
-                
-                # Update user message token count
-                if user_message_id and input_tokens > 0:
-                    await PlaygroundProviderService.update_message_token_count(
-                        user_message_id, input_tokens
-                    )
-                
-                # Save assistant message
-                await PlaygroundProviderService.save_message_with_tokens(
-                    session_id,
-                    "assistant",
-                    assistant_content,
-                    provider_name,
-                    model_name,
-                    output_tokens,
-                    "output"
-                )
-                
-                # Generate session name if this is the first user message
-                await PlaygroundProviderService.update_session_name_if_needed(
-                    session_id, provider_name, model_name, user_message["content"], api_key
-                )
-            
-            # Add session ID to response
-            response["session_id"] = session_id
-            
-            # Ensure all database operations are committed before returning
-            # Small delay to ensure session name generation completes
-            import asyncio
-            await asyncio.sleep(0.1)
-            
-            return response
+        return chat_response
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Playground chat completion error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Chat completion failed: {str(e)}"
-        )
+        # Convert any remaining errors to OpenAI format
+        openai_error(500, f"Chat completion failed: {str(e)}")
 
 
 @router.post("/sessions", response_model=PlaygroundSessionResponse)

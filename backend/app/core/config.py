@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     # Feature flags
     FORCE_ECHO_ADAPTER: bool = False
+    PLAYGROUND_RESP_HEADERS: bool = True  # Mirror /v1 response headers in playground
 
     # Supabase (service + anon)
     SUPABASE_URL: str = ""
@@ -85,6 +86,7 @@ class Settings(BaseSettings):
                 "ENABLE_REQUEST_LOGGING": self.ENABLE_REQUEST_LOGGING,
                 "ENABLE_USAGE_ROLLUPS": self.ENABLE_USAGE_ROLLUPS,
                 "ENABLE_PLAYGROUND_LOGGING": self.ENABLE_PLAYGROUND_LOGGING,
+                "PLAYGROUND_RESP_HEADERS": self.PLAYGROUND_RESP_HEADERS,
             },
             "PROVIDERS": {
                 "openai": {
