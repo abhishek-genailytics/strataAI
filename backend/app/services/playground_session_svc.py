@@ -230,12 +230,18 @@ class PlaygroundSessionService:
             
             current_metadata = current_result.data[0].get("metadata", {})
             
-            # Merge metadata (preserve system fields, allow user fields)
-            system_fields = ["request_source", "default_params"]
-            
-            # Merge all user-provided metadata
+            # Merge metadata with special handling for default_params
             for key, value in data.metadata.items():
-                current_metadata[key] = value
+                if key == "default_params":
+                    # Merge default_params instead of replacing
+                    current_params = current_metadata.get("default_params", {})
+                    if isinstance(value, dict) and isinstance(current_params, dict):
+                        current_params.update(value)
+                        current_metadata[key] = current_params
+                    else:
+                        current_metadata[key] = value
+                else:
+                    current_metadata[key] = value
             
             update_data["metadata"] = current_metadata
         

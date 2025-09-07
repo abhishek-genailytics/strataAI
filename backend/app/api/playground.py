@@ -15,6 +15,9 @@ from ..core.config import get_settings
 from ..models.organization import Organization
 from ..models.playground_mode import PlaygroundRequestSource, PlaygroundSessionMeta
 from ..models.playground_chat import PlaygroundChatCompletionRequest, PlaygroundChatCompletionResponse
+from ..models.model_params import ModelParams, ChatCompletionWithParams
+from ..services.user_model_prefs import user_model_prefs_service
+from ..utils.supabase_client import get_supabase_user_client
 from ..services.playground_service import PlaygroundProviderService
 from ..utils.supabase_client import supabase_service
 from ..errors.openai_envelope import openai_error
@@ -137,7 +140,7 @@ async def get_playground_models(
 @router.post("/chat/completions", response_model=PlaygroundChatCompletionResponse)
 async def playground_chat_completion(
     session_id: UUID,
-    request: PlaygroundChatCompletionRequest,
+    request: ChatCompletionWithParams,
     response: Response,
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
@@ -148,15 +151,23 @@ async def playground_chat_completion(
     """
     Single playground chat completion endpoint with OpenAI-compatible interface.
     Routes between Gateway and Direct modes based on session metadata.
+    Now supports parameter overrides and user preference persistence.
     
     Args:
         session_id: Required session ID to locate mode & persist messages
-        request: OpenAI-style chat completion request
+        request: Extended chat completion request with parameter overrides
         
     Request Headers:
         X-Session-ID: Session ID (optional, overrides path parameter)
         X-Client-Message-ID: Client-generated UUID for user message (optional)
         X-Idempotency-Key: Idempotency key for safe retries (optional)
+        
+    Request Body:
+        messages: OpenAI-style message array
+        model: Model ID in "provider/model" format
+        params: Optional ModelParams object for parameter overrides
+        save_params: Boolean to persist params as user defaults
+        Direct parameter fields (temperature, max_tokens, etc.) also supported
         
     Returns:
         PlaygroundChatCompletionResponse: OpenAI-compatible response
@@ -179,6 +190,26 @@ async def playground_chat_completion(
         # Check if stream was requested (MVP: always disabled)
         stream_requested = request.stream
         
+        # Get user-scoped Supabase client for parameter merging
+        supabase_client = get_supabase_user_client(current_user.jwt_token)
+        
+        # Extract and merge parameters from request
+        request_params = request.get_merged_params()
+        
+        # Merge parameters with proper precedence (request > session > user > system)
+        merged_params = await user_model_prefs_service.merge_all_defaults(
+            user_id=current_user.user_id,
+            org_id=organization.id,
+            model_id=request.model,
+            session_id=effective_session_id,
+            request_params=request_params,
+            supabase_client=supabase_client
+        )
+        
+        # Ensure Anthropic requirements
+        if request.model.startswith("anthropic/"):
+            merged_params = merged_params.ensure_anthropic_requirements()
+        
         # Prepare headers for send pipeline
         from ..services.send_pipeline import SendHeaders
         headers = SendHeaders(
@@ -187,7 +218,7 @@ async def playground_chat_completion(
             idempotency_key=x_idempotency_key
         )
         
-        # Convert PlaygroundChatCompletionRequest to ChatCompletionRequest
+        # Convert to ChatCompletionRequest with merged parameters
         from ..models.openai_chat import ChatCompletionRequest, ChatMessage
         openai_request = ChatCompletionRequest(
             model=request.model,
@@ -195,12 +226,12 @@ async def playground_chat_completion(
                 ChatMessage(role=msg.role, content=msg.content)
                 for msg in request.messages
             ],
-            temperature=request.temperature,
-            top_p=request.top_p,
-            max_tokens=request.max_tokens,
-            stop=request.stop,
-            presence_penalty=request.presence_penalty,
-            frequency_penalty=request.frequency_penalty,
+            temperature=merged_params.temperature,
+            top_p=merged_params.top_p,
+            max_tokens=merged_params.max_tokens,
+            stop=merged_params.stop,
+            presence_penalty=merged_params.presence_penalty,
+            frequency_penalty=merged_params.frequency_penalty,
             stream=request.stream
         )
         
@@ -215,6 +246,15 @@ async def playground_chat_completion(
             organization_id=organization.id,
             headers=headers
         )
+        
+        # Optionally save parameters as user defaults
+        if request.save_params and request_params:
+            await user_model_prefs_service.upsert_user_defaults(
+                user_id=current_user.user_id,
+                org_id=organization.id,
+                model_id=request.model,
+                params=request_params
+            )
         
         # Convert OpenAI response back to PlaygroundChatCompletionResponse
         chat_response = PlaygroundChatCompletionResponse.create(

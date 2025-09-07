@@ -117,3 +117,27 @@ def server_error(message: str = "Internal server error"):
         code="server_error",
         error_type="server_error"
     )
+
+
+def invalid_request_error(message: str):
+    """Standard error for invalid requests."""
+    return {
+        "error": {
+            "message": message,
+            "type": "invalid_request_error",
+            "param": None,
+            "code": "invalid_request"
+        }
+    }
+
+
+def not_found_error(message: str):
+    """Standard error for not found resources."""
+    return {
+        "error": {
+            "message": message,
+            "type": "invalid_request_error",
+            "param": None,
+            "code": "not_found"
+        }
+    }

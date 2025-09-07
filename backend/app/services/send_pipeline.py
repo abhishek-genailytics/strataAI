@@ -185,6 +185,118 @@ class SendPipeline:
             else:
                 server_error(f"Send pipeline failed: {str(e)}")
     
+    async def run_regenerate(
+        self,
+        *,
+        session_id: UUID,
+        request_body: Dict[str, Any],
+        idempotency_key: str,
+        user_id: UUID,
+        org_id: UUID,
+        supabase_client
+    ) -> Dict[str, Any]:
+        """
+        Run regeneration using the same send pipeline logic.
+        This is a thin wrapper that converts the request and calls run().
+        
+        Args:
+            session_id: Session UUID
+            request_body: OpenAI-style request body dict
+            idempotency_key: New idempotency key for regeneration
+            user_id: User UUID
+            org_id: Organization UUID
+            supabase_client: User-scoped Supabase client
+            
+        Returns:
+            Dict with "body" (OpenAI response) and "headers" keys
+        """
+        try:
+            # Convert request body to ChatCompletionRequest
+            from ..models.openai_chat import ChatCompletionRequest, ChatMessage
+            
+            messages = [
+                ChatMessage(role=msg["role"], content=msg["content"])
+                for msg in request_body.get("messages", [])
+            ]
+            
+            request = ChatCompletionRequest(
+                model=request_body["model"],
+                messages=messages,
+                temperature=request_body.get("temperature"),
+                top_p=request_body.get("top_p"),
+                max_tokens=request_body.get("max_tokens"),
+                stop=request_body.get("stop"),
+                presence_penalty=request_body.get("presence_penalty"),
+                frequency_penalty=request_body.get("frequency_penalty"),
+                stream=request_body.get("stream", False)
+            )
+            
+            # Create user context (simplified for regeneration)
+            user_ctx = CurrentUser(
+                user_id=user_id,
+                organization_id=org_id,
+                jwt_token=supabase_client.auth.get_session().access_token if hasattr(supabase_client.auth.get_session(), 'access_token') else None
+            )
+            
+            # Create headers with new idempotency key
+            headers = SendHeaders(
+                session_id=str(session_id),
+                client_message_id=None,  # No client message ID for regeneration
+                idempotency_key=idempotency_key
+            )
+            
+            # Call the main run method
+            openai_response, send_context = await self.run(
+                session_id=session_id,
+                request=request,
+                user_ctx=user_ctx,
+                organization_id=org_id,
+                headers=headers
+            )
+            
+            # Convert response to dict format for JSON serialization
+            response_dict = {
+                "id": openai_response.id,
+                "object": openai_response.object,
+                "created": openai_response.created,
+                "model": openai_response.model,
+                "choices": [
+                    {
+                        "index": choice.index,
+                        "message": {
+                            "role": choice.message.role,
+                            "content": choice.message.content
+                        },
+                        "finish_reason": choice.finish_reason
+                    }
+                    for choice in openai_response.choices
+                ],
+                "usage": {
+                    "prompt_tokens": openai_response.usage.prompt_tokens,
+                    "completion_tokens": openai_response.usage.completion_tokens,
+                    "total_tokens": openai_response.usage.total_tokens
+                } if openai_response.usage else None
+            }
+            
+            # Build response headers
+            response_headers = {
+                "X-User-Message-ID": str(send_context.user_msg_id),
+                "X-Assistant-Message-ID": str(send_context.assistant_msg_id),
+                "X-Message-Index-Start": str(send_context.start_index)
+            }
+            
+            return {
+                "body": response_dict,
+                "headers": response_headers
+            }
+            
+        except Exception as e:
+            # Convert to OpenAI error format
+            if hasattr(e, 'status_code'):
+                raise e
+            else:
+                server_error(f"Regeneration failed: {str(e)}")
+    
     async def _load_session_and_mode(
         self, session_id: UUID, user_ctx: CurrentUser
     ) -> Tuple[Dict[str, Any], PlaygroundRequestSource]:
