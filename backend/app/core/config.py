@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     PROJECT_NAME: str = "StrataAI"
     API_V1_STR: str = "/api/v1"
     LOG_LEVEL: str = "INFO"
-    ALLOWED_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "*"]  # Allow frontend domains
+    ALLOWED_ORIGINS: Union[str, List[str]] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"]  # Allow frontend domains
     ENABLE_REQUEST_LOGGING: bool = True
     ENABLE_USAGE_ROLLUPS: bool = True
     ENABLE_PLAYGROUND_LOGGING: bool = True
