@@ -18,6 +18,8 @@ from ..models.chat_completion import (
     ChatMessage,
     ProviderError
 )
+from ..core.error_map import map_transport_error, map_provider_error
+from ..core.errors import StrataError
 
 
 class LLMAdapter(ABC):
@@ -26,13 +28,16 @@ class LLMAdapter(ABC):
     def __init__(self, provider_name: str, base_url: str):
         self.provider_name = provider_name
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=60.0)
+        # Set timeouts for better error handling
+        timeout = httpx.Timeout(connect=5.0, read=30.0, write=10.0, pool=5.0)
+        self.client = httpx.AsyncClient(timeout=timeout)
     
     @abstractmethod
     async def chat_completion(
         self, 
         request: ChatCompletionRequest, 
-        api_key: str
+        api_key: str,
+        request_id: Optional[str] = None
     ) -> ChatCompletionResponse:
         """Execute chat completion request and return normalized response."""
         pass
@@ -41,7 +46,8 @@ class LLMAdapter(ABC):
     async def chat_completion_stream(
         self, 
         request: ChatCompletionRequest, 
-        api_key: str
+        api_key: str,
+        request_id: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """Execute streaming chat completion and yield SSE-formatted chunks."""
         pass
@@ -123,7 +129,8 @@ class OpenAIAdapter(LLMAdapter):
     async def chat_completion(
         self, 
         request: ChatCompletionRequest, 
-        api_key: str
+        api_key: str,
+        request_id: Optional[str] = None
     ) -> ChatCompletionResponse:
         """Execute OpenAI chat completion."""
         try:
@@ -131,6 +138,10 @@ class OpenAIAdapter(LLMAdapter):
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
+            
+            # Add request ID for provider correlation
+            if request_id:
+                headers["X-Request-ID"] = request_id
             
             body = self._prepare_request_body(request)
             body["stream"] = False  # Ensure non-streaming
@@ -142,9 +153,8 @@ class OpenAIAdapter(LLMAdapter):
             )
             
             if response.status_code != 200:
-                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-                error_msg = error_data.get("error", {}).get("message", f"HTTP {response.status_code}")
-                raise self._create_error_response(f"OpenAI API error: {error_msg}")
+                # Use new error mapping system
+                raise map_provider_error(self.provider_name, response)
             
             data = response.json()
             
@@ -172,15 +182,17 @@ class OpenAIAdapter(LLMAdapter):
                 ) if data.get("usage") else None
             )
             
-        except ProviderError:
+        except StrataError:
             raise
         except Exception as e:
-            raise self._create_error_response(f"OpenAI request failed: {str(e)}")
+            # Map transport/network errors
+            raise map_transport_error(e, self.provider_name)
     
     async def chat_completion_stream(
         self, 
         request: ChatCompletionRequest, 
-        api_key: str
+        api_key: str,
+        request_id: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """Execute streaming OpenAI chat completion."""
         try:
@@ -188,6 +200,10 @@ class OpenAIAdapter(LLMAdapter):
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
+            
+            # Add request ID for provider correlation
+            if request_id:
+                headers["X-Request-ID"] = request_id
             
             body = self._prepare_request_body(request)
             body["stream"] = True
@@ -199,8 +215,12 @@ class OpenAIAdapter(LLMAdapter):
                 json=body
             ) as response:
                 if response.status_code != 200:
-                    error_msg = f"OpenAI API error: HTTP {response.status_code}"
-                    yield f"data: {json.dumps({'error': error_msg})}\n\n"
+                    # Use new error mapping for streaming errors
+                    try:
+                        error = map_provider_error(self.provider_name, response)
+                        yield f"data: {json.dumps({'error': error.message})}\n\n"
+                    except Exception:
+                        yield f"data: {json.dumps({'error': f'HTTP {response.status_code}'})}\n\n"
                     return
                 
                 async for line in response.aiter_lines():
@@ -221,8 +241,11 @@ class OpenAIAdapter(LLMAdapter):
                             yield f"{line}\n"
                             
         except Exception as e:
-            error_msg = f"OpenAI streaming failed: {str(e)}"
-            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+            try:
+                error = map_transport_error(e, self.provider_name)
+                yield f"data: {json.dumps({'error': error.message})}\n\n"
+            except Exception:
+                yield f"data: {json.dumps({'error': f'Streaming failed: {str(e)}'})}\n\n"
 
 
 class AnthropicAdapter(LLMAdapter):
@@ -286,7 +309,8 @@ class AnthropicAdapter(LLMAdapter):
     async def chat_completion(
         self, 
         request: ChatCompletionRequest, 
-        api_key: str
+        api_key: str,
+        request_id: Optional[str] = None
     ) -> ChatCompletionResponse:
         """Execute Anthropic chat completion and normalize to OpenAI format."""
         try:
@@ -295,6 +319,10 @@ class AnthropicAdapter(LLMAdapter):
                 "Content-Type": "application/json",
                 "anthropic-version": "2023-06-01"
             }
+            
+            # Add request ID for provider correlation
+            if request_id:
+                headers["X-Request-ID"] = request_id
             
             body = self._prepare_request_body(request)
             body["stream"] = False
@@ -306,9 +334,8 @@ class AnthropicAdapter(LLMAdapter):
             )
             
             if response.status_code != 200:
-                error_data = response.json() if response.headers.get("content-type", "").startswith("application/json") else {}
-                error_msg = error_data.get("error", {}).get("message", f"HTTP {response.status_code}")
-                raise self._create_error_response(f"Anthropic API error: {error_msg}")
+                # Use new error mapping system
+                raise map_provider_error(self.provider_name, response)
             
             data = response.json()
             
@@ -339,15 +366,17 @@ class AnthropicAdapter(LLMAdapter):
                 ) if data.get("usage") else None
             )
             
-        except ProviderError:
+        except StrataError:
             raise
         except Exception as e:
-            raise self._create_error_response(f"Anthropic request failed: {str(e)}")
+            # Map transport/network errors
+            raise map_transport_error(e, self.provider_name)
     
     async def chat_completion_stream(
         self, 
         request: ChatCompletionRequest, 
-        api_key: str
+        api_key: str,
+        request_id: Optional[str] = None
     ) -> AsyncGenerator[str, None]:
         """Execute streaming Anthropic chat completion and convert to OpenAI SSE format."""
         try:
@@ -356,6 +385,10 @@ class AnthropicAdapter(LLMAdapter):
                 "Content-Type": "application/json",
                 "anthropic-version": "2023-06-01"
             }
+            
+            # Add request ID for provider correlation
+            if request_id:
+                headers["X-Request-ID"] = request_id
             
             body = self._prepare_request_body(request)
             body["stream"] = True
@@ -370,8 +403,12 @@ class AnthropicAdapter(LLMAdapter):
                 json=body
             ) as response:
                 if response.status_code != 200:
-                    error_msg = f"Anthropic API error: HTTP {response.status_code}"
-                    yield f"data: {json.dumps({'error': error_msg})}\n\n"
+                    # Use new error mapping for streaming errors
+                    try:
+                        error = map_provider_error(self.provider_name, response)
+                        yield f"data: {json.dumps({'error': error.message})}\n\n"
+                    except Exception:
+                        yield f"data: {json.dumps({'error': f'HTTP {response.status_code}'})}\n\n"
                     return
                 
                 async for line in response.aiter_lines():
@@ -419,8 +456,11 @@ class AnthropicAdapter(LLMAdapter):
                             continue  # Skip malformed JSON
                             
         except Exception as e:
-            error_msg = f"Anthropic streaming failed: {str(e)}"
-            yield f"data: {json.dumps({'error': error_msg})}\n\n"
+            try:
+                error = map_transport_error(e, self.provider_name)
+                yield f"data: {json.dumps({'error': error.message})}\n\n"
+            except Exception:
+                yield f"data: {json.dumps({'error': f'Streaming failed: {str(e)}'})}\n\n"
 
 
 class AdapterFactory:

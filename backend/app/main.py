@@ -25,6 +25,7 @@ from app.middleware.error_handling import ErrorHandlingMiddleware
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.usage_logging import UsageLoggingMiddleware
 from app.utils.errors import is_public_openai_path, openai_error_body, infer_type_from_status
+from app.api.error_handlers import register_exception_handlers
 
 def create_app() -> FastAPI:
     """App factory for FastAPI application"""
@@ -67,6 +68,9 @@ def create_app() -> FastAPI:
     # 3. UsageLoggingMiddleware (innermost)
     app.add_middleware(UsageLoggingMiddleware)
     
+    # Register unified exception handlers for PG-15
+    register_exception_handlers(app)
+    
     # Include API routes
     app.include_router(api_router, prefix=settings.API_V1_STR)
     
@@ -108,53 +112,8 @@ def create_app() -> FastAPI:
     # Playground export endpoints (cURL and JSON transcript generation)
     app.include_router(playground_export_router, prefix=settings.API_V1_STR)
     
-    # Custom exception handler for RequestValidationError on OpenAI paths
-    @app.exception_handler(RequestValidationError)
-    async def validation_exception_handler(request: Request, exc: RequestValidationError):
-        status_code = 400
-        msg = "Invalid request"
-        param = None
-        
-        # Extract first error for better messaging
-        try:
-            err0 = exc.errors()[0]
-            # Build param path, skipping 'body' prefix for cleaner param names
-            loc_parts = [str(p) for p in err0.get("loc", []) if isinstance(p, (str, int)) and p != "body"]
-            param = ".".join(loc_parts) if loc_parts else None
-            
-            # Use the actual error message from Pydantic
-            pydantic_msg = err0.get("msg", "")
-            if pydantic_msg:
-                msg = pydantic_msg
-                # Make message more user-friendly for required fields
-                if err0.get("type") == "missing" and param:
-                    msg = f"Field '{param}' is required"
-        except Exception:
-            param = None
-            
-        if is_public_openai_path(request.url.path):
-            payload = openai_error_body(msg, type_=infer_type_from_status(status_code), param=param)
-            return JSONResponse(status_code=status_code, content=payload)
-        
-        # For non-OpenAI paths, return default FastAPI validation error format
-        return JSONResponse(status_code=422, content={"detail": exc.errors()})
-    
-    # Custom exception handler for HTTP exceptions on OpenAI paths
-    @app.exception_handler(StarletteHTTPException)
-    async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-        if is_public_openai_path(request.url.path):
-            payload = openai_error_body(
-                exc.detail or "Error", 
-                type_=infer_type_from_status(exc.status_code)
-            )
-            return JSONResponse(status_code=exc.status_code, content=payload)
-        
-        # For non-OpenAI paths, return default format
-        return JSONResponse(
-            status_code=exc.status_code, 
-            content={"detail": exc.detail},
-            headers=getattr(exc, "headers", None)
-        )
+    # Legacy exception handlers are replaced by unified PG-15 error handling
+    # The register_exception_handlers() call above handles all error scenarios
     
     return app
 

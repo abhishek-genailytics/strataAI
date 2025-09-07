@@ -167,12 +167,12 @@ class SendPipeline:
     
     async def run(
         self,
-        *,
         session_id: UUID,
         request: ChatCompletionRequest,
+        headers: SendHeaders,
         user_ctx: CurrentUser,
         organization_id: UUID,
-        headers: SendHeaders
+        request_id: Optional[str] = None
     ) -> Tuple[ChatCompletionResponse, SendContext]:
         """
         Orchestrates the complete send pipeline according to PG-9 specification.
@@ -252,7 +252,7 @@ class SendPipeline:
             # Step 7: Dispatch (Gateway/Direct mode)
             response_data, provider_request_id = await self._dispatch_completion(
                 request_source, organization_id, user_ctx.id, assembled_request, 
-                provider_name, model_name, str(session_id)
+                provider_name, model_name, str(session_id), request_id
             )
             
             # Step 8: Persist assistant + token usage
@@ -569,7 +569,8 @@ class SendPipeline:
         request: ChatCompletionRequest,
         provider_name: str,
         model_name: str,
-        session_hint: str
+        session_hint: str,
+        request_id: Optional[str] = None
     ) -> Tuple[Dict[str, Any], Optional[str]]:
         """Dispatch to Gateway or Direct mode."""
         if request_source == PlaygroundRequestSource.gateway:
@@ -606,7 +607,7 @@ class SendPipeline:
         else:
             # Direct mode: use provider adapters
             return await self._direct_completion(
-                organization_id, provider_name, model_name, request
+                organization_id, provider_name, model_name, request, request_id
             )
     
     async def _direct_completion(
@@ -614,7 +615,8 @@ class SendPipeline:
         organization_id: UUID,
         provider_name: str,
         model_name: str,
-        request: ChatCompletionRequest
+        request: ChatCompletionRequest,
+        request_id: Optional[str] = None
     ) -> Tuple[Dict[str, Any], Optional[str]]:
         """Execute direct provider API call."""
         # Get decrypted API key
@@ -626,7 +628,7 @@ class SendPipeline:
         adapter = get_adapter(provider_name)
         
         try:
-            response = await adapter.chat_completion(request, api_key)
+            response = await adapter.chat_completion(request, api_key, request_id)
             
             # Convert to dict format
             response_data = {

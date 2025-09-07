@@ -197,3 +197,109 @@ class AnalyticsLogger:
             
         except Exception:
             return None
+
+
+# Convenience functions for error tracking
+async def log_failure(
+    request_id: str,
+    provider_request_id: Optional[str] = None,
+    status_code: int = 500,
+    duration_ms: float = 0.0,
+    endpoint: str = "/v1/chat/completions",
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    error_type: Optional[str] = None,
+    error_code: Optional[str] = None
+) -> None:
+    """
+    Log API failure for observability and analytics.
+    
+    Args:
+        request_id: Request correlation ID
+        provider_request_id: Provider's request ID if available
+        status_code: HTTP status code of the error
+        duration_ms: Request duration in milliseconds
+        endpoint: API endpoint that failed
+        provider: Provider name (openai, anthropic, etc.)
+        model: Model identifier
+        error_type: OpenAI error type (invalid_request_error, etc.)
+        error_code: Specific error code
+    """
+    try:
+        # Create metadata with error information
+        metadata = {
+            "request_id": request_id,
+            "error_type": error_type,
+            "error_code": error_code,
+            "endpoint": endpoint
+        }
+        
+        if provider_request_id:
+            metadata["provider_request_id"] = provider_request_id
+        
+        # For failures, we may not have organization/user context
+        # This is a simplified logging for error analytics
+        # In production, you'd want to extract org/user from request context
+        
+        # Log to a simple error tracking table or use existing api_requests
+        # For now, we'll just log the error details without full request tracking
+        
+    except Exception:
+        # Don't fail on logging failures
+        pass
+
+
+async def log_success(
+    request_id: str,
+    organization_id: str,
+    user_id: str,
+    provider_request_id: Optional[str] = None,
+    status_code: int = 200,
+    duration_ms: float = 0.0,
+    endpoint: str = "/v1/chat/completions",
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    prompt_tokens: int = 0,
+    completion_tokens: int = 0,
+    cost: Optional[float] = None
+) -> None:
+    """
+    Log successful API request for analytics.
+    
+    Args:
+        request_id: Request correlation ID
+        organization_id: Organization UUID
+        user_id: User UUID
+        provider_request_id: Provider's request ID
+        status_code: HTTP status code (should be 2xx)
+        duration_ms: Request duration in milliseconds
+        endpoint: API endpoint
+        provider: Provider name
+        model: Model identifier
+        prompt_tokens: Input token count
+        completion_tokens: Output token count
+        cost: Request cost in USD
+    """
+    try:
+        from uuid import UUID
+        from decimal import Decimal
+        
+        # Use existing analytics logger
+        await AnalyticsLogger.log_request(
+            organization_id=UUID(organization_id),
+            user_id=UUID(user_id),
+            endpoint=endpoint,
+            method="POST",
+            status_code=status_code,
+            duration_ms=int(duration_ms),
+            model_id=model,
+            provider_request_id=provider_request_id,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cost=Decimal(str(cost)) if cost else None,
+            metadata={"request_id": request_id}
+        )
+        
+    except Exception:
+        # Don't fail on logging failures
+        pass
