@@ -159,7 +159,7 @@ async def require_pat_auth(credentials: HTTPAuthorizationCredentials = Depends(s
 
 async def require_pat_auth_with_scope(
     scope: str = "api:write"
-) -> Callable:
+):
     """Create a dependency that requires PAT auth with specific scope."""
     async def dependency(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
         user_context = await PATAuthMiddleware.get_current_user_from_pat(credentials)
