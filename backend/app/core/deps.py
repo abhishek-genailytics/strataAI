@@ -84,12 +84,12 @@ async def get_current_user(
         HTTPException: If token is invalid or user not found
     """
     token = credentials.credentials
-    logger.info(f"Received token: {token[:20]}...")
+    logger.info("Received authentication token")
     
     try:
         # Validate token with Supabase
         user_data = get_user_from_token(token)
-        logger.info(f"User data from token: {user_data}")
+        logger.info("Token validation successful")
         
         if not user_data:
             logger.error("No user data returned from token validation")

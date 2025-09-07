@@ -5,6 +5,8 @@ from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.core.config import get_settings
+from app.core.logging import setup_logging, get_logger
+from app.core.preflight import run_preflight
 from app.api.routes import api_router
 from app.api.unified_api import router as unified_router
 from app.api.playground_read import router as playground_read_router
@@ -16,7 +18,14 @@ from app.utils.errors import is_public_openai_path, openai_error_body, infer_typ
 def create_app() -> FastAPI:
     """App factory for FastAPI application"""
     settings = get_settings()
-    
+
+    # Setup logging first
+    setup_logging(settings.LOG_LEVEL)
+    logger = get_logger(__name__)
+
+    # Run preflight validation
+    run_preflight()
+
     app = FastAPI(title=settings.PROJECT_NAME)
     
     # Configure CORS
@@ -27,6 +36,15 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
         allow_credentials=True,
     )
+    
+    # Feature flags exposed to app.state for later checks
+    app.state.force_echo = settings.FORCE_ECHO_ADAPTER
+    app.state.enable_request_logging = settings.ENABLE_REQUEST_LOGGING
+    app.state.enable_usage_rollups = settings.ENABLE_USAGE_ROLLUPS
+    app.state.enable_playground_logging = settings.ENABLE_PLAYGROUND_LOGGING
+
+    # Log a safe snapshot once at startup
+    logger.info("config_loaded", **settings.safe_export())
     
     # Add middleware in order (outer → inner)
     # 1. ErrorHandlingMiddleware (outermost)

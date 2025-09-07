@@ -60,7 +60,7 @@ async def debug_test_token(token: str):
     import logging
     from app.utils.auth import get_user_from_token
     logger = logging.getLogger(__name__)
-    logger.info(f"Testing token: {token[:20]}...")
+    logger.info("Testing token validation")
     
     try:
         user_data = get_user_from_token(token)
@@ -149,11 +149,10 @@ async def get_organization_configured_providers(
         # Get API keys for the organization
         api_keys = await api_key_service.get_organization_keys_raw(organization.id)
         logger.info(f"Retrieved {len(api_keys)} API keys for organization {organization.id}")
-        logger.info(f"API keys data: {api_keys}")
         
         # Get unique provider IDs from API keys
         provider_ids = list(set([key["provider_id"] for key in api_keys]))
-        logger.info(f"Provider IDs from API keys: {provider_ids}")
+        logger.info(f"Found {len(provider_ids)} unique providers")
         
         # Get provider details
         configured_providers = []

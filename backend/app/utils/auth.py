@@ -56,7 +56,7 @@ def get_user_from_token(token: str) -> Optional[Dict[str, Any]]:
         if token.startswith('Bearer '):
             token = token[7:]
         
-        logger.info(f"Validating token: {token[:20]}...")
+        logger.info("Validating authentication token")
         
         # First try direct JWT validation
         try:

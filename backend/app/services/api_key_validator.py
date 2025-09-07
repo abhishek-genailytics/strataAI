@@ -30,7 +30,7 @@ class APIKeyValidator:
         
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Starting validation for {provider_name} API key: {api_key[:10]}...")
+        logger.info(f"Starting validation for {provider_name} API key")
         
         # First check format
         if not self._validate_key_format(api_key, provider_name):
@@ -66,8 +66,8 @@ class APIKeyValidator:
         
         import logging
         logger = logging.getLogger(__name__)
-        logger.info(f"Validating {provider_name} API key format: {api_key[:10]}...")
-        logger.info(f"Using pattern: {pattern}")
+        logger.info(f"Validating {provider_name} API key format")
+        logger.debug(f"Using pattern: {pattern}")
         
         is_valid = bool(re.match(pattern, api_key))
         logger.info(f"Format validation result: {is_valid}")

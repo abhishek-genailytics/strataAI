@@ -36,7 +36,7 @@ class PATAuthMiddleware:
             
             # Hash the token to match database storage
             token_hash = hashlib.sha256(token.encode()).hexdigest()
-            logger.info(f"PAT Auth: Looking for token hash: {token_hash[:20]}...")
+            logger.info("PAT Auth: Looking up token hash in database")
             
             # Query for the PAT first
             pat_response = supabase_service.table("personal_access_tokens").select(

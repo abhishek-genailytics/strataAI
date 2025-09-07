@@ -64,7 +64,7 @@ class APIKeyService:
             import logging
             logger = logging.getLogger(__name__)
             logger.info(f"Provider name for validation: {provider_name}")
-            logger.info(f"API key value (first 10 chars): {obj_in.api_key_value[:10]}...")
+            logger.info("API key validation requested")
             
             # Validate the API key
             validation_result = await api_key_validator.validate_api_key(

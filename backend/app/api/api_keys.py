@@ -25,7 +25,7 @@ async def create_api_key(
     """Create a new API key with validation and encryption for an organization + provider."""
     import logging
     logger = logging.getLogger(__name__)
-    logger.info(f"create_api_key called with organization: {organization}")
+    logger.info("create_api_key called")
     logger.info(f"Current user: {current_user.user_id}")
 
     if not organization:
@@ -36,12 +36,10 @@ async def create_api_key(
         )
     
     logger.info(f"Creating API key for organization {organization.id}")
-    logger.info(f"Organization: {organization}")
-    logger.info(f"API key data: {api_key_in}")
+    logger.info(f"Provider ID: {api_key_in.provider_id}")
     
     try:
-        logger.info(f"Request data validation - api_key_in: {api_key_in}")
-        logger.info(f"Request data dict: {api_key_in.dict()}")
+        logger.info("Validating API key request data")
         
         api_key, validation_result = await api_key_service.validate_and_create(
             obj_in=api_key_in, 
