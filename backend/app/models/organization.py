@@ -75,3 +75,13 @@ class OrganizationInvite(BaseModel):
     email: str
     role: str = "member"
     organization_id: UUID
+
+
+class OrganizationResponse(BaseModel):
+    id: str
+    name: str
+    display_name: Optional[str]
+    domain: Optional[str]
+    is_active: bool
+    created_at: str
+    updated_at: str

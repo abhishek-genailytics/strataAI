@@ -14,15 +14,6 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 # Pydantic models for API
-class OrganizationResponse(BaseModel):
-    id: str
-    name: str
-    display_name: Optional[str]
-    domain: Optional[str]
-    is_active: bool
-    created_at: str
-    updated_at: str
-
 class CreateOrganizationRequest(BaseModel):
     name: str
     display_name: Optional[str] = None
