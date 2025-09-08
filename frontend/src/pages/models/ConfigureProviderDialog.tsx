@@ -38,6 +38,26 @@ export default function ConfigureProviderDialog({
   }, [open])
 
   const selectedIds = useMemo(() => Object.keys(selected).filter(k => selected[k]), [selected])
+  
+  // Select All functionality
+  const toggleSelectAll = () => {
+    if (!models?.length) return
+    const allSelected = models.every((m: ModelInfo) => selected[m.id])
+    if (allSelected) {
+      // Deselect all
+      setSelected({})
+    } else {
+      // Select all
+      const newSelected: Record<string, boolean> = {}
+      models.forEach((m: ModelInfo) => {
+        newSelected[m.id] = true
+      })
+      setSelected(newSelected)
+    }
+  }
+
+  const allSelected = models?.length ? models.every((m: ModelInfo) => selected[m.id]) : false
+  const someSelected = models?.length ? models.some((m: ModelInfo) => selected[m.id]) : false
 
   const mCreateKey = useMutation({
     mutationFn: async () => {
