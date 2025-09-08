@@ -85,7 +85,7 @@ export default function Layout({ children }: { children: ReactNode }) {
         
         <div className="p-4">
           <div className="text-xs text-gray-500 mb-3 truncate">
-            {user?.email}
+            {displayEmail}
           </div>
           <Button 
             variant="outline" 
