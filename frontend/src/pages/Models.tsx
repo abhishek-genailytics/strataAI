@@ -3,9 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useProviders } from '@/hooks/useProviders'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import ConfigureProviderDialog from '@/pages/models/ConfigureProviderDialog'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SkeletonList } from '@/components/shared/SkeletonList'
+import { CheckCircle, AlertCircle, Settings } from 'lucide-react'
 
 export default function Models(){
   const { data, isLoading, error } = useProviders()
