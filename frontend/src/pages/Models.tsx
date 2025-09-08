@@ -21,7 +21,6 @@ export default function Models(){
 
   return (
     <div className="p-6 space-y-4">
-      <AuthDebug />
       <h1 className="text-2xl font-semibold">Models & Providers</h1>
       {(!data || data.length === 0) ? (
         <EmptyState
