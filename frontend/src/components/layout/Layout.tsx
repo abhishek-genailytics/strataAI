@@ -4,12 +4,20 @@ import { Separator } from '@/components/ui/separator'
 import { Button } from '@/components/ui/button'
 import { useOrganization } from '@/contexts/OrganizationContext'
 import { useAuth } from '@/contexts/AuthContext'
+import { 
+  Bot, 
+  PlayCircle, 
+  BarChart3, 
+  Key, 
+  LogOut,
+  ChevronDown
+} from 'lucide-react'
 
 const links = [
-  { to: '/models', label: 'Models' },
-  { to: '/playground', label: 'Playground' },
-  { to: '/monitor', label: 'Monitor' },
-  { to: '/access', label: 'Access' }
+  { to: '/models', label: 'Models', icon: Bot },
+  { to: '/playground', label: 'Playground', icon: PlayCircle },
+  { to: '/monitor', label: 'Monitor', icon: BarChart3 },
+  { to: '/access', label: 'Access', icon: Key }
 ]
 
 export default function Layout({ children }: { children: ReactNode }) {
