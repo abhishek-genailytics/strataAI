@@ -2,6 +2,13 @@ import { useQuery } from '@tanstack/react-query'
 import { listProviders, listConfiguredProviders, listApiKeys, listModels } from '@/services/providers'
 import { qk } from '@/utils/queryKeys'
 
+// Demo data for development/demonstration
+const demoProviders = [
+  { id: 'openai', name: 'openai', display_name: 'OpenAI', configured: true },
+  { id: 'anthropic', name: 'anthropic', display_name: 'Anthropic', configured: false },
+  { id: 'grok', name: 'grok', display_name: 'Grok', configured: false }
+]
+
 export const useProviders = () => {
   const { data: allProviders, error: providersError, ...rest } = useQuery({ 
     queryKey: qk.providers, 
@@ -26,10 +33,15 @@ export const useProviders = () => {
   })
 
   // Merge provider data with configuration status
-  const providersWithConfig = allProviders?.map(provider => ({
+  let providersWithConfig = allProviders?.map(provider => ({
     ...provider,
     configured: configuredProviders?.some(cp => cp.provider?.id === provider.id) || false
   }))
+
+  // Use demo data if no real data is available (for development)
+  if (!providersWithConfig || providersWithConfig.length === 0) {
+    providersWithConfig = demoProviders
+  }
 
   // Log errors for debugging
   if (providersError) {
