@@ -6,10 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
 import { qk } from '@/utils/queryKeys'
 import { listModels, createApiKey, enableModels } from '@/services/providers'
 import { formatMoney } from '@/utils/format'
+import { Key, Bot, DollarSign } from 'lucide-react'
 import type { ModelInfo, Provider } from '@/types/backend'
 
 export default function ConfigureProviderDialog({
