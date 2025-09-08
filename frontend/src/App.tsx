@@ -31,11 +31,11 @@ export default function App() {
                   <Route path="/login" element={<Login />} />
                   <Route path="/signup" element={<SignUp />} />
                   <Route path="/" element={<Navigate to="/models" replace />} />
-                  <Route path="/models" element={<ProtectedRoute><Models /></ProtectedRoute>} />
-                  <Route path="/models/:providerId" element={<ProtectedRoute><ProviderManage /></ProtectedRoute>} />
-                  <Route path="/playground" element={<ProtectedRoute><Playground /></ProtectedRoute>} />
-                  <Route path="/access" element={<ProtectedRoute><Access /></ProtectedRoute>} />
-                  <Route path="/monitor" element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
+                  <Route path="/models" element={<ProtectedRoute><Layout><Models /></Layout></ProtectedRoute>} />
+                  <Route path="/models/:providerId" element={<ProtectedRoute><Layout><ProviderManage /></Layout></ProtectedRoute>} />
+                  <Route path="/playground" element={<ProtectedRoute><Layout><Playground /></Layout></ProtectedRoute>} />
+                  <Route path="/access" element={<ProtectedRoute><Layout><Access /></Layout></ProtectedRoute>} />
+                  <Route path="/monitor" element={<ProtectedRoute><Layout><Monitor /></Layout></ProtectedRoute>} />
                 </Routes>
               </Suspense>
               <GlobalErrorPortal />
