@@ -33,6 +33,11 @@ export default function Layout({ children }: { children: ReactNode }) {
     }
   }
 
+  // Demo data for when user is not loaded
+  const displayEmail = user?.email || 'demo@strataai.com'
+  const displayOrgs = orgs.length > 0 ? orgs : [{ id: 'demo', name: 'Demo Organization' }]
+  const displayCurrent = current || displayOrgs[0]
+
   return (
     <div className="min-h-screen grid grid-cols-[240px_1fr]">
       <aside className="border-r bg-slate-50/50 flex flex-col min-h-screen">
