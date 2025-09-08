@@ -1,12 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
+from uuid import UUID
 from pydantic import BaseModel
-from app.core.deps import get_current_user
-from app.models.user import User
-from app.models.organization import Organization, OrganizationCreate
+from app.core.deps import get_current_user, CurrentUser
+from app.models.organization import Organization, OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from app.services.organization_service import OrganizationService
-from app.utils.supabase_client import get_supabase_client
+from app.models.auth import User
 import logging
+from app.utils.supabase_client import get_supabase_client
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,7 @@ async def get_user_organizations(
     
     return organizations
 
-@router.get("/{org_id}", response_model=OrganizationResponse)
+@router.get("/organization/{org_id}", response_model=OrganizationResponse)
 async def get_organization(
     org_id: str,
     current_user: User = Depends(get_current_user)
@@ -107,13 +108,21 @@ async def get_organization(
     org_service = OrganizationService()
     
     # Check if user belongs to organization
-    if not await org_service.user_belongs_to_organization(current_user.id, org_id):
+    try:
+        org_uuid = UUID(org_id)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid organization ID format"
+        )
+    
+    if not await org_service.user_belongs_to_organization(current_user.id, org_uuid):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You don't have access to this organization"
         )
     
-    org = await org_service.get_organization(org_id)
+    org = await org_service.get_organization(org_uuid)
     
     if not org:
         raise HTTPException(
