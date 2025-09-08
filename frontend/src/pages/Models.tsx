@@ -22,26 +22,66 @@ export default function Models(){
   if (error) return <div className="p-6 text-red-500">Failed to load providers</div>
 
   return (
-    <div className="p-6 space-y-4">
-      <h1 className="text-2xl font-semibold">Models & Providers</h1>
+    <div className="p-6 space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">Models & Providers</h1>
+        <p className="text-gray-600 mt-1">Configure and manage your AI provider integrations</p>
+      </div>
+      
       {(!data || data.length === 0) ? (
         <EmptyState
           title="No providers found"
-          description="Your organization doesn't have any providers yet."
+          description="Your organization doesn't have any providers configured yet. Add your first provider to get started."
         />
       ) : (
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {data?.map(p=>(
-            <Card key={p.id} className="p-4 flex items-center justify-between">
-              <div className="min-w-0">
-                <div className="font-medium truncate">{p.name}</div>
-                <div className="text-xs text-slate-500">{p.configured ? 'Connected' : 'Not connected'}</div>
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {data?.map(p => (
+            <Card key={p.id} className="p-6 hover:shadow-md transition-shadow">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm">
+                    {p.display_name?.charAt(0) || p.name?.charAt(0) || '?'}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">{p.display_name || p.name}</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                      {p.configured ? (
+                        <>
+                          <CheckCircle className="h-4 w-4 text-green-500" />
+                          <Badge variant="secondary" className="bg-green-50 text-green-700 border-green-200">
+                            Connected
+                          </Badge>
+                        </>
+                      ) : (
+                        <>
+                          <AlertCircle className="h-4 w-4 text-amber-500" />
+                          <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                            Not connected
+                          </Badge>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
+              
+              <div className="flex gap-2">
                 {p.configured ? (
-                  <Button variant="outline" onClick={()=>navigate(`/models/${p.id}`)}>Manage</Button>
+                  <Button 
+                    variant="outline" 
+                    onClick={() => navigate(`/models/${p.id}`)}
+                    className="flex-1"
+                  >
+                    <Settings className="h-4 w-4 mr-2" />
+                    Manage
+                  </Button>
                 ) : (
-                  <Button onClick={()=>openConfigure(p)}>Configure</Button>
+                  <Button 
+                    onClick={() => openConfigure(p)}
+                    className="flex-1"
+                  >
+                    Configure
+                  </Button>
                 )}
               </div>
             </Card>
