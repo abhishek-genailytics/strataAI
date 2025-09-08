@@ -557,4 +557,4 @@ The database has been built through 52 migrations, with key milestones:
 
 ---
 
-*This document was generated from live database schema on September 6, 2025. For the most current schema information, refer to the Supabase dashboard or run the schema extraction queries directly.*
+*This document was generated from live database schema on September 8, 2025. For the most current schema information, refer to the Supabase dashboard or run the schema extraction queries directly.*

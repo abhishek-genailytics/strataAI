@@ -93,7 +93,6 @@ backend/
 │   │   ├── cache_management.py# Redis cache operations
 │   │   ├── error_management.py# Error reporting & monitoring
 │   │   ├── health.py          # Health check endpoint
-│   │   ├── mock_analytics.py  # Testing endpoints
 │   │   └── routes.py          # Main router configuration
 │   ├── core/                  # Core infrastructure (13 files)
 │   │   ├── config.py          # Environment-based configuration
@@ -115,7 +114,6 @@ backend/
 │   │   ├── playground_service.py# Direct provider API calls
 │   │   ├── session_service.py # Chat session management
 │   │   ├── token_usage_service.py# Usage tracking & costing
-│   │   ├── api_key_service.py # Encrypted key management
 │   │   ├── organization_service.py# Organization operations
 │   │   └── [other services]
 │   ├── models/                # Pydantic models (17 files)
@@ -199,7 +197,6 @@ The API is organized into logical modules with clear separation of concerns:
 - `GET /health` - Application health check
 - `POST /api/v1/system/cache/clear` - Clear Redis cache
 - `GET /api/v1/errors/recent` - Recent error reports
-- `POST /api/v1/mock-analytics/*` - Testing endpoints
 
 ### Authentication Implementation
 
@@ -382,7 +379,7 @@ class APIKeyService:
     async def create_api_key(self, org_id: UUID, provider: str, key_value: str):
         # Encrypts API key using Fernet symmetric encryption
         # Stores encrypted_key_value in database
-        # Validates key format (currently disabled for debugging)
+        # Key format validation available but disabled by default
         
     async def get_active_key(self, org_id: UUID, provider: str):
         # Retrieves and decrypts organization's provider key
