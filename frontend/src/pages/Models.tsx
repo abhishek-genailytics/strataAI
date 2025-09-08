@@ -4,7 +4,6 @@ import { useProviders } from '@/hooks/useProviders'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import ConfigureProviderDialog from '@/pages/models/ConfigureProviderDialog'
-import AuthDebug from '@/components/debug/AuthDebug'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { SkeletonList } from '@/components/shared/SkeletonList'
 
