@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from app.core.deps import get_current_user, CurrentUser
 from app.models.organization import Organization, OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from app.services.organization_service import OrganizationService
-from app.models.auth import User
+from app.models.user import User
 import logging
 from app.utils.supabase_client import get_supabase_client
 
