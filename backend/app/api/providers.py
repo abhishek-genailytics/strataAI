@@ -79,7 +79,7 @@ async def debug_test_token(token: str):
 
 
 # Provider endpoints
-@router.get("/", response_model=List[AIProvider])
+@router.get("", response_model=List[AIProvider])
 async def list_providers(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),

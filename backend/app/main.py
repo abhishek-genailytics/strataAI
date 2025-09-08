@@ -121,7 +121,7 @@ def create_app() -> FastAPI:
     app.include_router(mock_analytics_router, prefix=settings.API_V1_STR)
     app.include_router(models_router, prefix=f"{settings.API_V1_STR}/models")
     app.include_router(organizations_router, prefix=settings.API_V1_STR)
-    app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers")
+    app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
     app.include_router(usage_analytics_router, prefix=settings.API_V1_STR)
     app.include_router(user_models_router, prefix=settings.API_V1_STR)
     
