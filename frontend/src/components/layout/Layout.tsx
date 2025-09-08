@@ -51,10 +51,10 @@ export default function Layout({ children }: { children: ReactNode }) {
           <div className="relative">
             <select
               className="w-full appearance-none rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-              value={current?.id ?? ''}
-              onChange={(e) => setCurrent(orgs.find(o => o.id === e.target.value) || null)}
+              value={displayCurrent?.id ?? ''}
+              onChange={(e) => setCurrent && setCurrent(displayOrgs.find(o => o.id === e.target.value) || null)}
             >
-              {orgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {displayOrgs.map(o => <option key={o.id} value={o.id}>{o.name}</option>)}
             </select>
             <ChevronDown className="absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400 pointer-events-none" />
           </div>
