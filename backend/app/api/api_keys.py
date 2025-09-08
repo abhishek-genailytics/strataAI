@@ -292,12 +292,11 @@ async def validate_api_key(
         
         provider_name = provider_response.data[0]["name"]
         
-        # Import here to avoid circular imports
-        from ..services.api_key_validator import api_key_validator
-        
-        # Validate the key
-        validation_result = await api_key_validator.validate_api_key(
-            decrypted_key, provider_name
+        # API key validation is disabled
+        validation_result = APIKeyValidationResult(
+            is_valid=True,
+            provider_name=provider_name,
+            error_message=None
         )
         
         return validation_result

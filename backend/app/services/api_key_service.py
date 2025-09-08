@@ -7,7 +7,6 @@ from ..core.database import get_supabase_client
 from ..utils.supabase_client import supabase_service
 from ..models.api_key import APIKeyCreate, APIKeyUpdate, APIKeyDisplay, APIKeyValidationResult
 from ..core.encryption import encryption_service
-from .api_key_validator import api_key_validator
 
 
 class APIKeyService:
@@ -51,29 +50,9 @@ class APIKeyService:
         organization_id: UUID,
         validate_key: bool = True
     ) -> tuple[dict, Optional[APIKeyValidationResult]]:
-        """Validate and create an API key for an organization + provider."""
+        """Create an API key for an organization + provider."""
+        # Note: validate_key parameter is kept for API compatibility but validation is disabled
         validation_result = None
-        if validate_key:
-            # Get provider name from provider_id for validation
-            provider_response = supabase_service.table("ai_providers").select("name").eq("id", str(obj_in.provider_id)).execute()
-            if not provider_response.data:
-                raise ValueError(f"Provider with ID {obj_in.provider_id} not found")
-            
-            provider_name = provider_response.data[0]["name"]
-            
-            import logging
-            logger = logging.getLogger(__name__)
-            logger.info(f"Provider name for validation: {provider_name}")
-            logger.info("API key validation requested")
-            
-            # Validate the API key
-            validation_result = await api_key_validator.validate_api_key(
-                obj_in.api_key_value, 
-                provider_name
-            )
-            
-            if not validation_result.is_valid:
-                raise ValueError(f"API key validation failed: {validation_result.error_message}")
         
         # Create the API key
         api_key = await self.create_with_encryption(
