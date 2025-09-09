@@ -216,10 +216,26 @@ class APIKeyService:
     async def disconnect_provider(self, provider_id: str, organization_id: UUID) -> bool:
         """Disconnect a provider by setting is_active=False for API keys and org_model_enablement."""
         try:
+            # Handle both provider name and UUID
+            provider_uuid = provider_id
+            if not provider_id.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')):
+                # Looks like a name, not UUID - convert to UUID
+                provider_lookup = self.sb.table("ai_providers")\
+                    .select("id")\
+                    .eq("name", provider_id)\
+                    .eq("is_active", True)\
+                    .execute()
+                
+                if provider_lookup.data:
+                    provider_uuid = provider_lookup.data[0]["id"]
+                else:
+                    logger.warning(f"Provider {provider_id} not found")
+                    return False
+
             # Set is_active=False for all API keys for this provider and organization
             api_key_response = self.sb.table("api_keys")\
                 .update({"is_active": False})\
-                .eq("provider_id", provider_id)\
+                .eq("provider_id", provider_uuid)\
                 .eq("organization_id", str(organization_id))\
                 .execute()
             
@@ -227,7 +243,7 @@ class APIKeyService:
             # First get all models for this provider
             models_response = self.sb.table("ai_models")\
                 .select("id")\
-                .eq("provider_id", provider_id)\
+                .eq("provider_id", provider_uuid)\
                 .eq("is_active", True)\
                 .execute()
             

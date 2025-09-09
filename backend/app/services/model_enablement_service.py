@@ -35,24 +35,9 @@ class ModelEnablementService:
         logger.info(f"Enabling {len(request.model_ids)} models for org {organization_id}, provider {request.provider}")
         
         # 1. Validate provider exists and get provider_id
-        provider_response = self.sb.table("ai_providers")\
-            .select("id")\
-            .eq("id", request.provider)\
-            .eq("is_active", True)\
-            .execute()
+        actual_provider_id = await self._validate_provider_and_models(request.provider, request.model_ids)
         
-        if not provider_response.data:
-            raise ValueError(f"Provider {request.provider} not found or inactive")
-        
-        provider_id = provider_response.data[0]["id"]
-        
-        # 2. Validate all model_ids exist and belong to the provider
-        models_response = self.sb.table("ai_models")\
-            .select("id")\
-            .eq("provider_id", provider_id)\
-            .in_("id", request.model_ids)\
-            .eq("is_active", True)\
-            .execute()
+        # 2. Clear existing enablement for this organization + provider combination
         
         if len(models_response.data) != len(request.model_ids):
             found_ids = [m["id"] for m in models_response.data]
@@ -128,6 +113,22 @@ class ModelEnablementService:
         """
         logger.info(f"Getting enabled models for org {organization_id}, provider {provider_id}")
         
+        # First, get the provider UUID from name if needed
+        provider_uuid = provider_id
+        if not provider_id.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')):
+            # Looks like a name, not UUID - convert to UUID
+            provider_lookup = self.sb.table("ai_providers")\
+                .select("id")\
+                .eq("name", provider_id)\
+                .eq("is_active", True)\
+                .execute()
+            
+            if provider_lookup.data:
+                provider_uuid = provider_lookup.data[0]["id"]
+            else:
+                logger.warning(f"Provider {provider_id} not found")
+                return []
+
         # Get enabled models with full model details
         response = self.sb.table("org_model_enablement")\
             .select("""
@@ -145,12 +146,13 @@ class ModelEnablementService:
                     supports_streaming,
                     supports_function_calling,
                     supports_vision,
-                    metadata
+                    metadata,
+                    provider_id
                 )
             """)\
             .eq("organization_id", str(organization_id))\
             .eq("is_enabled", True)\
-            .eq("ai_models.provider_id", provider_id)\
+            .eq("ai_models.provider_id", provider_uuid)\
             .eq("ai_models.is_active", True)\
             .execute()
         

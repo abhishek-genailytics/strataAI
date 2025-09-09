@@ -48,7 +48,7 @@ async def enable_models(
 
 @router.get("/organization/enabled/{provider_id}")
 async def get_organization_enabled_models(
-    provider_id: UUID,
+    provider_id: str,
     current_user: CurrentUser = Depends(get_current_user),
     organization: Organization = Depends(get_organization_context)
 ):
@@ -67,10 +67,10 @@ async def get_organization_enabled_models(
     try:
         enabled_models = await model_enablement_service.get_enabled_models_for_provider(
             organization_id=organization.id,
-            provider_id=str(provider_id)
+            provider_id=provider_id
         )
         return {
-            "provider_id": str(provider_id),
+            "provider_id": provider_id,
             "organization_id": str(organization.id),
             "enabled_models": enabled_models,
             "count": len(enabled_models)
