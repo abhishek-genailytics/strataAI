@@ -93,11 +93,21 @@ export default function ConfigureProviderDialog({
         title: "Provider configured",
         description: `${provider?.name} connected`,
       });
+
+      // Invalidate and refetch queries to refresh the UI
       await Promise.all([
         qc.invalidateQueries({ queryKey: qk.providers }),
+        qc.invalidateQueries({ queryKey: ["configured-providers"] }),
         qc.invalidateQueries({ queryKey: qk.apiKeys }),
         qc.invalidateQueries({ queryKey: qk.models(provider?.id) }),
       ]);
+
+      // Force refetch to ensure immediate UI update
+      await Promise.all([
+        qc.refetchQueries({ queryKey: qk.providers }),
+        qc.refetchQueries({ queryKey: ["configured-providers"] }),
+      ]);
+
       onOpenChange(false);
       setLabel("");
       setApiKey("");

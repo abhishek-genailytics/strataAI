@@ -44,6 +44,10 @@ export const useProviders = () => {
       if (error?.status === 401) return false;
       return failureCount < 2;
     },
+    // Add stale time to ensure fresh data
+    staleTime: 0,
+    // Add cache time to ensure we don't cache stale data
+    cacheTime: 0,
   });
 
   // Merge provider data with configuration status
