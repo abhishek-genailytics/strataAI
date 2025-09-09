@@ -67,12 +67,12 @@ class ModelEnablementService:
             model_ids=request.model_ids
         )
     
-    async def _validate_provider_and_models(self, provider_name: str, model_ids: List[str]) -> str:
+    async def _validate_provider_and_models(self, provider_id: str, model_ids: List[str]) -> str:
         """
         Validate that provider exists and all model IDs are valid for that provider.
         
         Args:
-            provider_name: Name of the provider (e.g., "openai", "anthropic")
+            provider_id: ID of the provider (UUID string)
             model_ids: List of model IDs to validate
             
         Returns:
@@ -81,15 +81,15 @@ class ModelEnablementService:
         Raises:
             ValueError: If provider not found or model IDs are invalid
         """
-        # 1. Get provider by name
+        # 1. Get provider by ID
         provider_response = self.sb.table("ai_providers")\
             .select("id, name")\
-            .eq("name", provider_name)\
+            .eq("id", provider_id)\
             .eq("is_active", True)\
             .execute()
         
         if not provider_response.data:
-            raise ValueError(f"Provider '{provider_name}' not found or inactive")
+            raise ValueError(f"Provider '{provider_id}' not found or inactive")
         
         provider_id = provider_response.data[0]["id"]
         
@@ -104,7 +104,7 @@ class ModelEnablementService:
         if len(models_response.data) != len(model_ids):
             found_ids = [m["id"] for m in models_response.data]
             missing_ids = [mid for mid in model_ids if mid not in found_ids]
-            raise ValueError(f"Invalid model IDs for provider {provider_name}: {missing_ids}")
+            raise ValueError(f"Invalid model IDs for provider {provider_id}: {missing_ids}")
         
         return provider_id
     
