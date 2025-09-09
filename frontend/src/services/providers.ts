@@ -18,11 +18,11 @@ export const createApiKey = (payload: {
   });
 export const deleteApiKey = (id: string) => apiDelete<void>(`/api-keys/${id}`);
 
-// Models - using organization connected models endpoint for manage page
+// Models - for configuration dialog, show ALL models for a provider (not just connected)
 export const listModels = async (params?: { provider?: string }) => {
-  const response = await apiGet<ModelInfo[]>("/models/organization/connected", {
+  const response = await apiGet<ModelInfo[]>("/models", {
     ...params,
-    type: "chat,multimodal",
+    model_type: "chat",
   });
   return response; // Return the array directly
 };

@@ -24,6 +24,7 @@ async def list_models_with_pricing(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
+    provider: Optional[str] = Query(None, description="Filter by provider name"),
     model_type: Optional[str] = Query(None, description="Filter by model type"),
     connected_only: bool = Query(False, description="Show only models from connected providers")
 ):
@@ -50,6 +51,10 @@ async def list_models_with_pricing(
         if provider_id:
             query = query.eq("provider_id", str(provider_id))
         
+        # Filter by provider name if specified
+        if provider:
+            query = query.eq("ai_providers.name", provider)
+        
         # Filter by model type if specified
         if model_type:
             query = query.eq("model_type", model_type)
@@ -59,38 +64,53 @@ async def list_models_with_pricing(
         
         response = query.execute()
         
-        # Convert to the expected format
+        # Convert to the expected format for frontend
         models_with_pricing = []
         for model_data in response.data or []:
+            # Build capabilities object
+            capabilities = {
+                "supports_streaming": model_data.get("supports_streaming", False),
+                "supports_function_calling": model_data.get("supports_function_calling", False),
+                "vision": model_data.get("supports_vision", False),
+                "supports_audio": model_data.get("supports_audio", False)
+            }
+            
             model_dict = {
                 "id": model_data["id"],
                 "provider_id": model_data["provider_id"],
                 "model_name": model_data["model_name"],
                 "display_name": model_data["display_name"],
                 "description": model_data.get("description"),
-                "model_type": model_data["model_type"],
+                "type": model_data["model_type"],  # Use 'type' for frontend compatibility
+                "context_window": model_data.get("max_input_tokens") or model_data.get("max_tokens"),
                 "max_tokens": model_data.get("max_tokens"),
                 "max_input_tokens": model_data.get("max_input_tokens"),
-                "supports_streaming": model_data.get("supports_streaming", False),
-                "supports_function_calling": model_data.get("supports_function_calling", False),
-                "supports_vision": model_data.get("supports_vision", False),
-                "supports_audio": model_data.get("supports_audio", False),
-                "capabilities": model_data.get("capabilities", {}),
-                "pricing": []
+                "capabilities": capabilities,
+                "pricing": None
             }
             
-            # Add pricing information
+            # Add pricing information in frontend-expected format
+            input_pricing = None
+            output_pricing = None
+            
             if model_data.get("model_pricing"):
                 for pricing in model_data["model_pricing"]:
                     if pricing.get("is_active", True):
-                        model_dict["pricing"].append({
-                            "id": pricing["id"],
-                            "pricing_type": pricing["pricing_type"],
-                            "price_per_unit": float(pricing["price_per_unit"]),
-                            "unit": pricing["unit"],
-                            "currency": pricing["currency"],
-                            "region": pricing.get("region", "us-east-1")
-                        })
+                        if pricing["pricing_type"] == "input":
+                            input_pricing = {
+                                "price": float(pricing["price_per_unit"]),
+                                "currency": pricing["currency"]
+                            }
+                        elif pricing["pricing_type"] == "output":
+                            output_pricing = {
+                                "price": float(pricing["price_per_unit"]),
+                                "currency": pricing["currency"]
+                            }
+            
+            model_dict["pricing"] = {
+                "input": input_pricing,
+                "output": output_pricing
+            }
             
             models_with_pricing.append(model_dict)
         
