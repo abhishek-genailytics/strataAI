@@ -111,7 +111,11 @@ export default function Models() {
               </div>
 
               <div className="flex gap-2">
-                {p.configured ? (
+                {!p.is_active ? (
+                  <Button disabled className="flex-1 opacity-50">
+                    Coming Soon
+                  </Button>
+                ) : p.configured ? (
                   <>
                     <Button
                       variant="outline"

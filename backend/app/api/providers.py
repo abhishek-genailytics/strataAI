@@ -83,7 +83,7 @@ async def debug_test_token(token: str):
 async def list_providers(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
-    active_only: bool = Query(True, description="Return only active providers")
+    active_only: bool = Query(False, description="Return only active providers")
 ):
     """List all AI providers."""
     try:
@@ -91,7 +91,7 @@ async def list_providers(
         
         supabase = get_supabase_client()
         
-        # Query providers from Supabase
+        # Query providers from Supabase - now returns all providers by default
         query = supabase.table("ai_providers").select("*")
         if active_only:
             query = query.eq("is_active", True)

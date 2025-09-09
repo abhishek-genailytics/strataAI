@@ -1,12 +1,15 @@
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
+import logging
 
 from supabase import Client
 from ..core.database import get_supabase_client
 from ..utils.supabase_client import supabase_service
 from ..models.api_key import APIKeyCreate, APIKeyUpdate, APIKeyDisplay, APIKeyValidationResult
 from ..core.encryption import encryption_service
+
+logger = logging.getLogger(__name__)
 
 
 class APIKeyService:
