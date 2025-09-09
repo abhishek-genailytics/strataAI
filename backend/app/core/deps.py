@@ -102,37 +102,45 @@ async def get_current_user(
         user_uuid = UUID(user_data["id"])
         email = user_data["email"]
         
-        # Load user profile with organization info (simplified approach)
+        # Load user organizations from user_organizations table
         try:
-            # Get user profile using service client (bypasses RLS)
-            profile_response = supabase_service.table("user_profiles").select("*").eq("id", str(user_uuid)).execute()
+            # Get user profile for basic info
+            profile_response = supabase_service.table("user_profiles").select("is_active").eq("id", str(user_uuid)).execute()
+            is_active = True
+            if profile_response.data:
+                is_active = profile_response.data[0].get('is_active', True)
+            
+            # Get user organizations from user_organizations table
+            org_response = supabase_service.table("user_organizations").select("""
+                organization_id,
+                role,
+                is_active,
+                is_owner,
+                is_admin,
+                joined_at,
+                organizations!inner(
+                    id,
+                    name,
+                    display_name
+                )
+            """).eq("user_id", str(user_uuid)).eq("is_active", True).execute()
             
             organizations = []
-            is_active = True
-            
-            if profile_response.data:
-                user_profile = profile_response.data[0]
-                is_active = user_profile.get('is_active', True)
-                logger.info(f"Loaded user profile: {user_profile}")
-                
-                # Extract organization info from user profile
-                if user_profile.get('organization_id'):
-                    # Get organization details separately
-                    org_response = supabase_service.table("organizations").select("name, display_name").eq("id", user_profile['organization_id']).execute()
-                    org_info = org_response.data[0] if org_response.data else {}
-                    
+            if org_response.data:
+                for org_membership in org_response.data:
+                    org_data = org_membership['organizations']
                     organizations.append({
-                        'id': user_profile['organization_id'],
-                        'name': org_info.get('name', user_profile.get('organization_name', '')),
-                        'display_name': org_info.get('display_name', ''),
-                        'role': user_profile.get('role', 'member'),
-                        'joined_at': user_profile.get('created_at')
+                        'id': org_data['id'],
+                        'name': org_data['name'],
+                        'display_name': org_data.get('display_name', ''),
+                        'role': org_membership['role'],
+                        'is_owner': org_membership.get('is_owner', False),
+                        'is_admin': org_membership.get('is_admin', False),
+                        'joined_at': org_membership.get('joined_at')
                     })
                     logger.info(f"Added organization to user: {organizations[-1]}")
-                logger.info(f"Loaded {len(organizations)} organizations: {organizations}")
-            else:
-                logger.warning(f"No user profile data found for user {user_uuid}")
             
+            logger.info(f"Loaded {len(organizations)} organizations for user {user_uuid}: {organizations}")
             return CurrentUser(user_uuid, email, organizations, is_active, token)
             
         except Exception as org_error:
