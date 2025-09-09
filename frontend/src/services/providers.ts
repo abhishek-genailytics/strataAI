@@ -10,7 +10,12 @@ export const createApiKey = (payload: {
   provider: string;
   label: string;
   api_key: string;
-}) => apiPost<ApiKey>("/api-keys", payload);
+}) =>
+  apiPost<ApiKey>("/api-keys", {
+    provider_id: payload.provider,
+    name: payload.label,
+    api_key_value: payload.api_key,
+  });
 export const deleteApiKey = (id: string) => apiDelete<void>(`/api-keys/${id}`);
 
 // Models - using playground models endpoint since /providers/models returns empty array
