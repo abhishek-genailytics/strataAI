@@ -29,13 +29,16 @@ export default function ProviderManage() {
   const qc = useQueryClient();
 
   // providerId is now the provider name (e.g., "anthropic", "openai")
-  const { data: allModels, isLoading, error } = useModels();
+  const { data: models, isLoading, error } = useModels(providerId);
 
-  // Filter models by provider
-  const models = useMemo(() => {
-    if (!allModels || !providerId) return [];
-    return allModels.filter((model) => model.provider_name === providerId);
-  }, [allModels, providerId]);
+  // Debug logging
+  console.log("ProviderManage Debug:", {
+    providerId,
+    models,
+    isLoading,
+    error,
+    modelsLength: models?.length,
+  });
   const { data: apiKeys } = useQuery({
     queryKey: qk.apiKeys,
     queryFn: listApiKeys,

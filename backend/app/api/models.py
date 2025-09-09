@@ -173,7 +173,8 @@ async def get_current_model_pricing(
 async def get_organization_connected_models(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
-    model_type: Optional[str] = Query(None, description="Filter by model type")
+    model_type: Optional[str] = Query(None, description="Filter by model type"),
+    provider: Optional[str] = Query(None, description="Filter by provider name")
 ):
     """Get models from providers that have API keys configured for the current organization."""
     if not organization:
@@ -213,6 +214,10 @@ async def get_organization_connected_models(
         if model_type:
             query = query.eq("model_type", model_type)
         
+        # Filter by provider name if specified
+        if provider:
+            query = query.eq("ai_providers.name", provider)
+        
         # Only active models
         query = query.eq("is_active", True)
         
@@ -224,10 +229,11 @@ async def get_organization_connected_models(
             model_dict = {
                 "id": model_data["id"],
                 "provider_id": model_data["provider_id"],
+                "provider_name": model_data["ai_providers"]["name"],  # Add provider name
                 "model_name": model_data["model_name"],
                 "display_name": model_data["display_name"],
                 "description": model_data.get("description"),
-                "model_type": model_data["model_type"],
+                "type": model_data["model_type"],  # Use 'type' instead of 'model_type' for frontend compatibility
                 "max_tokens": model_data.get("max_tokens"),
                 "max_input_tokens": model_data.get("max_input_tokens"),
                 "supports_streaming": model_data.get("supports_streaming", False),
@@ -238,18 +244,28 @@ async def get_organization_connected_models(
                 "pricing": []
             }
             
-            # Add pricing information
+            # Add pricing information in the format expected by frontend
+            input_pricing = None
+            output_pricing = None
+            
             if model_data.get("model_pricing"):
                 for pricing in model_data["model_pricing"]:
                     if pricing.get("is_active", True):
-                        model_dict["pricing"].append({
-                            "id": pricing["id"],
-                            "pricing_type": pricing["pricing_type"],
-                            "price_per_unit": float(pricing["price_per_unit"]),
-                            "unit": pricing["unit"],
-                            "currency": pricing["currency"],
-                            "region": pricing.get("region", "us-east-1")
-                        })
+                        if pricing["pricing_type"] == "input":
+                            input_pricing = {
+                                "price": float(pricing["price_per_unit"]),
+                                "currency": pricing["currency"]
+                            }
+                        elif pricing["pricing_type"] == "output":
+                            output_pricing = {
+                                "price": float(pricing["price_per_unit"]),
+                                "currency": pricing["currency"]
+                            }
+            
+            model_dict["pricing"] = {
+                "input": input_pricing,
+                "output": output_pricing
+            }
             
             connected_models.append(model_dict)
         
