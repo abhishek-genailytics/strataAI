@@ -135,14 +135,6 @@ export default function ProviderManage() {
     [apiKeys, providerId]
   );
 
-  const providerName = useMemo(() => {
-    if (modelsWithEnabledStatus?.[0]?.provider) {
-      return modelsWithEnabledStatus[0].provider;
-    }
-    // providerId is now the provider name (e.g., "anthropic", "openai")
-    return providerId?.charAt(0).toUpperCase() + providerId?.slice(1);
-  }, [modelsWithEnabledStatus, providerId]);
-
   const mRemoveKey = useMutation({
     mutationFn: async () => {
       if (!keyForProvider) throw new Error("No key found for this provider");
