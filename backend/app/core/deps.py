@@ -201,6 +201,7 @@ async def get_organization_context(
         first_org = current_user.organizations[0]
         logger.info(f"Using first organization: {first_org}")
         # Create Organization object from the first organization data
+        from datetime import datetime
         org_data = {
             'id': UUID(first_org.get('id')),
             'name': first_org.get('name', ''),
@@ -210,8 +211,8 @@ async def get_organization_context(
             'metadata': {},
             'settings': {},
             'is_active': True,
-            'created_at': first_org.get('joined_at'),  # Use joined_at as created_at
-            'updated_at': first_org.get('joined_at')   # Use joined_at as updated_at
+            'created_at': datetime.now(),  # Use current time as fallback
+            'updated_at': datetime.now()   # Use current time as fallback
         }
         logger.info(f"Returning organization: {org_data}")
         return Organization(**org_data)

@@ -8,6 +8,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..core.deps import get_current_user, get_organization_context, CurrentUser
+from ..models.organization import Organization
 from ..models.playground_session import (
     PlaygroundSessionCreate,
     PlaygroundSessionUpdate,
@@ -28,7 +29,7 @@ router = APIRouter(prefix="/playground/sessions", tags=["Playground Sessions"])
 async def create_session(
     data: PlaygroundSessionCreate,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Create a new playground session with server-controlled defaults."""
     
@@ -51,15 +52,21 @@ async def create_session(
                 code="provider_model_mismatch"
             )
         
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         session = await service.create_session(
             user_id=current_user.id,
-            organization_id=organization_id,
+            organization_id=organization.id,
             data=data
         )
         
         # Add preflight warning if API key is missing
         warning = await service.get_preflight_warning(
-            organization_id=organization_id,
+            organization_id=organization.id,
             provider=data.provider,
             jwt_token=current_user.jwt_token
         )
@@ -86,16 +93,22 @@ async def list_sessions(
     limit: int = Query(20, ge=1, le=100, description="Number of sessions to return"),
     cursor: Optional[str] = Query(None, description="Pagination cursor (session ID)"),
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """List user's playground sessions with pagination."""
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         service = PlaygroundSessionService()
         
         return await service.list_sessions(
             user_id=current_user.id,
-            organization_id=organization_id,
+            organization_id=organization.id,
             archived=archived,
             limit=limit,
             cursor=cursor
@@ -113,17 +126,23 @@ async def list_sessions(
 async def get_session(
     session_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Get a single playground session by ID."""
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         service = PlaygroundSessionService()
         
         session = await service.get_session(
             session_id=session_id,
             user_id=current_user.id,
-            organization_id=organization_id
+            organization_id=organization.id
         )
         
         if not session:
@@ -149,7 +168,7 @@ async def update_session(
     session_id: UUID,
     data: PlaygroundSessionUpdate,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Update session title and/or metadata. Supports provider/model picker updates.
     
@@ -157,6 +176,12 @@ async def update_session(
     """
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         # Validate model format if provided
         if data.model and "/" not in data.model:
             openai_error(
@@ -180,7 +205,7 @@ async def update_session(
         session = await service.update_session(
             session_id=session_id,
             user_id=current_user.id,
-            organization_id=organization_id,
+            organization_id=organization.id,
             data=data
         )
         
@@ -208,17 +233,23 @@ async def update_session(
 async def archive_session(
     session_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Archive a session (soft delete)."""
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         service = PlaygroundSessionService()
         
         result = await service.archive_session(
             session_id=session_id,
             user_id=current_user.id,
-            organization_id=organization_id
+            organization_id=organization.id
         )
         
         if not result:
@@ -243,17 +274,23 @@ async def archive_session(
 async def restore_session(
     session_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Restore an archived session."""
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         service = PlaygroundSessionService()
         
         result = await service.restore_session(
             session_id=session_id,
             user_id=current_user.id,
-            organization_id=organization_id
+            organization_id=organization.id
         )
         
         if not result:
@@ -278,17 +315,23 @@ async def restore_session(
 async def duplicate_session(
     session_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Duplicate a session with all messages (no usage records for clean analytics)."""
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         service = PlaygroundSessionService()
         
         result = await service.duplicate_session(
             session_id=session_id,
             user_id=current_user.id,
-            organization_id=organization_id
+            organization_id=organization.id
         )
         
         if not result:
@@ -313,17 +356,23 @@ async def duplicate_session(
 async def clear_session(
     session_id: UUID,
     current_user: CurrentUser = Depends(get_current_user),
-    organization_id: UUID = Depends(get_organization_context)
+    organization: Optional[Organization] = Depends(get_organization_context)
 ):
     """Clear all messages from session while keeping metadata and setup defaults."""
     
     try:
+        if not organization:
+            raise HTTPException(
+                status_code=400,
+                detail="Organization context required"
+            )
+        
         service = PlaygroundSessionService()
         
         result = await service.clear_session(
             session_id=session_id,
             user_id=current_user.id,
-            organization_id=organization_id
+            organization_id=organization.id
         )
         
         if not result:
