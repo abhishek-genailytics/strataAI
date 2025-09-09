@@ -472,10 +472,14 @@ async def disconnect_provider(
         raise HTTPException(status_code=400, detail="Organization context required")
     
     try:
+        logger.info(f"Disconnect request for provider {provider_id}, org {organization.id}, user {current_user.id}")
         success = await api_key_service.disconnect_provider(provider_id, organization.id)
         if not success:
+            logger.warning(f"Disconnect failed for provider {provider_id}")
             raise HTTPException(status_code=404, detail="Provider not found or already disconnected")
         
+        logger.info(f"Successfully disconnected provider {provider_id}")
         return {"message": "Provider disconnected successfully", "provider_id": provider_id}
     except Exception as e:
+        logger.error(f"Error in disconnect endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to disconnect provider: {str(e)}")

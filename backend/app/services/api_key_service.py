@@ -219,28 +219,38 @@ class APIKeyService:
     async def disconnect_provider(self, provider_id: str, organization_id: UUID) -> bool:
         """Disconnect a provider by setting is_active=False for API keys and org_model_enablement."""
         try:
-            # Handle both provider name and UUID
+            logger.info(f"Disconnecting provider {provider_id} for organization {organization_id}")
+            
+            # Handle both provider name and UUID - improved UUID detection
             provider_uuid = provider_id
-            if not provider_id.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')):
+            is_uuid = len(provider_id) == 36 and provider_id.count('-') == 4
+            
+            if not is_uuid:
                 # Looks like a name, not UUID - convert to UUID
+                logger.info(f"Converting provider name '{provider_id}' to UUID")
                 provider_lookup = self.supabase.table("ai_providers")\
                     .select("id")\
                     .eq("name", provider_id)\
-                    .eq("is_active", True)\
                     .execute()
                 
                 if provider_lookup.data:
                     provider_uuid = provider_lookup.data[0]["id"]
+                    logger.info(f"Found provider UUID: {provider_uuid}")
                 else:
                     logger.warning(f"Provider {provider_id} not found")
                     return False
+            else:
+                logger.info(f"Using provider UUID directly: {provider_uuid}")
 
             # Set is_active=False for all API keys for this provider and organization
+            logger.info(f"Updating API keys for provider {provider_uuid}, org {organization_id}")
             api_key_response = self.supabase.table("api_keys")\
                 .update({"is_active": False})\
                 .eq("provider_id", provider_uuid)\
                 .eq("organization_id", str(organization_id))\
                 .execute()
+            
+            logger.info(f"API keys update response: {len(api_key_response.data or [])} rows affected")
             
             # Set is_enabled=False for all models in org_model_enablement for this provider and organization
             # First get all models for this provider
@@ -249,6 +259,8 @@ class APIKeyService:
                 .eq("provider_id", provider_uuid)\
                 .eq("is_active", True)\
                 .execute()
+            
+            logger.info(f"Found {len(models_response.data or [])} models for provider {provider_uuid}")
             
             if models_response.data:
                 model_ids = [model["id"] for model in models_response.data]
@@ -259,7 +271,10 @@ class APIKeyService:
                     .eq("organization_id", str(organization_id))\
                     .in_("model_id", model_ids)\
                     .execute()
+                
+                logger.info(f"Model enablement update response: {len(enablement_response.data or [])} rows affected")
             
+            logger.info(f"Successfully disconnected provider {provider_id}")
             return True
         except Exception as e:
             logger.error(f"Error disconnecting provider: {e}")
