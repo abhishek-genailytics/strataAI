@@ -35,16 +35,9 @@ class ModelEnablementService:
         logger.info(f"Enabling {len(request.model_ids)} models for org {organization_id}, provider {request.provider}")
         
         # 1. Validate provider exists and get provider_id
-        actual_provider_id = await self._validate_provider_and_models(request.provider, request.model_ids)
+        provider_id = await self._validate_provider_and_models(request.provider, request.model_ids)
         
         # 2. Clear existing enablement for this organization + provider combination
-        
-        if len(models_response.data) != len(request.model_ids):
-            found_ids = [m["id"] for m in models_response.data]
-            missing_ids = [mid for mid in request.model_ids if mid not in found_ids]
-            raise ValueError(f"Invalid model IDs for provider {request.provider}: {missing_ids}")
-        
-        # 3. Clear existing enablement for this organization + provider combination
         # This ensures we only enable the selected models and disable others
         await self._clear_provider_enablement(organization_id, provider_id)
         
@@ -73,6 +66,47 @@ class ModelEnablementService:
             provider_id=provider_id,
             model_ids=request.model_ids
         )
+    
+    async def _validate_provider_and_models(self, provider_name: str, model_ids: List[str]) -> str:
+        """
+        Validate that provider exists and all model IDs are valid for that provider.
+        
+        Args:
+            provider_name: Name of the provider (e.g., "openai", "anthropic")
+            model_ids: List of model IDs to validate
+            
+        Returns:
+            Provider UUID string
+            
+        Raises:
+            ValueError: If provider not found or model IDs are invalid
+        """
+        # 1. Get provider by name
+        provider_response = self.sb.table("ai_providers")\
+            .select("id, name")\
+            .eq("name", provider_name)\
+            .eq("is_active", True)\
+            .execute()
+        
+        if not provider_response.data:
+            raise ValueError(f"Provider '{provider_name}' not found or inactive")
+        
+        provider_id = provider_response.data[0]["id"]
+        
+        # 2. Validate all model IDs exist for this provider
+        models_response = self.sb.table("ai_models")\
+            .select("id")\
+            .eq("provider_id", provider_id)\
+            .eq("is_active", True)\
+            .in_("id", model_ids)\
+            .execute()
+        
+        if len(models_response.data) != len(model_ids):
+            found_ids = [m["id"] for m in models_response.data]
+            missing_ids = [mid for mid in model_ids if mid not in found_ids]
+            raise ValueError(f"Invalid model IDs for provider {provider_name}: {missing_ids}")
+        
+        return provider_id
     
     async def _clear_provider_enablement(self, organization_id: UUID, provider_id: str) -> None:
         """Clear existing enablement records for organization + provider."""

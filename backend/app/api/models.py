@@ -25,7 +25,7 @@ async def list_models_with_pricing(
     organization: Optional[Organization] = Depends(get_organization_context),
     provider_id: Optional[UUID] = Query(None, description="Filter by provider ID"),
     provider: Optional[str] = Query(None, description="Filter by provider name"),
-    model_type: Optional[str] = Query(None, description="Filter by model type"),
+    model_type: Optional[str] = Query("chat,multimodal", description="Filter by model type"),
     connected_only: bool = Query(False, description="Show only models from connected providers")
 ):
     """List all models with their pricing information, optionally filtered by organization's connected providers."""
@@ -57,7 +57,10 @@ async def list_models_with_pricing(
         
         # Filter by model type if specified
         if model_type:
-            query = query.eq("model_type", model_type)
+            # Support comma-separated model types
+            model_types = [t.strip() for t in model_type.split(",") if t.strip()]
+            if model_types:
+                query = query.in_("model_type", model_types)
         
         # Only active models
         query = query.eq("is_active", True)
@@ -193,7 +196,7 @@ async def get_current_model_pricing(
 async def get_organization_connected_models(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
-    model_type: Optional[str] = Query(None, description="Filter by model type"),
+    model_type: Optional[str] = Query("chat,multimodal", description="Filter by model type"),
     provider: Optional[str] = Query(None, description="Filter by provider name")
 ):
     """Get models from providers that have API keys configured for the current organization."""
@@ -232,7 +235,10 @@ async def get_organization_connected_models(
         
         # Filter by model type if specified
         if model_type:
-            query = query.eq("model_type", model_type)
+            # Support comma-separated model types
+            model_types = [t.strip() for t in model_type.split(",") if t.strip()]
+            if model_types:
+                query = query.in_("model_type", model_types)
         
         # Filter by provider name if specified
         if provider:

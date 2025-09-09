@@ -22,7 +22,7 @@ export const deleteApiKey = (id: string) => apiDelete<void>(`/api-keys/${id}`);
 export const listModels = async (params?: { provider?: string }) => {
   const response = await apiGet<ModelInfo[]>("/models", {
     ...params,
-    model_type: "chat",
+    model_type: "chat,multimodal", // Include both chat and multimodal models
   });
   return response; // Return the array directly
 };
