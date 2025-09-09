@@ -223,7 +223,7 @@ class APIKeyService:
             provider_uuid = provider_id
             if not provider_id.startswith(('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')):
                 # Looks like a name, not UUID - convert to UUID
-                provider_lookup = self.sb.table("ai_providers")\
+                provider_lookup = self.supabase.table("ai_providers")\
                     .select("id")\
                     .eq("name", provider_id)\
                     .eq("is_active", True)\
@@ -236,7 +236,7 @@ class APIKeyService:
                     return False
 
             # Set is_active=False for all API keys for this provider and organization
-            api_key_response = self.sb.table("api_keys")\
+            api_key_response = self.supabase.table("api_keys")\
                 .update({"is_active": False})\
                 .eq("provider_id", provider_uuid)\
                 .eq("organization_id", str(organization_id))\
@@ -244,7 +244,7 @@ class APIKeyService:
             
             # Set is_enabled=False for all models in org_model_enablement for this provider and organization
             # First get all models for this provider
-            models_response = self.sb.table("ai_models")\
+            models_response = self.supabase.table("ai_models")\
                 .select("id")\
                 .eq("provider_id", provider_uuid)\
                 .eq("is_active", True)\
@@ -254,7 +254,7 @@ class APIKeyService:
                 model_ids = [model["id"] for model in models_response.data]
                 
                 # Update org_model_enablement for these models
-                enablement_response = self.sb.table("org_model_enablement")\
+                enablement_response = self.supabase.table("org_model_enablement")\
                     .update({"is_enabled": False})\
                     .eq("organization_id", str(organization_id))\
                     .in_("model_id", model_ids)\
