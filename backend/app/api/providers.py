@@ -1,7 +1,10 @@
 from typing import List, Optional
 from uuid import UUID
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+
+logger = logging.getLogger(__name__)
 
 from ..core.deps import get_current_user, get_organization_context, CurrentUser
 from ..models.ai_provider import AIProvider, AIProviderCreate, AIProviderUpdate
