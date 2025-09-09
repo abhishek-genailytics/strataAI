@@ -113,7 +113,7 @@ def create_app() -> FastAPI:
     # Core API endpoints - mount specific routes first to avoid conflicts
     app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
     app.include_router(organizations_router, prefix=f"{settings.API_V1_STR}/organizations", tags=["organizations"])
-    app.include_router(models_router, prefix=settings.API_V1_STR, tags=["models"])
+    app.include_router(models_router, prefix=f"{settings.API_V1_STR}", tags=["models"])
     
     # Other API endpoints
     app.include_router(api_keys_router, prefix=settings.API_V1_STR)

@@ -19,7 +19,7 @@ from ..services.api_key_service import api_key_service
 router = APIRouter()
 
 
-@router.get("/", response_model=List[dict])
+@router.get("/models", response_model=List[dict])
 async def list_models_with_pricing(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
@@ -139,7 +139,7 @@ async def list_models_with_pricing(
         )
 
 
-@router.get("/{model_id}", response_model=AIModel)
+@router.get("/models/{model_id}", response_model=AIModel)
 async def get_model(
     model_id: UUID,
     current_user: CurrentUser = Depends(get_current_user)
@@ -160,7 +160,7 @@ async def get_model(
         )
 
 
-@router.get("/{model_id}/pricing", response_model=List[ModelPricing])
+@router.get("/models/{model_id}/pricing", response_model=List[ModelPricing])
 async def list_model_pricing(
     model_id: UUID,
     current_user: CurrentUser = Depends(get_current_user)
@@ -176,7 +176,7 @@ async def list_model_pricing(
         )
 
 
-@router.get("/{model_id}/pricing/current", response_model=List[ModelPricing])
+@router.get("/models/{model_id}/pricing/current", response_model=List[ModelPricing])
 async def get_current_model_pricing(
     model_id: UUID,
     current_user: CurrentUser = Depends(get_current_user)
@@ -192,7 +192,7 @@ async def get_current_model_pricing(
         )
 
 
-@router.get("/organization/connected", response_model=List[dict])
+@router.get("/models/organization/connected", response_model=List[dict])
 async def get_organization_connected_models(
     current_user: CurrentUser = Depends(get_current_user),
     organization: Optional[Organization] = Depends(get_organization_context),
