@@ -78,6 +78,16 @@ export default function ProviderManage() {
     [apiKeys, providerId]
   );
 
+  const providerName = useMemo(() => {
+    if (keyForProvider?.provider_name) {
+      return keyForProvider.provider_name;
+    }
+    if (models?.[0]?.provider_name) {
+      return models[0].provider_name;
+    }
+    return providerId?.charAt(0).toUpperCase() + providerId?.slice(1);
+  }, [keyForProvider, models, providerId]);
+
   const mRemoveKey = useMutation({
     mutationFn: async () => {
       if (!keyForProvider) throw new Error("No key found for this provider");
@@ -103,9 +113,7 @@ export default function ProviderManage() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">
-          Manage: {providerId?.charAt(0).toUpperCase() + providerId?.slice(1)}
-        </h1>
+        <h1 className="text-2xl font-semibold">Manage: {providerName}</h1>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={() => navigate("/models")}>
             Back

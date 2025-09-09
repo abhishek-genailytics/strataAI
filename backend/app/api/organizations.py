@@ -65,27 +65,24 @@ async def create_organization(
 
 @router.get("/", response_model=List[OrganizationResponse])
 async def get_user_organizations(
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """Get all organizations the current user belongs to"""
-    org_service = OrganizationService()
-    user_orgs = await org_service.get_user_organizations(current_user.id)
-    
+    # Use the organizations already loaded in the current user object
     organizations = []
-    for user_org in user_orgs:
+    for org in current_user.organizations:
         try:
-            # Use the data directly from the RPC response instead of making another DB call
             organizations.append(OrganizationResponse(
-                id=user_org["organization_id"],
-                name=user_org["organization_name"],
-                display_name=user_org.get("organization_display_name"),  # This might be available from RPC
-                domain=None,  # RPC doesn't return domain, set to None
+                id=org["id"],
+                name=org["name"],
+                display_name=org.get("display_name", org["name"]),
+                domain=None,  # Not available in current structure
                 is_active=True,  # Assume active if user has access
-                created_at="2025-01-01T00:00:00Z",  # Default timestamp
-                updated_at="2025-01-01T00:00:00Z"   # Default timestamp
+                created_at=org.get("joined_at", "2025-01-01T00:00:00Z"),
+                updated_at=org.get("joined_at", "2025-01-01T00:00:00Z")
             ))
         except (ValueError, KeyError) as e:
-            logger.error(f"Invalid organization data in user_org: {user_org}, error: {e}")
+            logger.error(f"Error processing organization data: {e}")
             continue
     
     return organizations

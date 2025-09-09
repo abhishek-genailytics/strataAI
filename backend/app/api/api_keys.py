@@ -41,6 +41,18 @@ async def create_api_key(
     try:
         logger.info("Validating API key request data")
         
+        # Check if an API key already exists for this provider
+        existing_key = await api_key_service.get_by_provider(
+            organization_id=organization.id,
+            provider_id=api_key_in.provider_id
+        )
+        
+        if existing_key:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="An API key for this provider already exists in your organization. Please update the existing key instead."
+            )
+        
         api_key, validation_result = await api_key_service.validate_and_create(
             obj_in=api_key_in, 
             organization_id=organization.id,

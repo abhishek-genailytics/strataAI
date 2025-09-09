@@ -18,13 +18,13 @@ export const createApiKey = (payload: {
   });
 export const deleteApiKey = (id: string) => apiDelete<void>(`/api-keys/${id}`);
 
-// Models - using playground models endpoint since /providers/models returns empty array
+// Models - using organization connected models endpoint for manage page
 export const listModels = async (params?: { provider?: string }) => {
-  const response = await apiGet<{ data: ModelInfo[]; meta: any }>(
-    "/playground/models",
-    { ...params, type: "chat,multimodal" }
-  );
-  return response.data; // Extract the data array from the response
+  const response = await apiGet<ModelInfo[]>("/models/organization/connected", {
+    ...params,
+    type: "chat,multimodal",
+  });
+  return response; // Return the array directly
 };
 // Model enablement - this endpoint may not be implemented yet
 export const enableModels = (payload: {
