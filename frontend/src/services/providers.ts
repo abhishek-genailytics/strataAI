@@ -19,7 +19,10 @@ export const createApiKey = (payload: {
 export const deleteApiKey = (id: string) => apiDelete<void>(`/api-keys/${id}`);
 
 // Models - for configuration dialog, show ALL models for a provider (not just connected)
-export const listModels = async (params?: { provider?: string }) => {
+export const listModels = async (params?: {
+  provider?: string;
+  provider_id?: string;
+}) => {
   const response = await apiGet<ModelInfo[]>("/models", {
     ...params,
     model_type: "chat,multimodal", // Include both chat and multimodal models
@@ -43,4 +46,7 @@ export const getEnabledModels = (providerId: string) =>
 
 // Disconnect a provider - sets API keys and model enablement to inactive
 export const disconnectProvider = (providerId: string) =>
-  apiPost<{ message: string; provider_id: string }>(`/providers/${providerId}/disconnect`, {});
+  apiPost<{ message: string; provider_id: string }>(
+    `/providers/${providerId}/disconnect`,
+    {}
+  );

@@ -70,9 +70,9 @@ export default function Models() {
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm overflow-hidden">
                     {p.logo_url ? (
-                      <img 
-                        src={p.logo_url} 
-                        alt={p.display_name || p.name} 
+                      <img
+                        src={p.logo_url}
+                        alt={p.display_name || p.name}
                         className="w-full h-full object-cover rounded-lg"
                       />
                     ) : (

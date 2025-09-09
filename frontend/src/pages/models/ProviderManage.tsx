@@ -3,7 +3,13 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/utils/queryKeys";
 import { useEnabledModels } from "@/hooks/useEnabledModels";
-import { listApiKeys, deleteApiKey, enableModels, listModels } from "@/services/providers";
+import { useProviderMapping } from "@/hooks/useProviderMapping";
+import {
+  listApiKeys,
+  deleteApiKey,
+  enableModels,
+  listModels,
+} from "@/services/providers";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -23,25 +29,35 @@ import { SkeletonList } from "@/components/shared/SkeletonList";
 import type { ModelInfo } from "@/types/backend";
 
 export default function ProviderManage() {
-  const { providerId } = useParams();
+  const { providerId: providerName } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { getIdByName, getNameById } = useProviderMapping();
+
+  // Convert provider name to UUID
+  const providerId = getIdByName(providerName || "");
 
   // Get all available models for this provider
-  const { data: allModels, isLoading: modelsLoading, error } = useQuery({
-    queryKey: ["all-models", providerId],
-    queryFn: () => listModels({ provider: providerId }),
+  const {
+    data: allModels,
+    isLoading: modelsLoading,
+    error,
+  } = useQuery({
+    queryKey: ["all-models", providerName],
+    queryFn: () => listModels({ provider_id: providerId }),
     enabled: !!providerId,
   });
 
   // Get enabled models from org_model_enablement table
-  const { data: enabledModelsData, isLoading: enabledLoading } = useEnabledModels(providerId);
+  const { data: enabledModelsData, isLoading: enabledLoading } =
+    useEnabledModels(providerId);
 
   const isLoading = modelsLoading || enabledLoading;
 
   // Debug logging
   console.log("ProviderManage Debug:", {
+    providerName,
     providerId,
     allModels,
     enabledModelsData,
@@ -59,14 +75,14 @@ export default function ProviderManage() {
   // Create a merged list of models with enabled status from database
   const modelsWithEnabledStatus = useMemo(() => {
     if (!allModels) return [];
-    
+
     const enabledModelIds = new Set(
       enabledModelsData?.enabled_models?.map((m) => m.id) || []
     );
-    
+
     return allModels.map((model: ModelInfo) => ({
       ...model,
-      enabled: enabledModelIds.has(model.id)
+      enabled: enabledModelIds.has(model.id),
     }));
   }, [allModels, enabledModelsData]);
 
@@ -75,7 +91,7 @@ export default function ProviderManage() {
     () => new Set(enabledModelsData?.enabled_models?.map((m) => m.id) || []),
     [enabledModelsData]
   );
-  
+
   const [enabledSet, setEnabledSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -202,62 +218,66 @@ export default function ProviderManage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(modelsWithEnabledStatus ?? []).map((m: ModelInfo & { enabled: boolean }) => {
-                  const enabled = enabledSet.has(m.id);
-                  return (
-                    <TableRow key={m.id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={enabled}
-                          onCheckedChange={(v: boolean) => onToggle(m.id, !!v)}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{m.display_name}</div>
-                        <div className="text-xs text-slate-500">{m.id}</div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary" className="capitalize">
-                          {m.type || "chat"}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {m.pricing?.input
-                          ? formatMoney(
-                              m.pricing.input.price * 1000,
-                              m.pricing.input.currency as "USD" | "INR"
-                            )
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {m.pricing?.output
-                          ? formatMoney(
-                              m.pricing.output.price * 1000,
-                              m.pricing.output.currency as "USD" | "INR"
-                            )
-                          : "N/A"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="outline"
-                          onClick={() =>
-                            navigate(
-                              `/playground?model=${encodeURIComponent(m.id)}`
-                            )
-                          }
-                          disabled={!enabled}
-                          title={
-                            enabled
-                              ? "Open in Playground"
-                              : "Enable model to use in Playground"
-                          }
-                        >
-                          Open in Playground
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {(modelsWithEnabledStatus ?? []).map(
+                  (m: ModelInfo & { enabled: boolean }) => {
+                    const enabled = enabledSet.has(m.id);
+                    return (
+                      <TableRow key={m.id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={enabled}
+                            onCheckedChange={(v: boolean) =>
+                              onToggle(m.id, !!v)
+                            }
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="font-medium">{m.display_name}</div>
+                          <div className="text-xs text-slate-500">{m.id}</div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary" className="capitalize">
+                            {m.type || "chat"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {m.pricing?.input
+                            ? formatMoney(
+                                m.pricing.input.price * 1000,
+                                m.pricing.input.currency as "USD" | "INR"
+                              )
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {m.pricing?.output
+                            ? formatMoney(
+                                m.pricing.output.price * 1000,
+                                m.pricing.output.currency as "USD" | "INR"
+                              )
+                            : "N/A"}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              navigate(
+                                `/playground?model=${encodeURIComponent(`${providerName}/${m.model_name}`)}`
+                              )
+                            }
+                            disabled={!enabled}
+                            title={
+                              enabled
+                                ? "Open in Playground"
+                                : "Enable model to use in Playground"
+                            }
+                          >
+                            Open in Playground
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  }
+                )}
               </TableBody>
             </Table>
           </>
