@@ -91,6 +91,7 @@ export default function ProviderManage() {
     if (models?.[0]?.provider_name) {
       return models[0].provider_name;
     }
+    // providerId is now the provider name (e.g., "anthropic", "openai")
     return providerId?.charAt(0).toUpperCase() + providerId?.slice(1);
   }, [keyForProvider, models, providerId]);
 

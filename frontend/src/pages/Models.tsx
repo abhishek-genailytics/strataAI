@@ -85,7 +85,7 @@ export default function Models() {
                 {p.configured ? (
                   <Button
                     variant="outline"
-                    onClick={() => navigate(`/models/${p.id}`)}
+                    onClick={() => navigate(`/models/${p.name}`)}
                     className="flex-1"
                   >
                     <Settings className="h-4 w-4 mr-2" />
