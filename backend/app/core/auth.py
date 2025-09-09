@@ -6,7 +6,7 @@ from uuid import UUID
 from app.core.supabase import get_supabase_service
 from app.core.exceptions import AuthenticationError, PermissionError_
 from app.models.auth import CurrentCaller
-from app.utils.crypto import sha256_hex, token_prefix as get_prefix
+from app.core.encryption import sha256_hex, token_prefix as get_prefix
 
 security = HTTPBearer(auto_error=False)
 

@@ -2,7 +2,7 @@ from typing import Tuple
 from uuid import UUID
 from app.core.supabase import get_supabase_service
 from app.core.exceptions import InvalidRequestError, NotFoundError, PermissionError_
-from app.utils.crypto import fernet_decrypt
+from app.core.encryption import encryption_service
 
 def get_active_api_key(organization_id: UUID, provider_id: UUID) -> Tuple[UUID, str]:
     """
@@ -35,7 +35,7 @@ def get_active_api_key(organization_id: UUID, provider_id: UUID) -> Tuple[UUID, 
 
     row = data[0]
     try:
-        plaintext = fernet_decrypt(row["encrypted_key_value"])
+        plaintext = encryption_service.decrypt_api_key(row["encrypted_key_value"])
     except ValueError:
         # The envelope middleware will shape this as server_error on /v1/*
         raise PermissionError_("Provider key decryption failed", code="provider_key_decrypt_failed")
