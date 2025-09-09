@@ -112,29 +112,3 @@ async def create_chat_completion_stream(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"error": "invalid_request", "message": str(e)}
         )
-
-
-# Removed conflicting /models endpoint - use models.py router instead
-
-
-@router.get("/models/{provider}", response_model=List[str])
-async def list_provider_models(
-    provider: str,
-    current_user: CurrentUser = Depends(get_current_user),
-    organization: Optional[Organization] = Depends(get_organization_context)
-):
-    """
-    List available models for a specific provider based on configured API keys in organization context.
-    """
-    models = await provider_service.get_provider_models(
-        provider=provider,
-        user_id=current_user.id,
-        organization_id=organization.id if organization else None
-    )
-    if not models:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Provider '{provider}' not found or has no available models"
-        )
-    
-    return models

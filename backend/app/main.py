@@ -110,7 +110,12 @@ def create_app() -> FastAPI:
     # Include API routes
     app.include_router(api_router, prefix=settings.API_V1_STR)
     
-    # Core API endpoints
+    # Core API endpoints - mount specific routes first to avoid conflicts
+    app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
+    app.include_router(organizations_router, prefix=f"{settings.API_V1_STR}/organizations", tags=["organizations"])
+    app.include_router(models_router, prefix=f"{settings.API_V1_STR}/models", tags=["models"])
+    
+    # Other API endpoints
     app.include_router(api_keys_router, prefix=settings.API_V1_STR)
     app.include_router(auth_router, prefix=settings.API_V1_STR)
     app.include_router(cache_management_router, prefix=settings.API_V1_STR)
@@ -118,9 +123,6 @@ def create_app() -> FastAPI:
     app.include_router(chat_sessions_router, prefix=settings.API_V1_STR)
     app.include_router(error_management_router, prefix=settings.API_V1_STR)
     app.include_router(health_router, prefix=settings.API_V1_STR)
-    app.include_router(models_router, prefix=settings.API_V1_STR)
-    app.include_router(organizations_router, prefix=settings.API_V1_STR)
-    app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
     app.include_router(usage_analytics_router, prefix=settings.API_V1_STR)
     app.include_router(user_models_router, prefix=settings.API_V1_STR)
     
