@@ -5,7 +5,6 @@ from pydantic import BaseModel
 from app.core.deps import get_current_user, CurrentUser
 from app.models.organization import Organization, OrganizationCreate, OrganizationUpdate, OrganizationResponse
 from app.services.organization_service import OrganizationService
-from app.models.user import User
 import logging
 from app.utils.supabase_client import get_supabase_client
 
@@ -22,7 +21,7 @@ class CreateOrganizationRequest(BaseModel):
 @router.post("/", response_model=OrganizationResponse)
 async def create_organization(
     org_data: CreateOrganizationRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """Create a new organization and add the current user as admin"""
     supabase = get_supabase_client()
@@ -90,7 +89,7 @@ async def get_user_organizations(
 @router.get("/organization/{org_id}", response_model=OrganizationResponse)
 async def get_organization(
     org_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: CurrentUser = Depends(get_current_user)
 ):
     """Get a specific organization by ID"""
     org_service = OrganizationService()

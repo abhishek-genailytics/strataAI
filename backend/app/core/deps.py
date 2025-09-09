@@ -283,6 +283,11 @@ async def resolve_organization(
         PermissionError_: If user doesn't have access to the organization
     """
     sb = get_supabase_service()
+    if not sb:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Supabase service not configured"
+        )
 
     # 1) No header → fallback to PAT org
     if not x_org_id:
