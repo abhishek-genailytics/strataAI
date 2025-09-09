@@ -199,6 +199,53 @@ class APIKeyService:
         except Exception:
             return False
 
+    async def delete_api_key(self, api_key_id: str, organization_id: UUID) -> bool:
+        """Delete an API key by ID."""
+        try:
+            response = self.sb.table("api_keys")\
+                .delete()\
+                .eq("id", api_key_id)\
+                .eq("organization_id", str(organization_id))\
+                .execute()
+            
+            return len(response.data) > 0
+        except Exception as e:
+            logger.error(f"Error deleting API key: {e}")
+            raise e
+
+    async def disconnect_provider(self, provider_id: str, organization_id: UUID) -> bool:
+        """Disconnect a provider by setting is_active=False for API keys and org_model_enablement."""
+        try:
+            # Set is_active=False for all API keys for this provider and organization
+            api_key_response = self.sb.table("api_keys")\
+                .update({"is_active": False})\
+                .eq("provider_id", provider_id)\
+                .eq("organization_id", str(organization_id))\
+                .execute()
+            
+            # Set is_enabled=False for all models in org_model_enablement for this provider and organization
+            # First get all models for this provider
+            models_response = self.sb.table("ai_models")\
+                .select("id")\
+                .eq("provider_id", provider_id)\
+                .eq("is_active", True)\
+                .execute()
+            
+            if models_response.data:
+                model_ids = [model["id"] for model in models_response.data]
+                
+                # Update org_model_enablement for these models
+                enablement_response = self.sb.table("org_model_enablement")\
+                    .update({"is_enabled": False})\
+                    .eq("organization_id", str(organization_id))\
+                    .in_("model_id", model_ids)\
+                    .execute()
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error disconnecting provider: {e}")
+            raise e
+
     async def update_api_key(
         self, 
         *, 

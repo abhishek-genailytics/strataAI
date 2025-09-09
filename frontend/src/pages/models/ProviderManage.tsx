@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/utils/queryKeys";
-import { useModels } from "@/hooks/useProviders";
-import { listApiKeys, deleteApiKey, enableModels } from "@/services/providers";
+import { useEnabledModels } from "@/hooks/useEnabledModels";
+import { listApiKeys, deleteApiKey, enableModels, listModels } from "@/services/providers";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
@@ -28,27 +28,54 @@ export default function ProviderManage() {
   const { toast } = useToast();
   const qc = useQueryClient();
 
-  // providerId is now the provider name (e.g., "anthropic", "openai")
-  const { data: models, isLoading, error } = useModels(providerId);
+  // Get all available models for this provider
+  const { data: allModels, isLoading: modelsLoading, error } = useQuery({
+    queryKey: ["all-models", providerId],
+    queryFn: () => listModels({ provider: providerId }),
+    enabled: !!providerId,
+  });
+
+  // Get enabled models from org_model_enablement table
+  const { data: enabledModelsData, isLoading: enabledLoading } = useEnabledModels(providerId);
+
+  const isLoading = modelsLoading || enabledLoading;
 
   // Debug logging
   console.log("ProviderManage Debug:", {
     providerId,
-    models,
+    allModels,
+    enabledModelsData,
     isLoading,
     error,
-    modelsLength: models?.length,
+    allModelsLength: allModels?.length,
+    enabledModelsCount: enabledModelsData?.count,
   });
+
   const { data: apiKeys } = useQuery({
     queryKey: qk.apiKeys,
     queryFn: listApiKeys,
   });
 
-  // Enabled set (derived from backend "enabled" flag if provided)
+  // Create a merged list of models with enabled status from database
+  const modelsWithEnabledStatus = useMemo(() => {
+    if (!allModels) return [];
+    
+    const enabledModelIds = new Set(
+      enabledModelsData?.enabled_models?.map((m) => m.id) || []
+    );
+    
+    return allModels.map((model: ModelInfo) => ({
+      ...model,
+      enabled: enabledModelIds.has(model.id)
+    }));
+  }, [allModels, enabledModelsData]);
+
+  // Enabled set (derived from database enabled models)
   const initialEnabled = useMemo(
-    () => new Set((models ?? []).filter((m) => m.enabled).map((m) => m.id)),
-    [models]
+    () => new Set(enabledModelsData?.enabled_models?.map((m) => m.id) || []),
+    [enabledModelsData]
   );
+  
   const [enabledSet, setEnabledSet] = useState<Set<string>>(new Set());
 
   useEffect(() => {
@@ -65,14 +92,19 @@ export default function ProviderManage() {
 
   const mSave = useMutation({
     mutationFn: async () => {
+      if (!providerId) throw new Error("No provider ID");
       await enableModels({
-        provider: providerId!,
+        provider: providerId,
         model_ids: Array.from(enabledSet),
       });
     },
     onSuccess: async () => {
       toast({ title: "Models updated" });
-      await qc.invalidateQueries({ queryKey: qk.models(providerId) });
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["all-models", providerId] }),
+        qc.invalidateQueries({ queryKey: ["enabled-models", providerId] }),
+        qc.invalidateQueries({ queryKey: qk.models(providerId) }),
+      ]);
     },
     onError: (e: any) =>
       toast({
@@ -88,15 +120,12 @@ export default function ProviderManage() {
   );
 
   const providerName = useMemo(() => {
-    if (keyForProvider?.provider_name) {
-      return keyForProvider.provider_name;
-    }
-    if (models?.[0]?.provider_name) {
-      return models[0].provider_name;
+    if (modelsWithEnabledStatus?.[0]?.provider) {
+      return modelsWithEnabledStatus[0].provider;
     }
     // providerId is now the provider name (e.g., "anthropic", "openai")
     return providerId?.charAt(0).toUpperCase() + providerId?.slice(1);
-  }, [keyForProvider, models, providerId]);
+  }, [modelsWithEnabledStatus, providerId]);
 
   const mRemoveKey = useMutation({
     mutationFn: async () => {
@@ -108,6 +137,8 @@ export default function ProviderManage() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: qk.apiKeys }),
         qc.invalidateQueries({ queryKey: qk.providers }),
+        qc.invalidateQueries({ queryKey: ["all-models", providerId] }),
+        qc.invalidateQueries({ queryKey: ["enabled-models", providerId] }),
         qc.invalidateQueries({ queryKey: qk.models(providerId) }),
       ]);
       navigate("/models");
@@ -143,7 +174,7 @@ export default function ProviderManage() {
           <SkeletonList rows={8} />
         ) : error ? (
           <div className="p-6 text-red-500">Failed to load</div>
-        ) : !(models && models.length) ? (
+        ) : !(modelsWithEnabledStatus && modelsWithEnabledStatus.length) ? (
           <EmptyState
             title="No models available"
             description="Connect this provider or refresh catalog to see models."
@@ -171,9 +202,8 @@ export default function ProviderManage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(models ?? []).map((m: ModelInfo) => {
+                {(modelsWithEnabledStatus ?? []).map((m: ModelInfo & { enabled: boolean }) => {
                   const enabled = enabledSet.has(m.id);
-                  const currency = m.pricing?.currency || "USD";
                   return (
                     <TableRow key={m.id}>
                       <TableCell>
@@ -195,7 +225,7 @@ export default function ProviderManage() {
                         {m.pricing?.input
                           ? formatMoney(
                               m.pricing.input.price * 1000,
-                              m.pricing.input.currency
+                              m.pricing.input.currency as "USD" | "INR"
                             )
                           : "N/A"}
                       </TableCell>
@@ -203,7 +233,7 @@ export default function ProviderManage() {
                         {m.pricing?.output
                           ? formatMoney(
                               m.pricing.output.price * 1000,
-                              m.pricing.output.currency
+                              m.pricing.output.currency as "USD" | "INR"
                             )
                           : "N/A"}
                       </TableCell>

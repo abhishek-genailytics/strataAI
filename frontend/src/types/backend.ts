@@ -10,7 +10,19 @@ export type Profile = {
 };
 
 // Providers & Keys
-export type Provider = { id: string; name: string; configured: boolean };
+export type Provider = { 
+  id: string; 
+  name: string; 
+  display_name: string;
+  logo_url?: string;
+  website_url?: string;
+  description?: string;
+  base_url: string;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  configured?: boolean; // Added by frontend logic
+};
 export type ApiKey = {
   id: string;
   provider: string;

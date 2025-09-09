@@ -30,7 +30,7 @@ class AIProviderUpdate(BaseModel):
 
 
 class AIProvider(AIProviderBase):
-    id: UUID
+    id: str  # Use string for frontend compatibility
     created_at: datetime
     updated_at: datetime
 

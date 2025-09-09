@@ -35,6 +35,7 @@ from app.api.playground_system import router as playground_system_router
 from app.api.playground_hud import router as playground_hud_router
 from app.api.playground_export import router as playground_export_router
 from app.api.playground_presets import router as playground_presets_router
+from app.api.model_enablement import router as model_enablement_router
 from app.middleware.error_handling import ErrorHandlingMiddleware
 from app.middleware.request_context import RequestContextMiddleware
 from app.middleware.usage_logging import UsageLoggingMiddleware
@@ -166,6 +167,9 @@ def create_app() -> FastAPI:
     
     # Playground presets endpoints (parameter presets and stop sequences)
     app.include_router(playground_presets_router, prefix=settings.API_V1_STR)
+    
+    # Model enablement endpoints (organization model configuration)
+    app.include_router(model_enablement_router, prefix=f"{settings.API_V1_STR}/models")
     
     # Legacy exception handlers are replaced by unified PG-15 error handling
     # The register_exception_handlers() call above handles all error scenarios

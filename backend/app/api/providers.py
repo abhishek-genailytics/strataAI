@@ -98,11 +98,11 @@ async def list_providers(
         
         response = query.execute()
         
-        # Convert to Pydantic models
+        # Convert to Pydantic models and serialize properly
         provider_list = []
         for provider_data in response.data or []:
             provider_dict = {
-                "id": provider_data["id"],
+                "id": str(provider_data["id"]),  # Ensure UUID is serialized as string
                 "name": provider_data["name"],
                 "display_name": provider_data["display_name"],
                 "base_url": provider_data["base_url"],
@@ -459,3 +459,23 @@ async def delete_provider_capability(
     """Delete a provider capability."""
     # This endpoint is typically not needed as capabilities are pre-configured
     raise HTTPException(status_code=501, detail="Capability deletion not supported")
+
+
+@router.post("/{provider_id}/disconnect")
+async def disconnect_provider(
+    provider_id: str,
+    current_user: CurrentUser = Depends(get_current_user),
+    organization: Optional[Organization] = Depends(get_organization_context)
+):
+    """Disconnect a provider by deactivating API keys and model enablement."""
+    if not organization:
+        raise HTTPException(status_code=400, detail="Organization context required")
+    
+    try:
+        success = await api_key_service.disconnect_provider(provider_id, organization.id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Provider not found or already disconnected")
+        
+        return {"message": "Provider disconnected successfully", "provider_id": provider_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to disconnect provider: {str(e)}")

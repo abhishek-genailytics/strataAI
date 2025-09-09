@@ -26,8 +26,21 @@ export const listModels = async (params?: { provider?: string }) => {
   });
   return response; // Return the array directly
 };
-// Model enablement - this endpoint may not be implemented yet
+// Model enablement - save selected models to org_model_enablement table
 export const enableModels = (payload: {
   provider: string;
   model_ids: string[];
 }) => apiPost<void>("/models/enable", payload);
+
+// Get enabled models for a provider from org_model_enablement table
+export const getEnabledModels = (providerId: string) =>
+  apiGet<{
+    provider_id: string;
+    organization_id: string;
+    enabled_models: any[];
+    count: number;
+  }>(`/models/organization/enabled/${providerId}`);
+
+// Disconnect a provider - sets API keys and model enablement to inactive
+export const disconnectProvider = (providerId: string) =>
+  apiPost<{ message: string; provider_id: string }>(`/providers/${providerId}/disconnect`, {});
