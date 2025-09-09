@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatMoney } from "@/utils/format";
 import { EmptyState } from "@/components/shared/EmptyState";
@@ -145,9 +146,9 @@ export default function ProviderManage() {
                 <TableRow>
                   <TableHead className="w-[60px]">Enable</TableHead>
                   <TableHead>Model</TableHead>
-                  <TableHead>Context</TableHead>
-                  <TableHead>Input Cost</TableHead>
-                  <TableHead>Output Cost</TableHead>
+                  <TableHead>Model Type</TableHead>
+                  <TableHead>Input Cost (per 1M tokens)</TableHead>
+                  <TableHead>Output Cost (per 1M tokens)</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -167,12 +168,23 @@ export default function ProviderManage() {
                         <div className="font-medium">{m.display_name}</div>
                         <div className="text-xs text-slate-500">{m.id}</div>
                       </TableCell>
-                      <TableCell>{m.context_window}</TableCell>
-                      <TableCell className="text-xs">
-                        {formatMoney(m.pricing?.input_per_1k, currency)} /1K
+                      <TableCell>
+                        <Badge variant="secondary" className="capitalize">
+                          {m.type || "chat"}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-xs">
-                        {formatMoney(m.pricing?.output_per_1k, currency)} /1K
+                        {m.pricing?.input_per_1k
+                          ? formatMoney(m.pricing.input_per_1k * 1000, currency)
+                          : "N/A"}
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {m.pricing?.output_per_1k
+                          ? formatMoney(
+                              m.pricing.output_per_1k * 1000,
+                              currency
+                            )
+                          : "N/A"}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
