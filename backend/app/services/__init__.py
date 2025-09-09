@@ -4,6 +4,7 @@ from .usage_tracking_service import usage_tracking_service
 from .provider_service import provider_service
 from .organization_service import organization_service
 from .user_profile_service import user_profile_service
+from . import param_presets_svc
 
 __all__ = [
     "api_key_service", 
@@ -12,4 +13,5 @@ __all__ = [
     "provider_service",
     "organization_service",
     "user_profile_service",
+    "param_presets_svc",
 ]

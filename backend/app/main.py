@@ -17,7 +17,6 @@ from app.api.chat import router as chat_router
 from app.api.chat_sessions import router as chat_sessions_router
 from app.api.error_management import router as error_management_router
 from app.api.health import router as health_router
-from app.api.mock_analytics import router as mock_analytics_router
 from app.api.models import router as models_router
 from app.api.organizations import router as organizations_router
 from app.api.providers import router as providers_router
@@ -118,7 +117,6 @@ def create_app() -> FastAPI:
     app.include_router(chat_sessions_router, prefix=settings.API_V1_STR)
     app.include_router(error_management_router, prefix=settings.API_V1_STR)
     app.include_router(health_router, prefix=settings.API_V1_STR)
-    app.include_router(mock_analytics_router, prefix=settings.API_V1_STR)
     app.include_router(models_router, prefix=f"{settings.API_V1_STR}/models")
     app.include_router(organizations_router, prefix=settings.API_V1_STR)
     app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
