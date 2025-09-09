@@ -118,7 +118,7 @@ def create_app() -> FastAPI:
     app.include_router(chat_sessions_router, prefix=settings.API_V1_STR)
     app.include_router(error_management_router, prefix=settings.API_V1_STR)
     app.include_router(health_router, prefix=settings.API_V1_STR)
-    app.include_router(models_router, prefix=f"{settings.API_V1_STR}/models")
+    app.include_router(models_router, prefix=settings.API_V1_STR)
     app.include_router(organizations_router, prefix=settings.API_V1_STR)
     app.include_router(providers_router, prefix=f"{settings.API_V1_STR}/providers", tags=["providers"])
     app.include_router(usage_analytics_router, prefix=settings.API_V1_STR)

@@ -114,20 +114,7 @@ async def create_chat_completion_stream(
         )
 
 
-@router.get("/models", response_model=List[ProviderModelInfo])
-async def list_models(
-    current_user: CurrentUser = Depends(get_current_user),
-    organization: Optional[Organization] = Depends(get_organization_context)
-):
-    """
-    List all available models across all providers based on configured API keys in organization context.
-    
-    Returns model information including pricing, token limits, and capabilities.
-    """
-    return await provider_service.get_available_models(
-        user_id=current_user.id,
-        organization_id=organization.id if organization else None
-    )
+# Removed conflicting /models endpoint - use models.py router instead
 
 
 @router.get("/models/{provider}", response_model=List[str])
