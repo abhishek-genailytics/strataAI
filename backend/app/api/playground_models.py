@@ -16,7 +16,7 @@ router = APIRouter(prefix="/playground", tags=["playground"])
 
 @router.get("/models", response_model=PlaygroundModelsResponse)
 async def list_playground_models(
-    type: str = Query("chat", description="Model type filter"),
+    type: str = Query("chat,multimodal", description="Comma-separated model types filter (chat, multimodal)"),
     provider: Optional[str] = Query(None, description="Provider filter (openai, anthropic, etc.)"),
     include_pricing: bool = Query(True, description="Include pricing information"),
     include_capabilities: bool = Query(True, description="Include capabilities information"),

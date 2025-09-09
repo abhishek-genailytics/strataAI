@@ -32,7 +32,7 @@ class ModelsService:
         self,
         current_user: CurrentUser,
         current_org_id: UUID,
-        model_type: str = "chat",
+        model_type: str = "chat,multimodal",
         provider: Optional[str] = None,
         include_pricing: bool = True,
         include_capabilities: bool = True
@@ -43,7 +43,7 @@ class ModelsService:
         Args:
             current_user: Authenticated user
             current_org_id: Current organization ID
-            model_type: Model type filter (default: "chat")
+            model_type: Comma-separated model types filter (default: "chat,multimodal")
             provider: Optional provider filter (openai, anthropic, etc.)
             include_pricing: Include pricing information
             include_capabilities: Include capabilities information
@@ -96,6 +96,9 @@ class ModelsService:
     
     async def _get_base_catalog(self, model_type: str, provider: Optional[str]) -> List[Dict[str, Any]]:
         """Get base model catalog with provider information."""
+        # Parse model types - support comma-separated values
+        model_types = [t.strip() for t in model_type.split(",") if t.strip()]
+        
         query = self.sb.table("ai_models")\
             .select("""
                 id,
@@ -117,7 +120,7 @@ class ModelsService:
                     logo_url
                 )
             """)\
-            .eq("model_type", model_type)\
+            .in_("model_type", model_types)\
             .eq("is_active", True)\
             .eq("ai_providers.is_active", True)
         

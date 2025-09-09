@@ -70,7 +70,7 @@ async def get_picker_config(
         models_response = await models_service.list_models(
             current_user=current_user,
             current_org_id=organization.id,
-            model_type="chat",
+            model_type="chat,multimodal",
             provider=provider,
             include_pricing=include_pricing,
             include_capabilities=include_capabilities

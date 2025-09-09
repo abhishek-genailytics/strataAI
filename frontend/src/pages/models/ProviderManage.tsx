@@ -174,15 +174,18 @@ export default function ProviderManage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-xs">
-                        {m.pricing?.input_per_1k
-                          ? formatMoney(m.pricing.input_per_1k * 1000, currency)
+                        {m.pricing?.input
+                          ? formatMoney(
+                              m.pricing.input.price * 1000,
+                              m.pricing.input.currency
+                            )
                           : "N/A"}
                       </TableCell>
                       <TableCell className="text-xs">
-                        {m.pricing?.output_per_1k
+                        {m.pricing?.output
                           ? formatMoney(
-                              m.pricing.output_per_1k * 1000,
-                              currency
+                              m.pricing.output.price * 1000,
+                              m.pricing.output.currency
                             )
                           : "N/A"}
                       </TableCell>
